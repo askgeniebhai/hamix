@@ -1,0 +1,26 @@
+{
+  "companyName": "Neela Security Force",
+  "tagline": "Professional Security Services",
+  "phone": "8310457215",
+  "email": "info@nfs.co.in",
+  "location": "Bengaluru",
+  "whatsapp": "918310457215",
+
+  "heroTitle": "Protecting People, Property & Businesses",
+  "heroSubtitle": "Licensed and trained security professionals providing reliable guarding services across Bengaluru.",
+
+  "logo": "assets/images/security/logo.png",
+  "heroImage": "assets/images/security/hero.jpg",
+
+  "aboutTitle": "Trusted Security Professionals",
+  "aboutText": "Neela Security Force provides trained security personnel for apartments, industries, hospitals, schools, commercial establishments and corporate offices.",
+
+  "services": [
+    "Security Guards",
+    "Housekeeping",
+    "Facility Management",
+    "Bouncer Services",
+    "Industrial Security",
+    "Event Security"
+  ]
+}
