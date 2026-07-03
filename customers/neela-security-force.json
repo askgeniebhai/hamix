@@ -1,32 +1,153 @@
 {
   "businessName": "Neela Security Force",
-  "tagline": "Professional Security Services",
-  "phone": "8310457215",
-  "email": "info@nfs.co.in",
-  "location": "Bengaluru",
+  "tagline": "We Face What You Fear",
+  "phone": "+91 83104 57215",
+  "email": "info@nsf.co.in",
+  "location": "Bengaluru, Karnataka",
   "whatsapp": "918310457215",
-
-  "heroTitle": "Protecting People, Property & Businesses",
-  "heroSubtitle": "Licensed and trained security professionals providing reliable guarding services across Bengaluru.",
-
+  "heroTitle": "Securing the Future with Elite Tactical Protection",
+  "heroSubtitle": "As Bengaluru's premier PSARA-licensed security agency, Neela Security Force delivers sophisticated, high-integrity protection solutions for corporate leaders, industrial giants, and luxury residential enclaves.",
   "logo": "assets/images/security/logo.png",
- "heroImage": "assets/images/security/banner.jpg",
-"aboutImage": "assets/images/security/team.jpg",
-"officerImage": "assets/images/security/officer.jpg",
-"chiefImage": "assets/images/security/chief.jpg",
-"industrialImage": "assets/images/security/industrial-security.jpg",
-  "corporateImage": "assets/images/security/corporate-security.jpg",
-  "residentialImage": "assets/images/security/residential-security.jpg",
-  "eventImage": "assets/images/security/event.jpg",
-"aboutTitle": "Trusted Security Professionals",
-  "aboutText": "Neela Security Force provides trained security personnel for apartments, industries, hospitals, schools, commercial establishments and corporate offices.",
-
+  "heroImage": "assets/images/security/banner.jpg",
+  "aboutImage": "assets/images/security/about.jpg",
+  "aboutTitle": "The Gold Standard in Professional Security",
+  "aboutText": "Neela Security Force (NSF) is a vanguard of modern security management. Built on a foundation of military-grade discipline and executive-level service, we provide an impenetrable shield for our clients' assets and personnel. Our reputation as Bengaluru's most trusted security partner is forged through rigorous personnel selection, continuous tactical training, and a 24/7 commitment to operational excellence. When you partner with NSF, you aren't just hiring guards; you are securing a strategic advantage in safety.",
+  "mission": "To provide unparalleled security services by combining elite human capital with advanced tactical procedures, ensuring a secure environment where businesses and communities can thrive without fear.",
+  "vision": "To lead the security industry through innovation, integrity, and an uncompromising commitment to excellence, becoming the definitive choice for premium protection globally.",
+  "whyChooseUs": [
+    {
+      "title": "PSARA Certified Compliance",
+      "description": "Operating at the highest legal tier, NSF is fully PSARA-licensed, ensuring every deployment adheres to the strictest regulatory and ethical standards.",
+      "icon": "🛡️"
+    },
+    {
+      "title": "Elite Tactical Force",
+      "description": "Our guards aren't just staff; they are tactical professionals trained in combat, fire-safety, crisis management, and executive etiquette.",
+      "icon": "👮"
+    },
+    {
+      "title": "24/7 Command Intelligence",
+      "description": "Supported by a state-of-the-art Operations Center, our teams are monitored and supported in real-time, 365 days a year.",
+      "icon": "📡"
+    },
+    {
+      "title": "Bespoke Security Audits",
+      "description": "We don't provide one-size-fits-all solutions. Every client receives a custom-engineered security plan tailored to their specific risk profile.",
+      "icon": "⚡"
+    }
+  ],
   "services": [
-    "Security Guards",
-    "Housekeeping",
-    "Facility Management",
-    "Bouncer Services",
-    "Industrial Security",
-    "Event Security"
-  ]
+    {
+      "title": "Industrial & Infrastructure Protection",
+      "description": "Comprehensive security for manufacturing plants, warehouses, and critical infrastructure, focused on loss prevention and asset integrity.",
+      "image": "assets/images/security/industrial-security.jpg"
+    },
+    {
+      "title": "Corporate & Executive Security",
+      "description": "Premium front-office security and executive protection for IT parks, corporate headquarters, and high-net-worth individuals.",
+      "image": "assets/images/security/corporate-security.jpg"
+    },
+    {
+      "title": "Luxury Residential Security",
+      "description": "High-end concierge security and 24/7 patrolling for gated communities and luxury high-rises, prioritizing safety and resident privacy.",
+      "image": "assets/images/security/residential-security.jpg"
+    },
+    {
+      "title": "Special Event & VVIP Management",
+      "description": "Discreet, high-impact security for corporate summits, private galas, and public events requiring superior crowd control and safety.",
+      "image": "assets/images/security/event-security.jpg"
+    },
+    {
+      "title": "Technological Security Audits",
+      "description": "Advanced risk assessment and installation of electronic surveillance systems to augment physical security presence.",
+      "image": "assets/images/security/control.jpg"
+    },
+    {
+      "title": "Quick Response Teams (QRT)",
+      "description": "Highly mobile units ready for immediate dispatch to handle emergencies, medical crises, or security breaches.",
+      "image": "assets/images/security/mobile.jpg"
+    }
+  ],
+  "industries": [
+    {
+      "name": "Heavy Manufacturing",
+      "icon": "🏭",
+      "image": "assets/images/security/plant.jpg"
+    },
+    {
+      "name": "IT & Tech Parks",
+      "icon": "🏢",
+      "image": "assets/images/security/office.jpg"
+    },
+    {
+      "name": "Luxury Residences",
+      "icon": "🏘️",
+      "image": "assets/images/security/tower.jpg"
+    },
+    {
+      "name": "Retail & Shopping Hubs",
+      "icon": "🛍️",
+      "image": "assets/images/security/plaza.jpg"
+    },
+    {
+      "name": "Premium Healthcare",
+      "icon": "🏥",
+      "image": "assets/images/security/campus.jpg"
+    },
+    {
+      "name": "Educational Institutions",
+      "icon": "🏫",
+      "image": "assets/images/security/street.jpg"
+    }
+  ],
+  "leadership": [
+    {
+      "name": "Col. (Retd) R. K. Singh",
+      "role": "Chief Operations Officer",
+      "image": "assets/images/security/chief.jpg"
+    },
+    {
+      "name": "Maj. Vikram Sharma",
+      "role": "Director of Field Operations",
+      "image": "assets/images/security/officer.jpg"
+    }
+  ],
+  "clients": [
+    {
+      "name": "Prestige Group",
+      "logo": "assets/images/security/tower.jpg"
+    },
+    {
+      "name": "Infosys Campus",
+      "logo": "assets/images/security/office.jpg"
+    },
+    {
+      "name": "Tata Motors Plant",
+      "logo": "assets/images/security/plant.jpg"
+    },
+    {
+      "name": "Phoenix Marketcity",
+      "logo": "assets/images/security/plaza.jpg"
+    }
+  ],
+  "stats": [
+    {
+      "value": "2,500+",
+      "label": "Trained Personnel"
+    },
+    {
+      "value": "500+",
+      "label": "High-Value Sites"
+    },
+    {
+      "value": "<10 Min",
+      "label": "Emergency Response"
+    },
+    {
+      "value": "15+",
+      "label": "Years of Excellence"
+    }
+  ],
+  "chiefImage": "assets/images/security/chief.jpg",
+  "officerImage": "assets/images/security/officer.jpg"
 }

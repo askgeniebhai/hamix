@@ -29,28 +29,30 @@
     <!-- TOP BAR -->
     <div class="topbar">
         <div class="container topbar-content">
-            <div id="phone"></div>
-            <div id="location"></div>
+            <div class="contact-info">
+                <div id="phone"></div>
+                <div id="location"></div>
+            </div>
             <a id="topWhatsapp" target="_blank">Contact on WhatsApp</a>
         </div>
     </div>
 
     <!-- HEADER -->
-    <header>
+    <header role="banner">
         <div class="container nav-container">
             <div class="logo-box">
-                <img id="logo" alt="Company Logo">
+                <img id="logo" alt="Neela Security Force Logo">
                 <div>
                     <h2 id="businessName"></h2>
                     <p id="tagline"></p>
                 </div>
             </div>
-            <nav>
+            <nav role="navigation" aria-label="Main Menu">
                 <a href="#home">Home</a>
                 <a href="#about">About</a>
                 <a href="#services">Services</a>
                 <a href="#industries">Industries</a>
-                <a href="#why">Why Choose Us</a>
+                <a href="#why">Why Us</a>
                 <a href="#contact">Contact</a>
             </nav>
         </div>
@@ -62,18 +64,14 @@
             <div class="hero-text">
                 <span class="badge">PROFESSIONAL SECURITY SERVICES</span>
                 <div class="trust-strip">
-
-    <span>✓ PSARA Compliant</span>
-
-    <span>✓ 24×7 Operations</span>
-
-    <span>✓ Verified Guards</span>
-
-    <span>✓ Quick Deployment</span>
-
-</div>
-                <h1 id="heroTitle">Protecting People, Property & Businesses</h1>
-                <p id="heroSubtitle">Licensed and trained security professionals providing reliable guarding services across Bengaluru.</p>
+                    <span>✓ PSARA Compliant</span>
+                    <span>✓ 24×7 Operations</span>
+                    <span>✓ Verified Guards</span>
+                    <span>✓ Quick Deployment</span>
+                </div>
+                <h1 id="heroTitle"></h1>
+                <p id="heroSubtitle"></p>
+                <p id="heroTagline" class="hero-tagline"></p>
                 <div class="hero-buttons">
                     <a id="heroWhatsapp" class="btn-primary" target="_blank">Get Free Consultation</a>
                     <a href="#services" class="btn-secondary">Explore Services</a>
@@ -88,112 +86,45 @@
     <!-- ABOUT -->
     <section id="about" class="section">
         <div class="container">
-            <div class="section-title">
+            <div class="section-title reveal">
                 <span>ABOUT US</span>
-                <h2>Trusted Security Professionals</h2>
-                <p>
-                    Neela Security Force delivers dependable and disciplined security
-                    solutions for businesses, industries, residential communities and
-                    institutions. Our trained personnel are committed to protecting
-                    people, property and business operations with professionalism and
-                    integrity.
-                </p>
+                <h2 id="aboutTitle"></h2>
+                <p id="aboutText"></p>
             </div>
+
             <div class="about-grid">
-    <div class="about-image">
-        <img id="aboutImage" alt="About Neela Security Force">
-    </div>
+                <div class="about-image reveal">
+                    <img id="aboutImage" alt="About Neela Security Force">
+                </div>
+                <div class="about-content">
+                    <div class="mission-vision">
+                        <div class="mv-card reveal">
+                            <h3>Our Mission</h3>
+                            <p id="missionText"></p>
+                        </div>
+                        <div class="mv-card reveal">
+                            <h3>Our Vision</h3>
+                            <p id="visionText"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-    <div class="about-content">
-
-        <div class="about-card">
-            <h3>Experienced Guards</h3>
-            <p>Well-trained, disciplined and professionally groomed security personnel.</p>
+            <div class="stats-grid">
+                <!-- Rendered Dynamically -->
+            </div>
         </div>
-
-        <div class="about-card">
-            <h3>24×7 Protection</h3>
-            <p>Round-the-clock guarding services for complete peace of mind.</p>
-        </div>
-
-        <div class="about-card">
-            <h3>Quick Deployment</h3>
-            <p>Rapid manpower deployment for urgent security requirements.</p>
-        </div>
-
-    </div>
-
-</div>
-                <div class="stats-grid">
-
-    <div class="stat-card">
-
-        <h3>500+</h3>
-
-        <p>Security Personnel</p>
-
-    </div>
-
-    <div class="stat-card">
-
-        <h3>24×7</h3>
-
-        <p>Operations</p>
-
-    </div>
-
-    <div class="stat-card">
-
-        <h3>100+</h3>
-
-        <p>Clients Served</p>
-
-    </div>
-
-    <div class="stat-card">
-
-        <h3>10+</h3>
-
-        <p>Years Experience</p>
-
-    </div>
-
-</div>
- 
     </section>
 
     <!-- WHY CHOOSE US -->
     <section id="why" class="section light">
-       
         <div class="container">
-             <div class="why-image">
-    <img id="officerImage" alt="Security Officer">
-</div>
-            <div class="section-title">
+            <div class="section-title reveal">
                 <span>WHY CHOOSE US</span>
-                <h2>Why Clients Trust Neela Security Force</h2>
+                <h2>Commitment to Excellence</h2>
             </div>
             <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Licensed & Professional</h3>
-                    <p>Security personnel trained to industry standards with disciplined conduct.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">👮</div>
-                    <h3>Verified Guards</h3>
-                    <p>Background verification and proper documentation for every guard.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📍</div>
-                    <h3>Local Support</h3>
-                    <p>Fast response across Bengaluru with dedicated customer support.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⏰</div>
-                    <h3>24/7 Availability</h3>
-                    <p>Day and night protection with immediate replacement support.</p>
-                </div>
+                <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
@@ -201,37 +132,13 @@
     <!-- SERVICES -->
     <section id="services" class="section">
         <div class="container">
-            <div class="section-title">
+            <div class="section-title reveal">
                 <span>OUR SERVICES</span>
-                <h2>Professional Security Solutions</h2>
-                <p>We provide customized security services for commercial, industrial and residential requirements.</p>
+                <h2>Comprehensive Security Solutions</h2>
+                <p>Tailored security strategies for diverse operational environments.</p>
             </div>
-            <!-- Handled via script dynamically inside servicesContainer, falling back to static HTML elements if array is absent -->
             <div id="servicesContainer" class="services-grid">
-                <div class="service-card">
-                    <h3>Industrial Security</h3>
-                    <p>Complete protection for factories, warehouses and manufacturing facilities.</p>
-                </div>
-                <div class="service-card">
-                    <h3>Corporate Security</h3>
-                    <p>Professional guarding for offices, IT parks and corporate campuses.</p>
-                </div>
-                <div class="service-card">
-                    <h3>Residential Security</h3>
-                    <p>Security guards for apartments, villas and gated communities.</p>
-                </div>
-                <div class="service-card">
-                    <h3>Event Security</h3>
-                    <p>Disciplined manpower for exhibitions, weddings and public events.</p>
-                </div>
-                <div class="service-card">
-                    <h3>Hospital Security</h3>
-                    <p>Reliable security solutions for hospitals and healthcare facilities.</p>
-                </div>
-                <div class="service-card">
-                    <h3>Educational Institutions</h3>
-                    <p>Safety services for schools, colleges and universities.</p>
-                </div>
+                <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
@@ -239,15 +146,38 @@
     <!-- INDUSTRIES -->
     <section id="industries" class="section light">
         <div class="container">
-            <div class="section-title">
+            <div class="section-title reveal">
                 <span>INDUSTRIES WE SERVE</span>
-                <h2>Serving Every Sector</h2>
+                <h2>Protecting Every Sector</h2>
             </div>
             <div class="industries-grid">
-                <div class="industry-item">🏭 Industrial & Manufacturing</div>
-                <div class="industry-item">🏢 Corporate & IT Hubs</div>
-                <div class="industry-item">🏘️ Residential Complex</div>
-                <div class="industry-item">🛍️ Commercial & Retail</div>
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <!-- LEADERSHIP -->
+    <section id="leadership" class="section">
+        <div class="container">
+            <div class="section-title reveal">
+                <span>OUR LEADERSHIP</span>
+                <h2>Guided by Experience</h2>
+            </div>
+            <div id="leadershipContainer" class="leadership-grid">
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <!-- CLIENTS -->
+    <section id="clients" class="section light">
+        <div class="container">
+            <div class="section-title reveal">
+                <span>OUR CLIENTS</span>
+                <h2>Trusted by Leading Brands</h2>
+            </div>
+            <div id="clientsContainer" class="clients-grid">
+                <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
@@ -255,31 +185,48 @@
     <!-- CONTACT SECTION -->
     <section id="contact" class="section">
         <div class="container">
-            <div class="section-title">
+            <div class="section-title reveal">
                 <span>CONTACT US</span>
-                <h2>Get In Touch</h2>
+                <h2>Get a Professional Security Audit</h2>
             </div>
-            <div class="contact-box">
-                <div class="contact-image">
-    <img id="chiefImage" alt="Operations Head">
-</div>
-                <p><strong>Phone:</strong> <span id="contactPhone"></span></p>
-                <p><strong>Location:</strong> <span id="contactLocation"></span></p>
-                <p id="emailContainer"><strong>Email:</strong> <a id="emailLink" href=""><span id="email"></span></a></p>
-                <div class="contact-buttons">
-                    <a id="contactWhatsapp" class="btn-primary" target="_blank">Message Us on WhatsApp</a>
-                   <a id="ctaWhatsapp" class="btn-primary" target="_blank">
-    Get Free Security Consultation
-</a>
+            <div class="contact-box reveal">
+                <div class="contact-grid">
+                    <div class="contact-details">
+                        <p><strong>Phone:</strong> <span id="contactPhone"></span></p>
+                        <p><strong>Location:</strong> <span id="contactLocation"></span></p>
+                        <p id="emailContainer"><strong>Email:</strong> <a id="emailLink" href=""><span id="email"></span></a></p>
+                        <div class="contact-buttons">
+                            <a id="contactWhatsapp" class="btn-primary" target="_blank">Message Us on WhatsApp</a>
+                            <a id="ctaWhatsapp" class="btn-secondary" target="_blank">Get Free Consultation</a>
+                        </div>
+                    </div>
+                    <div class="contact-images">
+                        <div class="contact-person">
+                            <img id="chiefImage" alt="Operations Head">
+                            <p>Operations Head</p>
+                        </div>
+                        <div class="contact-person">
+                            <img id="officerImage" alt="Field Manager">
+                            <p>Field Manager</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- FOOTER -->
-    <footer>
-        <div class="container" style="text-align: center; padding: 30px 0;">
-            <p>&copy; <span id="footerBusiness"></span> | Powered by HAMIX Engine</p>
+    <footer role="contentinfo">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; <span id="footerBusiness"></span> | Premium Security Services | Powered by HAMIX Engine</p>
+                <nav class="footer-links" aria-label="Footer Menu">
+                    <a href="#home">Home</a>
+                    <a href="#about">About</a>
+                    <a href="#services">Services</a>
+                    <a href="#contact">Contact</a>
+                </nav>
+            </div>
         </div>
     </footer>
 
