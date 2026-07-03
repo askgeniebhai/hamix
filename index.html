@@ -5,209 +5,229 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title id="pageTitle">Neela Security Force | Professional Security Services</title>
+    <title id="pageTitle">Neela Security Force | Premium Corporate Security</title>
 
     <meta name="description"
-        content="Professional Security Guard Services for Industries, Corporate Offices, Apartments, Events and Commercial Establishments.">
-
-    <meta name="theme-color" content="#0F172A">
+        content="Flagship Security Solutions for Enterprise, Industry and Executive Environments. Global Standards, Elite Personnel.">
 
     <link rel="stylesheet" href="style.css">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <script defer src="script.js"></script>
 </head>
 
 <body>
 
-    <!-- TOP BAR -->
-    <div class="topbar">
-        <div class="container topbar-content">
-            <div class="contact-info">
-                <div id="phone"></div>
-                <div id="location"></div>
-            </div>
-            <a id="topWhatsapp" target="_blank">Contact on WhatsApp</a>
-        </div>
-    </div>
-
     <!-- HEADER -->
     <header role="banner">
-        <div class="container nav-container">
-            <div class="logo-box">
-                <img id="logo" alt="Neela Security Force Logo">
-                <div>
+        <div class="container nav-flex">
+            <div class="logo-wrap">
+                <img id="logo" alt="Security Logo">
+                <div class="logo-text">
                     <h2 id="businessName"></h2>
                     <p id="tagline"></p>
                 </div>
             </div>
-            <nav role="navigation" aria-label="Main Menu">
-                <a href="#home">Home</a>
-                <a href="#about">About</a>
-                <a href="#services">Services</a>
-                <a href="#industries">Industries</a>
-                <a href="#why">Why Us</a>
-                <a href="#contact">Contact</a>
+            <nav role="navigation">
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#services">Services</a></li>
+                    <li><a href="#industries">Industries</a></li>
+                    <li><a href="#why">Why Us</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
             </nav>
         </div>
     </header>
 
     <!-- HERO -->
     <section id="home" class="hero">
-        <div class="container hero-grid">
-            <div class="hero-text">
-                <span class="badge">PROFESSIONAL SECURITY SERVICES</span>
-                <div class="trust-strip">
-                    <span>✓ PSARA Compliant</span>
-                    <span>✓ 24×7 Operations</span>
-                    <span>✓ Verified Guards</span>
-                    <span>✓ Quick Deployment</span>
+        <div class="hero-bg"></div>
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge reveal">
+                    <span>Elite Security Force</span>
+                    <span style="opacity: 0.5">|</span>
+                    <span>PSARA Licensed</span>
                 </div>
-                <h1 id="heroTitle"></h1>
-                <p id="heroSubtitle"></p>
-                <p id="heroTagline" class="hero-tagline"></p>
-                <div class="hero-buttons">
-                    <a id="heroWhatsapp" class="btn-primary" target="_blank">Get Free Consultation</a>
-                    <a href="#services" class="btn-secondary">Explore Services</a>
+                <h1 id="heroTitle" class="reveal reveal-delay-1"></h1>
+                <p id="heroSubtitle" class="reveal reveal-delay-2"></p>
+                <div class="hero-btns reveal reveal-delay-3">
+                    <a id="heroWhatsapp" class="btn btn-gold" target="_blank">Secure Your Assets</a>
+                    <a href="#services" class="btn btn-outline">Our Expertise</a>
                 </div>
             </div>
-            <div class="hero-image">
-                <img id="heroImage" alt="Security Services">
-            </div>
+        </div>
+        <div class="scroll-indicator">
+            <span style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5;">Scroll</span>
+            <div class="scroll-line"></div>
         </div>
     </section>
 
-    <!-- ABOUT -->
+    <!-- STATS BANNER -->
+    <div class="stats-banner">
+        <div class="container stats-banner-grid">
+            <!-- Rendered Dynamically -->
+        </div>
+    </div>
+
+    <!-- ABOUT SECTION -->
     <section id="about" class="section">
         <div class="container">
-            <div class="section-title reveal">
-                <span>ABOUT US</span>
-                <h2 id="aboutTitle"></h2>
-                <p id="aboutText"></p>
-            </div>
-
-            <div class="about-grid">
-                <div class="about-image reveal">
-                    <img id="aboutImage" alt="About Neela Security Force">
-                </div>
-                <div class="about-content">
-                    <div class="mission-vision">
-                        <div class="mv-card reveal">
-                            <h3>Our Mission</h3>
-                            <p id="missionText"></p>
+            <div class="grid-3" style="grid-template-columns: 1.2fr 1.8fr; align-items: center; gap: 80px;">
+                <div class="reveal">
+                    <div class="section-header" style="text-align: left; margin-bottom: 40px;">
+                        <span class="badge">Who We Are</span>
+                        <h2 id="aboutTitle"></h2>
+                    </div>
+                    <p id="aboutText" style="font-size: 18px; margin-bottom: 40px;"></p>
+                    <div class="grid-3" style="grid-template-columns: 1fr 1fr; gap: 30px;">
+                        <div>
+                            <h4 style="color: var(--secondary); margin-bottom: 10px;">Our Mission</h4>
+                            <p id="missionText" style="font-size: 14px;"></p>
                         </div>
-                        <div class="mv-card reveal">
-                            <h3>Our Vision</h3>
-                            <p id="visionText"></p>
+                        <div>
+                            <h4 style="color: var(--secondary); margin-bottom: 10px;">Our Vision</h4>
+                            <p id="visionText" style="font-size: 14px;"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="reveal reveal-delay-2">
+                    <div style="position: relative;">
+                        <img id="aboutImage" alt="Security Excellence" style="border-radius: var(--radius-lg); box-shadow: var(--shadow-premium);">
+                        <div style="position: absolute; bottom: -30px; right: -30px; background: var(--secondary); padding: 40px; border-radius: var(--radius-lg); color: var(--primary); text-align: center;">
+                            <h3 style="font-size: 44px; line-height: 1;">24/7</h3>
+                            <p style="font-weight: 800; text-transform: uppercase; font-size: 12px;">Active Protection</p>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <div class="stats-grid">
+    <!-- SERVICES -->
+    <section id="services" class="section gray">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="badge">Expertise</span>
+                <h2>Our Core Services</h2>
+                <p>We provide a multi-layered security ecosystem designed for modern risk environments.</p>
+            </div>
+            <div id="servicesContainer" class="grid-3">
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <!-- PARALLAX SECTION -->
+    <section class="section dark">
+        <div class="section-bg-image" style="background-image: url('assets/images/security/ops.jpg');"></div>
+        <div class="section-overlay"></div>
+        <div class="container" style="position: relative; z-index: 10; text-align: center;">
+            <div class="reveal">
+                <h2 style="font-size: 64px; margin-bottom: 30px;">"We Face What You Fear"</h2>
+                <p style="font-size: 24px; max-width: 800px; margin: 0 auto 50px;">Unwavering commitment to your safety, anytime, anywhere.</p>
+                <a id="parallaxWhatsapp" class="btn btn-gold" target="_blank">Consult an Expert</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- INDUSTRIES -->
+    <section id="industries" class="section">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="badge">Specialization</span>
+                <h2>Industries We Serve</h2>
+                <p>Tailored security protocols for diverse sectors, ensuring industry-specific compliance and safety.</p>
+            </div>
+            <div id="industriesContainer" class="grid-4">
                 <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
 
     <!-- WHY CHOOSE US -->
-    <section id="why" class="section light">
+    <section id="why" class="section gray">
         <div class="container">
-            <div class="section-title reveal">
-                <span>WHY CHOOSE US</span>
-                <h2>Commitment to Excellence</h2>
+            <div class="section-header reveal">
+                <span class="badge">The Advantage</span>
+                <h2>Why Neela Security Force?</h2>
             </div>
-            <div class="features-grid">
+            <div id="featuresContainer" class="grid-4">
                 <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
 
-    <!-- SERVICES -->
-    <section id="services" class="section">
+    <!-- TESTIMONIALS -->
+    <section class="section">
         <div class="container">
-            <div class="section-title reveal">
-                <span>OUR SERVICES</span>
-                <h2>Comprehensive Security Solutions</h2>
-                <p>Tailored security strategies for diverse operational environments.</p>
+            <div class="section-header reveal">
+                <span class="badge">Success Stories</span>
+                <h2>Trusted by Enterprises</h2>
             </div>
-            <div id="servicesContainer" class="services-grid">
-                <!-- Rendered Dynamically -->
-            </div>
-        </div>
-    </section>
-
-    <!-- INDUSTRIES -->
-    <section id="industries" class="section light">
-        <div class="container">
-            <div class="section-title reveal">
-                <span>INDUSTRIES WE SERVE</span>
-                <h2>Protecting Every Sector</h2>
-            </div>
-            <div class="industries-grid">
+            <div id="testimonialsContainer" class="grid-3" style="grid-template-columns: 1fr 1fr;">
                 <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
 
     <!-- LEADERSHIP -->
-    <section id="leadership" class="section">
+    <section id="leadership" class="section dark">
         <div class="container">
-            <div class="section-title reveal">
-                <span>OUR LEADERSHIP</span>
+            <div class="section-header reveal">
+                <span class="badge">Leadership</span>
                 <h2>Guided by Experience</h2>
             </div>
-            <div id="leadershipContainer" class="leadership-grid">
+            <div id="leadershipContainer" class="grid-3" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));">
                 <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
 
-    <!-- CLIENTS -->
-    <section id="clients" class="section light">
+    <!-- CLIENT LOGOS -->
+    <div class="clients-wrap section gray">
         <div class="container">
-            <div class="section-title reveal">
-                <span>OUR CLIENTS</span>
-                <h2>Trusted by Leading Brands</h2>
-            </div>
-            <div id="clientsContainer" class="clients-grid">
-                <!-- Rendered Dynamically -->
+            <div id="clientsTrack" class="clients-track">
+                <!-- Rendered Dynamically (Twice for seamless loop) -->
             </div>
         </div>
-    </section>
+    </div>
 
-    <!-- CONTACT SECTION -->
-    <section id="contact" class="section">
-        <div class="container">
-            <div class="section-title reveal">
-                <span>CONTACT US</span>
-                <h2>Get a Professional Security Audit</h2>
-            </div>
-            <div class="contact-box reveal">
-                <div class="contact-grid">
-                    <div class="contact-details">
-                        <p><strong>Phone:</strong> <span id="contactPhone"></span></p>
-                        <p><strong>Location:</strong> <span id="contactLocation"></span></p>
-                        <p id="emailContainer"><strong>Email:</strong> <a id="emailLink" href=""><span id="email"></span></a></p>
-                        <div class="contact-buttons">
-                            <a id="contactWhatsapp" class="btn-primary" target="_blank">Message Us on WhatsApp</a>
-                            <a id="ctaWhatsapp" class="btn-secondary" target="_blank">Get Free Consultation</a>
+    <!-- CONTACT -->
+    <section id="contact" class="section dark">
+        <div class="section-bg-image" style="background-image: url('assets/images/security/night.jpg');"></div>
+        <div class="section-overlay" style="background: linear-gradient(rgba(11, 31, 58, 0.95), rgba(11, 31, 58, 0.95));"></div>
+        <div class="container" style="position: relative; z-index: 10;">
+            <div class="grid-3" style="grid-template-columns: 1.5fr 1fr; gap: 100px; align-items: center;">
+                <div class="reveal">
+                    <span class="badge">Get in Touch</span>
+                    <h2 style="font-size: 54px; margin-bottom: 30px;">Ready for Elite Protection?</h2>
+                    <p style="font-size: 20px; margin-bottom: 50px;">Contact our operations team for a comprehensive security audit and tailored proposal.</p>
+
+                    <div style="display: flex; gap: 40px; margin-bottom: 50px;">
+                        <div>
+                            <strong style="color: var(--secondary); display: block; margin-bottom: 10px;">Phone</strong>
+                            <span id="contactPhone" style="font-size: 22px; font-weight: 700;"></span>
+                        </div>
+                        <div>
+                            <strong style="color: var(--secondary); display: block; margin-bottom: 10px;">Email</strong>
+                            <span id="contactEmail" style="font-size: 22px; font-weight: 700;"></span>
                         </div>
                     </div>
-                    <div class="contact-images">
-                        <div class="contact-person">
-                            <img id="chiefImage" alt="Operations Head">
-                            <p>Operations Head</p>
-                        </div>
-                        <div class="contact-person">
-                            <img id="officerImage" alt="Field Manager">
-                            <p>Field Manager</p>
+
+                    <a id="contactWhatsapp" class="btn btn-gold" target="_blank">Connect via WhatsApp</a>
+                </div>
+                <div class="reveal reveal-delay-2">
+                    <div style="background: rgba(255,255,255,0.05); padding: 50px; border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="margin-bottom: 30px;">Visit Our HQ</h3>
+                        <p id="contactLocation" style="font-size: 18px; margin-bottom: 40px;"></p>
+                        <div style="height: 250px; background: #050C16; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: var(--secondary);">
+                             Map Integration Placeholder
                         </div>
                     </div>
                 </div>
@@ -216,16 +236,44 @@
     </section>
 
     <!-- FOOTER -->
-    <footer role="contentinfo">
+    <footer>
         <div class="container">
-            <div class="footer-content">
-                <p>&copy; <span id="footerBusiness"></span> | Premium Security Services | Powered by HAMIX Engine</p>
-                <nav class="footer-links" aria-label="Footer Menu">
-                    <a href="#home">Home</a>
-                    <a href="#about">About</a>
-                    <a href="#services">Services</a>
-                    <a href="#contact">Contact</a>
-                </nav>
+            <div class="footer-grid">
+                <div class="footer-logo">
+                    <h2 id="footerBusiness"></h2>
+                    <p>Setting the gold standard in private security through discipline, technology, and unwavering integrity.</p>
+                </div>
+                <div>
+                    <h4 class="footer-title">Quick Links</h4>
+                    <ul class="footer-links">
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="#about">About Us</a></li>
+                        <li><a href="#services">Services</a></li>
+                        <li><a href="#industries">Industries</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-title">Our Services</h4>
+                    <ul class="footer-links">
+                        <li><a>Corporate Security</a></li>
+                        <li><a>Industrial Guarding</a></li>
+                        <li><a>Executive Protection</a></li>
+                        <li><a>Event Security</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-title">Connect</h4>
+                    <ul class="footer-links">
+                        <li><a>LinkedIn</a></li>
+                        <li><a>Twitter</a></li>
+                        <li><a>Facebook</a></li>
+                        <li><a>Instagram</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; <span id="year"></span> <span id="footerBusinessName"></span>. All rights reserved.</p>
+                <p>Powered by HAMIX Platform</p>
             </div>
         </div>
     </footer>
