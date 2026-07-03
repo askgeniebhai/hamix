@@ -1,35 +1,50 @@
 /* ==========================================================
    HAMIX V2
-   SCRIPT PART 1 - FOUNDATION
+   Dynamic Website Engine
 ========================================================== */
 
 "use strict";
 
-/* ---------- URL ---------- */
-
-const params = new URLSearchParams(window.location.search);
-
-const customerId = params.get("id") || "neela-security-force";
-
-/* ---------- CUSTOMER DATA ---------- */
+/* ==========================================================
+   GLOBAL VARIABLES
+========================================================== */
 
 let customer = {};
 
-/* ---------- LOAD JSON ---------- */
+/* ==========================================================
+   URL PARAMETERS
+========================================================== */
+
+const params = new URLSearchParams(window.location.search);
+
+const customerId =
+    params.get("id") || "neela-security-force";
+
+/* ==========================================================
+   LOAD CUSTOMER JSON
+========================================================== */
 
 async function loadCustomer() {
 
     try {
 
-        const response = await fetch(`customers/${customerId}.json`);
+        const response = await fetch(
+            `customers/${customerId}.json`
+        );
 
         if (!response.ok) {
 
-            throw new Error("Customer JSON not found.");
+            throw new Error(
+                "Customer JSON not found."
+            );
 
         }
 
         customer = await response.json();
+
+        console.log("Customer Loaded");
+
+        console.log(customer);
 
         initializeWebsite();
 
@@ -40,54 +55,39 @@ async function loadCustomer() {
         console.error(error);
 
         document.body.innerHTML = `
-
             <div style="
                 padding:100px;
                 text-align:center;
                 font-family:Arial;
             ">
-
                 <h1>HAMIX</h1>
-
                 <h2>Customer Not Found</h2>
-
                 <p>${customerId}</p>
-
             </div>
-
         `;
 
     }
 
 }
 
-/* ---------- INITIALIZER ---------- */
-
-function initializeWebsite(){
-
-    console.log("Customer Loaded");
-
-}
-
-/* ---------- START ---------- */
+/* ==========================================================
+   START APPLICATION
+========================================================== */
 
 window.addEventListener(
-
     "DOMContentLoaded",
-
     loadCustomer
-
 );
+
 /* ==========================================================
-   SCRIPT PART 2
-   POPULATE WEBSITE
+   HELPER FUNCTIONS
 ========================================================== */
 
 function setText(id, value) {
 
     const el = document.getElementById(id);
 
-    if (el && value) {
+    if (el && value !== undefined && value !== null) {
 
         el.textContent = value;
 
@@ -120,247 +120,47 @@ function setLink(id, href) {
 
 }
 
-function initializeWebsite() {
-
-    /* Browser Title */
-
-    document.title = customer.businessName + " | HAMIX";
-
-    /* Logo */
-
-    setImage(
-
-        "logo",
-
-        customer.logo,
-
-        customer.businessName
-
-    );
-
-    /* Hero Banner */
-
-    setImage(
-
-        "heroImage",
-
-        customer.heroImage,
-
-        customer.businessName
-
-    );
-
-    /* Company Name */
-
-    setText(
-
-        "businessName",
-
-        customer.businessName
-
-    );
-
-    /* Hero Title */
-
-    setText(
-
-        "heroTitle",
-
-        customer.heroTitle
-
-    );
-
-    /* Hero Text */
-
-    setText(
-
-        "heroText",
-
-        customer.heroText
-
-    );
-
-    console.log("Website Populated");
-
-}
 /* ==========================================================
-   SCRIPT PART 3
-   CONTACT & WHATSAPP
+   INITIALIZE WEBSITE
 ========================================================== */
-
-const whatsappUrl = () =>
-    customer.whatsapp
-        ? `https://wa.me/91${customer.whatsapp}`
-        : "#";
-
-/* ---------- CONTACT ---------- */
-
-setText(
-    "contactPhone",
-    customer.phone
-);
-
-setText(
-    "contactLocation",
-    customer.location || customer.address
-);
-
-setText(
-    "footerBusiness",
-    customer.businessName
-);
-
-/* ---------- TOP BAR ---------- */
-
-setText(
-    "phone",
-    customer.phone
-);
-
-setText(
-    "location",
-    customer.location || customer.address
-);
-
-/* ---------- WHATSAPP LINKS ---------- */
-
-setLink(
-    "contactWhatsapp",
-    whatsappUrl()
-);
-
-setLink(
-    "ctaWhatsapp",
-    whatsappUrl()
-);
-
-setLink(
-    "topWhatsapp",
-    whatsappUrl()
-);
-
-/* ---------- OPTIONAL EMAIL ---------- */
-
-setText(
-    "email",
-    customer.email || ""
-);
-
-console.log("Contact information loaded.");
-/* ==========================================================
-   SCRIPT PART 4
-   NAVIGATION & IMAGE FALLBACK
-========================================================== */
-
-/* ---------- IMAGE FALLBACK ---------- */
-
-function addImageFallback(id, fallback = "") {
-
-    const img = document.getElementById(id);
-
-    if (!img) return;
-
-    img.onerror = function () {
-
-        console.warn(id + " image not found.");
-
-        if (fallback) {
-            this.src = fallback;
-        }
-
-    };
-
-}
-
-addImageFallback("logo");
-addImageFallback("heroImage");
-
-/* ---------- SMOOTH SCROLL ---------- */
-
-document.querySelectorAll('a[href^="#"]').forEach(link => {
-
-    link.addEventListener("click", function (e) {
-
-        const target = document.querySelector(this.getAttribute("href"));
-
-        if (!target) return;
-
-        e.preventDefault();
-
-        target.scrollIntoView({
-
-            behavior: "smooth"
-
-        });
-
-    });
-
-});
-
-/* ---------- STICKY HEADER ---------- */
-
-const header = document.querySelector("header");
-
-window.addEventListener("scroll", () => {
-
-    if (!header) return;
-
-    if (window.scrollY > 60) {
-
-        header.classList.add("sticky");
-
-    } else {
-
-        header.classList.remove("sticky");
-
-    }
-
-});
-
-console.log("Navigation initialized.");
-/* ==========================================================
-   SCRIPT PART 5
-   FINAL INITIALIZATION
-========================================================== */
-
-function validateCustomer() {
-
-    const required = [
-        "businessName",
-        "phone",
-        "logo",
-        "heroImage"
-    ];
-
-    required.forEach(field => {
-
-        if (!customer[field]) {
-
-            console.warn("Missing JSON field:", field);
-
-        }
-
-    });
-
-}
 
 function initializeWebsite() {
 
     /* ---------- Browser ---------- */
 
-    document.title = customer.businessName
-        ? customer.businessName + " | HAMIX"
-        : "HAMIX";
+    document.title =
+        (customer.businessName || "HAMIX") +
+        " | HAMIX";
+
+    /* ---------- Image Fallbacks ---------- */
+    
+    // Set fallbacks BEFORE sources are assigned to guarantee trigger safety
+    addImageFallback("logo", "https://placeholder.com");
+    addImageFallback("heroImage", "https://placeholder.com");
 
     /* ---------- Header ---------- */
 
-    setText("businessName", customer.businessName);
-    setText("tagline", customer.tagline);
+    setText(
+        "businessName",
+        customer.businessName
+    );
+
+    setText(
+        "tagline",
+        customer.tagline
+    );
 
     /* ---------- Hero ---------- */
 
-    setText("heroTitle", customer.heroTitle);
-    setText("heroDescription", customer.heroDescription);
+    setText(
+        "heroTitle",
+        customer.heroTitle
+    );
+
+    setText(
+        "heroSubtitle",
+        customer.heroSubtitle
+    );
 
     setImage(
         "logo",
@@ -376,27 +176,68 @@ function initializeWebsite() {
 
     /* ---------- Contact ---------- */
 
-    setText("phone", customer.phone);
-    setText("location", customer.location);
+    setText(
+        "phone",
+        customer.phone
+    );
 
-    setText("contactPhone", customer.phone);
-    setText("contactLocation", customer.location);
+    setText(
+        "location",
+        customer.location
+    );
 
-    setText("footerBusiness", customer.businessName);
+    setText(
+        "contactPhone",
+        customer.phone
+    );
 
+    setText(
+        "contactLocation",
+        customer.location
+    );
+
+    setText(
+        "footerBusiness",
+        customer.businessName
+    );
+
+    // Securely fall back or hide email DOM components if not configured
+    if (customer.email) {
+
+        setText("email", customer.email);
+        setText("contactEmail", customer.email);
+        setLink("emailLink", "mailto:" + customer.email);
+
+    } else {
+
+        const emailEl = document.getElementById("email");
+        if (emailEl) emailEl.parentElement.style.display = "none";
+
+    }
+    
     /* ---------- WhatsApp ---------- */
 
     if (customer.whatsapp) {
 
-        const url =
-            "https://wa.me/91" + customer.whatsapp;
+        const whatsappURL =
+            "https://wa.me" + customer.whatsapp;
 
-        setLink("heroWhatsapp", url);
-        setLink("ctaWhatsapp", url);
-        setLink("topWhatsapp", url);
-        setLink("contactWhatsapp", url);
+        setLink("heroWhatsapp", whatsappURL);
+        setLink("ctaWhatsapp", whatsappURL);
+        setLink("topWhatsapp", whatsappURL);
+        setLink("contactWhatsapp", whatsappURL);
 
     }
+
+    /* ---------- Dynamic Services ---------- */
+    
+    if (customer.services && Array.isArray(customer.services)) {
+
+        renderServices(customer.services);
+
+    }
+
+    /* ---------- Validation ---------- */
 
     validateCustomer();
 
@@ -404,4 +245,135 @@ function initializeWebsite() {
 
 }
 
+/* ==========================================================
+   IMAGE FALLBACK
+========================================================== */
+
+function addImageFallback(id, fallback = "") {
+
+    const img = document.getElementById(id);
+
+    if (!img) return;
+
+    img.onerror = function () {
+
+        console.warn(id + " image not found.");
+
+        if (fallback) {
+
+            this.src = fallback;
+
+        }
+
+    };
+
+}
+
+/* ==========================================================
+   DYNAMIC RENDER HELPERS
+========================================================== */
+
+function renderServices(services) {
+
+    const container = document.getElementById("servicesContainer");
+
+    if (!container) return;
+
+    container.innerHTML = services.map(service => `
+        <div class="service-card">
+            <h3>${service.title || ""}</h3>
+            <p>${service.description || ""}</p>
+        </div>
+    `).join("");
+
+}
+
+/* ==========================================================
+   SMOOTH SCROLL
+========================================================== */
+
+document.querySelectorAll('a[href^="#"]').forEach(link => {
+
+    link.addEventListener("click", function (e) {
+
+        const hrefAttr = this.getAttribute("href");
+        
+        if (hrefAttr === "#") return;
+
+        const target = document.querySelector(hrefAttr);
+
+        if (!target) return;
+
+        e.preventDefault();
+
+        target.scrollIntoView({
+
+            behavior: "smooth"
+
+        });
+
+    });
+
+});
+
+/* ==========================================================
+   STICKY HEADER
+========================================================== */
+
+// FIXED: Variable name changed to 'siteHeader' to fix the SyntaxError.
+const siteHeader = document.querySelector("header");
+
+if (siteHeader) {
+
+    window.addEventListener("scroll", () => {
+
+        if (window.scrollY > 60) {
+
+            siteHeader.classList.add("sticky");
+
+        } else {
+
+            siteHeader.classList.remove("sticky");
+
+        }
+
+    });
+
+}
+
+/* ==========================================================
+   VALIDATION
+========================================================== */
+
+function validateCustomer() {
+
+    console.log("Customer:", customer);
+
+    const required = [
+        "businessName",
+        "phone",
+        "logo",
+        "heroImage"
+    ];
+
+    required.forEach(field => {
+
+        if (!customer[field]) {
+
+            console.warn(
+                "Missing JSON field:",
+                field
+            );
+
+        }
+
+    });
+
+}
+
+/* ==========================================================
+   APPLICATION READY
+========================================================== */
+
+console.log("Navigation Initialized");
 console.log("HAMIX Engine Ready");
