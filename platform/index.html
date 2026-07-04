@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HAMIX CRM Dashboard</title>
+    <title>HAMIX CRM - Business Platform</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,16 +22,16 @@
             </div>
             <nav class="sidebar-nav">
                 <ul>
-                    <li class="active"><a href="#"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a></li>
-                    <li><a href="#"><i data-lucide="users"></i> <span>Leads</span></a></li>
-                    <li><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
-                    <li><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
-                    <li><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
-                    <li><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
+                    <li data-page="dashboard" class="active"><a href="#"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a></li>
+                    <li data-page="leads"><a href="#"><i data-lucide="users"></i> <span>Leads</span></a></li>
+                    <li data-page="customers"><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
+                    <li data-page="templates"><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
+                    <li data-page="deployments"><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
+                    <li data-page="settings"><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
                 </ul>
             </nav>
             <div class="sidebar-footer">
-                <div class="user-profile">
+                <div class="user-profile-simple">
                     <div class="user-avatar">AD</div>
                     <div class="user-info">
                         <p class="user-name">Admin User</p>
@@ -42,63 +42,359 @@
         </aside>
 
         <!-- Main Content Area -->
-        <main class="main-content">
-            <header class="top-header">
+        <main class="main-wrapper">
+            <!-- Top Navigation Bar -->
+            <header class="top-navbar">
                 <div class="header-left">
-                    <h1>Dashboard</h1>
+                    <div class="header-logo-mobile">
+                        <i data-lucide="shield"></i>
+                        <span>HAMIX</span>
+                    </div>
+                    <h2 id="currentPageTitle">Dashboard</h2>
                 </div>
                 <div class="header-right">
-                    <div class="search-bar">
+                    <div class="search-container">
                         <i data-lucide="search"></i>
-                        <input type="text" placeholder="Search...">
+                        <input type="text" placeholder="Search HAMIX...">
                     </div>
-                    <button class="btn btn-primary"><i data-lucide="plus"></i> New Lead</button>
+                    <div class="header-actions">
+                        <button class="icon-btn"><i data-lucide="bell"></i><span class="dot"></span></button>
+                        <div class="user-dropdown">
+                            <div class="avatar-sm">AD</div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
-            <div class="content-body">
-                <div class="welcome-section">
-                    <h2>Welcome to HAMIX</h2>
-                    <p>The control centre of your platform.</p>
-                </div>
+            <div class="content-scroller">
+                <!-- DASHBOARD PAGE -->
+                <section id="page-dashboard" class="page-content active">
+                    <div class="page-header">
+                        <div>
+                            <h1>Welcome back, Admin</h1>
+                            <p class="text-muted">Here's what's happening across your platform today.</p>
+                        </div>
+                        <button class="btn btn-primary"><i data-lucide="plus"></i> New Lead</button>
+                    </div>
 
-                <div class="dashboard-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon"><i data-lucide="users"></i></div>
-                        <div class="stat-data">
-                            <h3>Total Leads</h3>
-                            <p class="stat-value">0</p>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-label">Total Leads</span>
+                            <div class="stat-value">1,284</div>
+                            <span class="stat-change positive">+12% from last month</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">New Leads</span>
+                            <div class="stat-value">48</div>
+                            <span class="stat-badge">Today</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Contacted</span>
+                            <div class="stat-value">312</div>
+                            <span class="stat-label-sub">Pending Response</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Follow-up</span>
+                            <div class="stat-value">86</div>
+                            <span class="stat-label-sub">Scheduled</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Approved</span>
+                            <div class="stat-value">42</div>
+                            <span class="stat-change positive">Ready for Gen</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Published</span>
+                            <div class="stat-value">28</div>
+                            <span class="stat-label-sub">Live Websites</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Completed</span>
+                            <div class="stat-value">24</div>
+                            <span class="stat-change positive">Handed Over</span>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i data-lucide="user-check"></i></div>
-                        <div class="stat-data">
-                            <h3>Total Customers</h3>
-                            <p class="stat-value">0</p>
+
+                    <div class="dashboard-secondary-grid">
+                        <div class="card card-full">
+                            <div class="card-header">
+                                <h3>Recent Activity</h3>
+                                <button class="btn-text">View All</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="activity-list">
+                                    <li>
+                                        <div class="activity-icon"><i data-lucide="globe"></i></div>
+                                        <div class="activity-details">
+                                            <p><strong>Skyline Logistics</strong> website published successfully.</p>
+                                            <span>2 hours ago</span>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="activity-icon blue"><i data-lucide="user-plus"></i></div>
+                                        <div class="activity-details">
+                                            <p>New lead <strong>Elite Security Services</strong> added via Google Maps.</p>
+                                            <span>4 hours ago</span>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="activity-icon gold"><i data-lucide="zap"></i></div>
+                                        <div class="activity-details">
+                                            <p>AI generated content for <strong>Apex Manufacturing</strong>.</p>
+                                            <span>Yesterday</span>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i data-lucide="globe"></i></div>
-                        <div class="stat-data">
-                            <h3>Active Websites</h3>
-                            <p class="stat-value">0</p>
+                </section>
+
+                <!-- LEADS PAGE -->
+                <section id="page-leads" class="page-content">
+                    <div class="page-header">
+                        <h1>Leads</h1>
+                        <div class="header-btns">
+                            <button class="btn btn-outline"><i data-lucide="download"></i> Export</button>
+                            <button class="btn btn-primary"><i data-lucide="plus"></i> Add Lead</button>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i data-lucide="zap"></i></div>
-                        <div class="stat-data">
-                            <h3>Deployments</h3>
-                            <p class="stat-value">0</p>
+
+                    <div class="filter-bar card">
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" placeholder="Filter leads...">
+                        </div>
+                        <div class="filter-actions">
+                            <select class="select-input">
+                                <option>Status: All</option>
+                                <option>New</option>
+                                <option>Contacted</option>
+                                <option>Qualified</option>
+                            </select>
+                            <button class="btn btn-outline"><i data-lucide="filter"></i> Filters</button>
                         </div>
                     </div>
-                </div>
+
+                    <div class="card table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Business Name</th>
+                                    <th>Category</th>
+                                    <th>Contact</th>
+                                    <th>Status</th>
+                                    <th>Date Added</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Global Tech Solutions</strong></td>
+                                    <td>IT Services</td>
+                                    <td>+91 98765 43210</td>
+                                    <td><span class="badge badge-new">New</span></td>
+                                    <td>Oct 24, 2023</td>
+                                    <td><button class="icon-btn-sm"><i data-lucide="more-horizontal"></i></button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Oceanic Exports</strong></td>
+                                    <td>Logistics</td>
+                                    <td>contact@oceanic.com</td>
+                                    <td><span class="badge badge-contacted">Contacted</span></td>
+                                    <td>Oct 22, 2023</td>
+                                    <td><button class="icon-btn-sm"><i data-lucide="more-horizontal"></i></button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Sunrise Wellness</strong></td>
+                                    <td>Healthcare</td>
+                                    <td>+91 88888 77777</td>
+                                    <td><span class="badge badge-followup">Follow-up</span></td>
+                                    <td>Oct 20, 2023</td>
+                                    <td><button class="icon-btn-sm"><i data-lucide="more-horizontal"></i></button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="pagination">
+                            <p>Showing 1-10 of 1,284 leads</p>
+                            <div class="pagination-btns">
+                                <button class="btn-icon-sm" disabled><i data-lucide="chevron-left"></i></button>
+                                <button class="btn-icon-sm"><i data-lucide="chevron-right"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- CUSTOMERS PAGE -->
+                <section id="page-customers" class="page-content">
+                    <div class="page-header">
+                        <h1>Customers</h1>
+                        <button class="btn btn-primary"><i data-lucide="user-plus"></i> New Customer</button>
+                    </div>
+                    <div class="card table-container">
+                        <div class="table-header">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input type="text" placeholder="Search customers...">
+                            </div>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer Name</th>
+                                    <th>Website</th>
+                                    <th>Deployment</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>National Security Force</strong></td>
+                                    <td><a href="#" class="link">nsf-security.hamix.io</a></td>
+                                    <td><span class="status-indicator active"></span> Live</td>
+                                    <td><span class="badge badge-success">Active</span></td>
+                                    <td><button class="icon-btn-sm"><i data-lucide="external-link"></i></button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TEMPLATES PAGE -->
+                <section id="page-templates" class="page-content">
+                    <div class="page-header">
+                        <h1>Website Templates</h1>
+                    </div>
+                    <div class="template-grid">
+                        <div class="card template-card">
+                            <div class="template-preview bg-indigo"></div>
+                            <div class="card-body">
+                                <h3>Executive Pro</h3>
+                                <p>Premium corporate design for security and logistics.</p>
+                                <div class="template-footer">
+                                    <span class="tag">Business</span>
+                                    <button class="btn btn-sm btn-outline">Preview</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card template-card">
+                            <div class="template-preview bg-blue"></div>
+                            <div class="card-body">
+                                <h3>Modern Service</h3>
+                                <p>Clean layout for service-based industries.</p>
+                                <div class="template-footer">
+                                    <span class="tag">Service</span>
+                                    <button class="btn btn-sm btn-outline">Preview</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card template-card">
+                            <div class="template-preview bg-slate"></div>
+                            <div class="card-body">
+                                <h3>Industrial Elite</h3>
+                                <p>Strong, bold design for manufacturing and industry.</p>
+                                <div class="template-footer">
+                                    <span class="tag">Industrial</span>
+                                    <button class="btn btn-sm btn-outline">Preview</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- DEPLOYMENTS PAGE -->
+                <section id="page-deployments" class="page-content">
+                    <div class="page-header">
+                        <h1>GitHub Deployments</h1>
+                        <button class="btn btn-outline"><i data-lucide="refresh-cw"></i> Refresh</button>
+                    </div>
+                    <div class="deployment-stack">
+                        <div class="card deployment-card">
+                            <div class="deployment-info">
+                                <i data-lucide="github" class="gh-icon"></i>
+                                <div>
+                                    <h3>nsf-website-v2</h3>
+                                    <p>Main Branch • Latest commit: <span>#a4f2e1</span></p>
+                                </div>
+                            </div>
+                            <div class="deployment-status">
+                                <span class="badge badge-success">Success</span>
+                                <span>Deployed 2h ago</span>
+                            </div>
+                            <button class="btn btn-sm btn-outline">View Log</button>
+                        </div>
+                        <div class="card deployment-card">
+                            <div class="deployment-info">
+                                <i data-lucide="github" class="gh-icon"></i>
+                                <div>
+                                    <h3>apex-mfg-portal</h3>
+                                    <p>Staging Branch • Latest commit: <span>#b91c2d</span></p>
+                                </div>
+                            </div>
+                            <div class="deployment-status">
+                                <span class="badge badge-warning">Building</span>
+                                <span>Starting...</span>
+                            </div>
+                            <button class="btn btn-sm btn-outline">View Log</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SETTINGS PAGE -->
+                <section id="page-settings" class="page-content">
+                    <div class="page-header">
+                        <h1>Settings</h1>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Platform Configuration</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="settings-item">
+                                    <label>Platform Name</label>
+                                    <input type="text" value="HAMIX" class="text-input">
+                                </div>
+                                <div class="settings-item">
+                                    <label>Base URL</label>
+                                    <input type="text" value="hamix.io" class="text-input">
+                                </div>
+                                <button class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>AI & Integrations</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="settings-item">
+                                    <div class="flex-between">
+                                        <div>
+                                            <p><strong>OpenAI Integration</strong></p>
+                                            <span class="text-muted text-sm">Connected as Enterprise</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline">Manage</button>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="settings-item">
+                                    <div class="flex-between">
+                                        <div>
+                                            <p><strong>WhatsApp API</strong></p>
+                                            <span class="text-muted text-sm">Disconnected</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-primary">Connect</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
 
-    <script>
-        // Initialize Lucide icons
-        lucide.createIcons();
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
