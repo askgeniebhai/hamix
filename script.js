@@ -1,39 +1,25 @@
 /* ==========================================================
-   HAMIX V2
-   Dynamic Website Engine - Premium Edition
+   HAMIX V2 - FLAGSHIP ENGINE
+   Dynamic Website Engine - Premium Security Edition
 ========================================================== */
 
 "use strict";
 
-/* ==========================================================
-   GLOBAL VARIABLES
-========================================================== */
-
 let customer = {};
-
-/* ==========================================================
-   URL PARAMETERS
-========================================================== */
 
 const params = new URLSearchParams(window.location.search);
 const customerId = params.get("id") || "neela-security-force";
 
-/* ==========================================================
-   LOAD CUSTOMER JSON
-========================================================== */
-
 async function loadCustomer() {
     try {
         const response = await fetch(`customers/${customerId}.json`);
-        if (!response.ok) {
-            throw new Error("Customer JSON not found.");
-        }
+        if (!response.ok) throw new Error("Customer JSON not found.");
         customer = await response.json();
         initializeWebsite();
     } catch (error) {
         console.error(error);
         document.body.innerHTML = `
-            <div style="padding:100px; text-align:center; font-family:sans-serif; background:#0F172A; color:white; height:100vh;">
+            <div style="padding:100px; text-align:center; font-family:sans-serif; background:#0B1F3A; color:white; height:100vh; display: flex; flex-direction: column; justify-content: center;">
                 <h1>HAMIX PLATFORM</h1>
                 <h2>Customer Profile Not Found</h2>
                 <p>Profile ID: ${customerId}</p>
@@ -42,21 +28,17 @@ async function loadCustomer() {
     }
 }
 
-/* ==========================================================
-   START APPLICATION
-========================================================== */
-
 window.addEventListener("DOMContentLoaded", loadCustomer);
 
-/* ==========================================================
-   HELPER FUNCTIONS
-========================================================== */
-
+/* ---------- HELPERS ---------- */
 function setText(id, value) {
     const el = document.getElementById(id);
-    if (el && value !== undefined && value !== null) {
-        el.textContent = value;
-    }
+    if (el && value) el.textContent = value;
+}
+
+function setHTML(id, value) {
+    const el = document.getElementById(id);
+    if (el && value) el.innerHTML = value;
 }
 
 function setImage(id, src, alt = "") {
@@ -69,171 +51,101 @@ function setImage(id, src, alt = "") {
 
 function setLink(id, href) {
     const el = document.getElementById(id);
-    if (el && href) {
-        el.href = href;
-    }
+    if (el && href) el.href = href;
 }
 
-/* ==========================================================
-   INITIALIZE WEBSITE
-========================================================== */
-
+/* ---------- INITIALIZE ---------- */
 function initializeWebsite() {
-    /* ---------- Browser ---------- */
-    document.title = (customer.businessName || "HAMIX") + " | Professional Security Services";
+    document.title = (customer.businessName || "HAMIX") + " | Elite Security Services";
+    document.getElementById('year').textContent = new Date().getFullYear();
 
-    /* ---------- Image Fallbacks ---------- */
-    addImageFallback("logo", "assets/images/security/logo.png");
-    addImageFallback("heroImage", "assets/images/security/banner.jpg");
-    addImageFallback("aboutImage", "assets/images/security/about.jpg");
-    addImageFallback("officerImage", "assets/images/security/officer.jpg");
-    addImageFallback("chiefImage", "assets/images/security/chief.jpg");
-
-    /* ---------- Header ---------- */
+    // Basic Info
     setText("businessName", customer.businessName);
+    setText("footerBusiness", customer.businessName);
+    setText("footerBusinessName", customer.businessName);
     setText("tagline", customer.tagline);
     setImage("logo", customer.logo, customer.businessName);
+    setImage("logoFooter", customer.logo, customer.businessName);
 
-    /* ---------- Hero ---------- */
-    setText("heroTitle", customer.heroTitle);
+    // Top Bar & Contact
+    setText("topEmail", customer.email);
+    setText("topPhone", customer.phone);
+    setText("topLocation", customer.location.split(',')[0]); // Short location
+    setText("contactPhone", customer.phone);
+    setText("contactEmail", customer.email);
+    setText("contactLocation", customer.location);
+
+    // Hero
+    setHTML("heroTitle", customer.heroTitle);
     setText("heroSubtitle", customer.heroSubtitle);
-    setText("heroTagline", customer.tagline);
-    setImage("heroImage", customer.heroImage, customer.businessName);
-
     if (customer.heroImage) {
         document.documentElement.style.setProperty('--hero-bg', `url('${customer.heroImage}')`);
     }
 
-    /* ---------- About ---------- */
+    // About
+    setText("aboutBadge", "About " + customer.businessName);
     setText("aboutTitle", customer.aboutTitle);
     setText("aboutText", customer.aboutText);
-    setImage("aboutImage", customer.aboutImage, "About " + customer.businessName);
+    renderAboutImages();
 
-    /* ---------- Mission & Vision ---------- */
+    // Mission & Vision
     setText("missionText", customer.mission);
     setText("visionText", customer.vision);
 
-    /* ---------- Stats ---------- */
-    if (customer.stats && Array.isArray(customer.stats)) {
-        renderStats(customer.stats);
-    }
-
-    /* ---------- Why Choose Us ---------- */
-    if (customer.whyChooseUs && Array.isArray(customer.whyChooseUs)) {
-        renderFeatures(customer.whyChooseUs);
-    }
-
-    /* ---------- Services ---------- */
-    if (customer.services && Array.isArray(customer.services)) {
-        renderServices(customer.services);
-    }
-
-    /* ---------- Industries ---------- */
-    if (customer.industries && Array.isArray(customer.industries)) {
-        renderIndustries(customer.industries);
-    }
-
-    /* ---------- Leadership ---------- */
-    if (customer.leadership && Array.isArray(customer.leadership)) {
-        renderLeadership(customer.leadership);
-    }
-
-    /* ---------- Clients ---------- */
-    if (customer.clients && Array.isArray(customer.clients)) {
-        renderClients(customer.clients);
-    }
-
-    /* ---------- Contact ---------- */
-    setText("phone", customer.phone);
-    setText("location", customer.location);
-    setText("contactPhone", customer.phone);
-    setText("contactLocation", customer.location);
-    setText("footerBusiness", customer.businessName);
-
-    setImage("officerImage", customer.officerImage || "assets/images/security/officer.jpg");
-    setImage("chiefImage", customer.chiefImage || "assets/images/security/chief.jpg");
-
-    if (customer.email) {
-        setText("email", customer.email);
-        setLink("emailLink", "mailto:" + customer.email);
-    } else {
-        const emailEl = document.getElementById("emailContainer");
-        if (emailEl) emailEl.style.display = "none";
-    }
-    
-    /* ---------- WhatsApp ---------- */
+    // WhatsApp
     if (customer.whatsapp) {
-        const whatsappURL = "https://wa.me/" + customer.whatsapp;
-        setLink("heroWhatsapp", whatsappURL);
-        setLink("ctaWhatsapp", whatsappURL);
-        setLink("topWhatsapp", whatsappURL);
-        setLink("contactWhatsapp", whatsappURL);
+        const wa = "https://wa.me/" + customer.whatsapp;
+        setLink("heroWhatsapp", wa);
     }
 
-    initAnimations();
+    // Dynamic Renderings
+    renderHeroStats(customer.stats || []);
+    renderServices(customer.services || []);
+    renderIndustries(customer.industries || []);
+    renderFeatures(customer.whyChooseUs || []);
+    renderAttendance(customer.attendance);
+    renderLeadership(customer.leadership || []);
+    renderClients(customer.clients || []);
+
+    initScrollEffects();
+
+    // Re-initialize Lucide Icons
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
 }
 
-/* ==========================================================
-   ANIMATIONS
-========================================================== */
+/* ---------- RENDERING ENGINE ---------- */
 
-function initAnimations() {
-    const reveals = document.querySelectorAll(".reveal");
-
-    const revealObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add("active");
-                // Once it has revealed, we don't need to observe it anymore
-                revealObserver.unobserve(entry.target);
-            }
-        });
-    }, {
-        threshold: 0.15,
-        rootMargin: "0px 0px -50px 0px"
-    });
-
-    reveals.forEach(reveal => revealObserver.observe(reveal));
-}
-
-/* ==========================================================
-   IMAGE FALLBACK
-========================================================== */
-
-function addImageFallback(id, fallback = "") {
-    const img = document.getElementById(id);
-    if (!img) return;
-    img.onerror = function () {
-        console.warn(id + " image not found. Using fallback.");
-        if (fallback) {
-            this.src = fallback;
-        }
-    };
-}
-
-/* ==========================================================
-   DYNAMIC RENDER HELPERS
-========================================================== */
-
-function renderStats(stats) {
-    const container = document.querySelector(".stats-grid");
+function renderAboutImages() {
+    const container = document.getElementById("aboutImagesContainer");
     if (!container) return;
-    container.innerHTML = stats.map(stat => `
-        <div class="stat-card reveal">
-            <h3>${stat.value}</h3>
-            <p>${stat.label}</p>
+
+    let html = `
+        <div class="img-large">
+            <img src="${customer.aboutImage}" alt="Security Team">
         </div>
-    `).join("");
+    `;
+
+    if (customer.aboutSecondaryImages && customer.aboutSecondaryImages.length > 0) {
+        html += `<div class="img-small-wrap">`;
+        customer.aboutSecondaryImages.forEach(img => {
+            html += `<div class="img-small"><img src="${img}" alt="Secondary"></div>`;
+        });
+        html += `</div>`;
+    }
+
+    container.innerHTML = html;
 }
 
-function renderFeatures(features) {
-    const container = document.querySelector(".features-grid");
+function renderHeroStats(stats) {
+    const container = document.getElementById("heroStatsContainer");
     if (!container) return;
-    container.innerHTML = features.map(feature => `
-        <div class="feature-card reveal">
-            <div class="feature-icon">${feature.icon || "🛡️"}</div>
-            <h3>${feature.title}</h3>
-            <p>${feature.description}</p>
+    container.innerHTML = stats.slice(0, 4).map(s => `
+        <div class="hero-stat-item">
+            <i data-lucide="${s.icon || 'star'}"></i>
+            <h3>${s.value}</h3>
+            <p>${s.label}</p>
         </div>
     `).join("");
 }
@@ -241,81 +153,111 @@ function renderFeatures(features) {
 function renderServices(services) {
     const container = document.getElementById("servicesContainer");
     if (!container) return;
-    container.innerHTML = services.map(service => `
-        <div class="service-card reveal">
-            ${service.image ? `<img src="${service.image}" alt="${service.title}" class="service-image">` : ""}
-            <div class="service-content">
-                <h3>${service.title || ""}</h3>
-                <p>${service.description || ""}</p>
-            </div>
+    container.innerHTML = services.map((s, index) => `
+        <div class="service-card-v2 reveal reveal-delay-${(index % 3) + 1}">
+            <div class="serv-icon"><i data-lucide="${s.icon || 'shield'}"></i></div>
+            <h3>${s.title}</h3>
+            <p>${s.description}</p>
         </div>
     `).join("");
 }
 
 function renderIndustries(industries) {
-    const container = document.querySelector(".industries-grid");
+    const container = document.getElementById("industriesContainer");
     if (!container) return;
-    container.innerHTML = industries.map(industry => `
-        <div class="industry-card reveal">
-            <img src="${industry.image || "assets/images/security/street.jpg"}" alt="${industry.name}">
-            <div class="industry-overlay">
-                <h3>${industry.icon || ""} ${industry.name}</h3>
+    container.innerHTML = industries.map((i, index) => `
+        <div class="industry-card-v2 reveal reveal-delay-${(index % 4) + 1}">
+            <div class="ind-icon"><i data-lucide="${i.icon || 'building'}"></i></div>
+            <h3>${i.name}</h3>
+        </div>
+    `).join("");
+}
+
+function renderFeatures(features) {
+    const container = document.getElementById("featuresContainer");
+    if (!container) return;
+    container.innerHTML = features.map((f, index) => `
+        <div class="why-feat-item reveal reveal-delay-${(index % 2) + 1}">
+            <div class="why-feat-icon"><i data-lucide="${f.icon || 'check'}"></i></div>
+            <div class="why-feat-text">
+                <h4>${f.title}</h4>
+                <p>${f.description}</p>
             </div>
         </div>
     `).join("");
 }
 
+function renderAttendance(attendance) {
+    const container = document.getElementById("attendanceContainer");
+    if (!container || !attendance) return;
+
+    container.innerHTML = `
+        <div class="attendance-content reveal">
+            <span class="badge">${attendance.badge}</span>
+            <h2>${attendance.title}</h2>
+            <p>${attendance.description}</p>
+            <div class="attendance-features">
+                ${attendance.features.map(f => `
+                    <div class="att-feat">
+                        <div class="att-icon"><i data-lucide="${f.icon}"></i></div>
+                        <p>${f.text}</p>
+                    </div>
+                `).join("")}
+            </div>
+            <a href="#contact" class="btn btn-gold">Learn More <i data-lucide="arrow-right"></i></a>
+        </div>
+        <div class="attendance-visual reveal reveal-delay-1">
+            <div class="mockup-container">
+                <img src="${attendance.images.main}" class="laptop-mockup" alt="Dashboard">
+                <img src="${attendance.images.secondary}" class="mobile-mockup" alt="Mobile App">
+            </div>
+        </div>
+    `;
+}
+
 function renderLeadership(leadership) {
     const container = document.getElementById("leadershipContainer");
     if (!container) return;
-    container.innerHTML = leadership.map(member => `
-        <div class="leader-card reveal">
-            <img src="${member.image}" alt="${member.name}">
-            <h3>${member.name}</h3>
-            <p>${member.role}</p>
+    container.innerHTML = leadership.map((l, index) => `
+        <div class="leader-card-v2 reveal reveal-delay-${(index % 3) + 1}">
+            <img src="${l.image}" alt="${l.name}">
+            <div class="leader-overlay">
+                <p>${l.role}</p>
+                <h3>${l.name}</h3>
+            </div>
         </div>
     `).join("");
 }
 
 function renderClients(clients) {
-    const container = document.getElementById("clientsContainer");
+    const container = document.getElementById("clientsTrack");
     if (!container) return;
-    container.innerHTML = clients.map(client => `
-        <div class="client-logo reveal">
-            <img src="${client.logo}" alt="${client.name}" title="${client.name}">
-        </div>
-    `).join("");
+    const items = clients.map(c => `<img src="${c.logo}" alt="${c.name}">`).join("");
+    // Triple items for smoother seamless loop
+    container.innerHTML = items + items + items;
 }
 
-/* ==========================================================
-   SMOOTH SCROLL
-========================================================== */
-
-document.querySelectorAll('a[href^="#"]').forEach(link => {
-    link.addEventListener("click", function (e) {
-        const hrefAttr = this.getAttribute("href");
-        if (hrefAttr === "#") return;
-        const target = document.querySelector(hrefAttr);
-        if (!target) return;
-        e.preventDefault();
-        target.scrollIntoView({
-            behavior: "smooth"
-        });
-    });
-});
-
-/* ==========================================================
-   STICKY HEADER
-========================================================== */
-
-const siteHeader = document.querySelector("header");
-if (siteHeader) {
+/* ---------- SCROLL EFFECTS ---------- */
+function initScrollEffects() {
+    const header = document.querySelector("header");
     window.addEventListener("scroll", () => {
-        if (window.scrollY > 60) {
-            siteHeader.classList.add("sticky");
+        if (window.scrollY > 100) {
+            header.style.padding = "10px 0";
+            header.style.background = "rgba(11, 31, 58, 0.98)";
         } else {
-            siteHeader.classList.remove("sticky");
+            header.style.padding = "20px 0";
+            header.style.background = "var(--primary)";
         }
     });
-}
 
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("active");
+                revealObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+
+    document.querySelectorAll(".reveal").forEach(el => revealObserver.observe(el));
+}

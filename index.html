@@ -5,21 +5,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title id="pageTitle">Neela Security Force | Professional Security Services</title>
+    <title id="pageTitle">Neela Security Force | Premium Corporate Security</title>
 
     <meta name="description"
-        content="Professional Security Guard Services for Industries, Corporate Offices, Apartments, Events and Commercial Establishments.">
-
-    <meta name="theme-color" content="#0F172A">
+        content="Flagship Security Solutions for Enterprise, Industry and Executive Environments. Global Standards, Elite Personnel.">
 
     <link rel="stylesheet" href="style.css">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <script defer src="script.js"></script>
 </head>
@@ -27,141 +25,201 @@
 <body>
 
     <!-- TOP BAR -->
-    <div class="topbar">
-        <div class="container topbar-content">
-            <div class="contact-info">
-                <div id="phone"></div>
-                <div id="location"></div>
+    <div class="top-bar">
+        <div class="container top-bar-flex">
+            <div class="top-info">
+                <span><i data-lucide="clock" class="icon-sm"></i> 24/7 Operations</span>
+                <span><i data-lucide="mail" class="icon-sm"></i> <span id="topEmail"></span></span>
+                <span><i data-lucide="phone" class="icon-sm"></i> <span id="topPhone"></span></span>
+                <span><i data-lucide="map-pin" class="icon-sm"></i> <span id="topLocation"></span></span>
             </div>
-            <a id="topWhatsapp" target="_blank">Contact on WhatsApp</a>
+            <div class="top-cta">
+                <a href="tel:918310457215" class="emergency-btn">Emergency Response</a>
+            </div>
         </div>
     </div>
 
     <!-- HEADER -->
     <header role="banner">
-        <div class="container nav-container">
-            <div class="logo-box">
-                <img id="logo" alt="Neela Security Force Logo">
-                <div>
+        <div class="container nav-flex">
+            <div class="logo-wrap">
+                <img id="logo" alt="Security Logo">
+                <div class="logo-text">
                     <h2 id="businessName"></h2>
                     <p id="tagline"></p>
                 </div>
             </div>
-            <nav role="navigation" aria-label="Main Menu">
-                <a href="#home">Home</a>
-                <a href="#about">About</a>
-                <a href="#services">Services</a>
-                <a href="#industries">Industries</a>
-                <a href="#why">Why Us</a>
-                <a href="#contact">Contact</a>
+            <nav role="navigation">
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#about">About Us</a></li>
+                    <li><a href="#services">Services</a></li>
+                    <li><a href="#industries">Industries</a></li>
+                    <li><a href="#why">Why Choose Us</a></li>
+                    <li><a href="#contact">Contact Us</a></li>
+                </ul>
             </nav>
+            <div class="nav-cta">
+                <a href="#contact" class="btn-quote">Request a Quote</a>
+            </div>
         </div>
     </header>
 
     <!-- HERO -->
     <section id="home" class="hero">
-        <div class="container hero-grid">
-            <div class="hero-text">
-                <span class="badge">PROFESSIONAL SECURITY SERVICES</span>
-                <div class="trust-strip">
-                    <span>✓ PSARA Compliant</span>
-                    <span>✓ 24×7 Operations</span>
-                    <span>✓ Verified Guards</span>
-                    <span>✓ Quick Deployment</span>
+        <div class="hero-bg"></div>
+        <div class="container hero-container">
+            <div class="hero-content">
+                <h1 id="heroTitle" class="reveal"></h1>
+                <p id="heroSubtitle" class="reveal reveal-delay-1"></p>
+                <div class="hero-btns reveal reveal-delay-2">
+                    <a href="#services" class="btn btn-gold">Our Services <i data-lucide="arrow-right"></i></a>
+                    <a id="heroWhatsapp" class="btn btn-outline" target="_blank">Get a Free Consultation</a>
                 </div>
-                <h1 id="heroTitle"></h1>
-                <p id="heroSubtitle"></p>
-                <p id="heroTagline" class="hero-tagline"></p>
-                <div class="hero-buttons">
-                    <a id="heroWhatsapp" class="btn-primary" target="_blank">Get Free Consultation</a>
-                    <a href="#services" class="btn-secondary">Explore Services</a>
+                <div class="hero-features reveal reveal-delay-3">
+                    <span><i data-lucide="shield-check"></i> PSARA Compliant</span>
+                    <span><i data-lucide="clock"></i> 24x7 Operations</span>
+                    <span><i data-lucide="user-check"></i> Verified Guards</span>
+                    <span><i data-lucide="zap"></i> Quick Response</span>
                 </div>
             </div>
-            <div class="hero-image">
-                <img id="heroImage" alt="Security Services">
+            <div class="hero-stats-box reveal reveal-delay-3">
+                 <div id="heroStatsContainer" class="hero-stats-grid">
+                     <!-- Dynamic Hero Stats -->
+                 </div>
             </div>
+        </div>
+        <div class="scroll-down">
+            <div class="mouse"></div>
         </div>
     </section>
 
-    <!-- ABOUT -->
+    <!-- LOGO TICKER -->
+    <div class="ticker-section">
+        <div class="container">
+            <p class="ticker-label">Trusted by Leading Organizations</p>
+            <div id="clientsTrack" class="ticker-track">
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ABOUT SECTION -->
     <section id="about" class="section">
         <div class="container">
-            <div class="section-title reveal">
-                <span>ABOUT US</span>
-                <h2 id="aboutTitle"></h2>
-                <p id="aboutText"></p>
-            </div>
-
             <div class="about-grid">
-                <div class="about-image reveal">
-                    <img id="aboutImage" alt="About Neela Security Force">
+                <div id="aboutImagesContainer" class="about-images reveal">
+                    <!-- Dynamic About Images -->
                 </div>
-                <div class="about-content">
-                    <div class="mission-vision">
-                        <div class="mv-card reveal">
-                            <h3>Our Mission</h3>
-                            <p id="missionText"></p>
-                        </div>
-                        <div class="mv-card reveal">
-                            <h3>Our Vision</h3>
-                            <p id="visionText"></p>
-                        </div>
-                    </div>
+                <div class="about-text reveal reveal-delay-1">
+                    <span class="badge" id="aboutBadge"></span>
+                    <h2 id="aboutTitle"></h2>
+                    <p id="aboutText"></p>
+                    <ul class="check-list">
+                        <li><i data-lucide="check-circle-2"></i> PSARA Licensed & Compliant</li>
+                        <li><i data-lucide="check-circle-2"></i> Trained, Verified & Well-Groomed Personnel</li>
+                        <li><i data-lucide="check-circle-2"></i> Technology Driven Operations</li>
+                        <li><i data-lucide="check-circle-2"></i> Customer-Centric Approach</li>
+                    </ul>
+                    <a href="#contact" class="btn-link">Know More About Us <i data-lucide="chevron-right"></i></a>
                 </div>
-            </div>
-
-            <div class="stats-grid">
-                <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
 
-    <!-- WHY CHOOSE US -->
-    <section id="why" class="section light">
+    <!-- MISSION & VISION -->
+    <section class="section bg-gray">
         <div class="container">
-            <div class="section-title reveal">
-                <span>WHY CHOOSE US</span>
-                <h2>Commitment to Excellence</h2>
-            </div>
-            <div class="features-grid">
-                <!-- Rendered Dynamically -->
+            <div class="mission-vision-grid">
+                <div class="mv-card reveal">
+                    <div class="mv-icon"><i data-lucide="target" class="icon-lg"></i></div>
+                    <h3>Our Mission</h3>
+                    <p id="missionText"></p>
+                </div>
+                <div class="mv-card reveal reveal-delay-1">
+                    <div class="mv-icon"><i data-lucide="eye" class="icon-lg"></i></div>
+                    <h3>Our Vision</h3>
+                    <p id="visionText"></p>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- SERVICES -->
-    <section id="services" class="section">
+    <section id="services" class="section dark">
         <div class="container">
-            <div class="section-title reveal">
-                <span>OUR SERVICES</span>
+            <div class="section-header reveal">
+                <span class="badge">Our Services</span>
                 <h2>Comprehensive Security Solutions</h2>
-                <p>Tailored security strategies for diverse operational environments.</p>
             </div>
-            <div id="servicesContainer" class="services-grid">
-                <!-- Rendered Dynamically -->
+            <div class="services-wrapper">
+                <div id="servicesContainer" class="services-grid">
+                    <!-- Rendered Dynamically -->
+                </div>
+                <div class="services-nav">
+                    <button class="nav-prev"><i data-lucide="chevron-left"></i></button>
+                    <button class="nav-next"><i data-lucide="chevron-right"></i></button>
+                </div>
+            </div>
+            <div class="services-footer">
+                <a href="#contact" class="btn btn-gold">View All Services <i data-lucide="arrow-right"></i></a>
+            </div>
+        </div>
+    </section>
+
+    <!-- WHY CHOOSE US -->
+    <section id="why" class="section">
+        <div class="container">
+            <div class="why-layout">
+                <div class="why-content">
+                    <span class="badge">Why Choose Us</span>
+                    <h2>Built on Trust. Driven by Excellence.</h2>
+                    <div id="featuresContainer" class="why-features-grid">
+                        <!-- Rendered Dynamically -->
+                    </div>
+                </div>
+                <div class="why-image reveal">
+                    <img src="assets/images/security/officer.jpg" alt="Security Officer">
+                    <div class="experience-card">
+                        <div class="stars">★★★★★</div>
+                        <h3>500+</h3>
+                        <p>Happy Clients</p>
+                        <hr>
+                        <h3>10+</h3>
+                        <p>Years of Excellence</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- INDUSTRIES -->
-    <section id="industries" class="section light">
+    <section id="industries" class="section dark-alt">
         <div class="container">
-            <div class="section-title reveal">
-                <span>INDUSTRIES WE SERVE</span>
-                <h2>Protecting Every Sector</h2>
+            <div class="section-header reveal">
+                <span class="badge">Industries We Serve</span>
             </div>
-            <div class="industries-grid">
+            <div id="industriesContainer" class="industries-grid">
                 <!-- Rendered Dynamically -->
             </div>
         </div>
     </section>
 
-    <!-- LEADERSHIP -->
+    <!-- ATTENDANCE SHOWCASE -->
+    <section id="attendance" class="section attendance-showcase">
+        <div class="container">
+            <div id="attendanceContainer" class="attendance-grid">
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <!-- LEADERSHIP (Modified as Showcase) -->
     <section id="leadership" class="section">
         <div class="container">
-            <div class="section-title reveal">
-                <span>OUR LEADERSHIP</span>
-                <h2>Guided by Experience</h2>
+            <div class="section-header reveal">
+                <span class="badge">Leadership</span>
+                <h2>Expert Oversight</h2>
             </div>
             <div id="leadershipContainer" class="leadership-grid">
                 <!-- Rendered Dynamically -->
@@ -169,66 +227,92 @@
         </div>
     </section>
 
-    <!-- CLIENTS -->
-    <section id="clients" class="section light">
+    <!-- CALL TO ACTION -->
+    <section class="section cta-banner">
         <div class="container">
-            <div class="section-title reveal">
-                <span>OUR CLIENTS</span>
-                <h2>Trusted by Leading Brands</h2>
-            </div>
-            <div id="clientsContainer" class="clients-grid">
-                <!-- Rendered Dynamically -->
-            </div>
-        </div>
-    </section>
-
-    <!-- CONTACT SECTION -->
-    <section id="contact" class="section">
-        <div class="container">
-            <div class="section-title reveal">
-                <span>CONTACT US</span>
-                <h2>Get a Professional Security Audit</h2>
-            </div>
-            <div class="contact-box reveal">
-                <div class="contact-grid">
-                    <div class="contact-details">
-                        <p><strong>Phone:</strong> <span id="contactPhone"></span></p>
-                        <p><strong>Location:</strong> <span id="contactLocation"></span></p>
-                        <p id="emailContainer"><strong>Email:</strong> <a id="emailLink" href=""><span id="email"></span></a></p>
-                        <div class="contact-buttons">
-                            <a id="contactWhatsapp" class="btn-primary" target="_blank">Message Us on WhatsApp</a>
-                            <a id="ctaWhatsapp" class="btn-secondary" target="_blank">Get Free Consultation</a>
-                        </div>
-                    </div>
-                    <div class="contact-images">
-                        <div class="contact-person">
-                            <img id="chiefImage" alt="Operations Head">
-                            <p>Operations Head</p>
-                        </div>
-                        <div class="contact-person">
-                            <img id="officerImage" alt="Field Manager">
-                            <p>Field Manager</p>
-                        </div>
-                    </div>
+            <div class="cta-flex reveal">
+                <div class="cta-text">
+                    <h2>Need Reliable Security Solutions?</h2>
+                    <p>Let's protect what matters most to you.</p>
+                </div>
+                <div class="cta-action">
+                    <a href="#contact" class="btn btn-gold">Request a Quote</a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- FOOTER -->
-    <footer role="contentinfo">
+    <!-- CONTACT -->
+    <section id="contact" class="section footer-contact">
         <div class="container">
-            <div class="footer-content">
-                <p>&copy; <span id="footerBusiness"></span> | Premium Security Services | Powered by HAMIX Engine</p>
-                <nav class="footer-links" aria-label="Footer Menu">
-                    <a href="#home">Home</a>
-                    <a href="#about">About</a>
-                    <a href="#services">Services</a>
-                    <a href="#contact">Contact</a>
-                </nav>
+            <div class="footer-main-grid">
+                <div class="footer-brand">
+                    <div class="logo-wrap footer-logo">
+                        <img id="logoFooter" src="assets/images/security/logo.png" alt="Logo">
+                        <div class="logo-text">
+                            <h2 id="footerBusiness"></h2>
+                        </div>
+                    </div>
+                    <p>Your trusted partner in delivering professional, reliable and technology-driven security solutions.</p>
+                    <div class="social-links">
+                        <a href="#"><i class="icon-fb"></i></a>
+                        <a href="#"><i class="icon-li"></i></a>
+                        <a href="#"><i class="icon-tw"></i></a>
+                        <a href="#"><i class="icon-ig"></i></a>
+                    </div>
+                </div>
+                <div class="footer-links-col">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="#about">About Us</a></li>
+                        <li><a href="#services">Services</a></li>
+                        <li><a href="#industries">Industries</a></li>
+                        <li><a href="#why">Why Choose Us</a></li>
+                        <li><a href="#contact">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links-col">
+                    <h4>Our Services</h4>
+                    <ul>
+                        <li><a href="#">Manpower Security</a></li>
+                        <li><a href="#">Corporate Security</a></li>
+                        <li><a href="#">Industrial Security</a></li>
+                        <li><a href="#">Residential Security</a></li>
+                        <li><a href="#">Event Security</a></li>
+                        <li><a href="#">CCTV & Tech Solutions</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links-col">
+                    <h4>Industries</h4>
+                    <ul>
+                        <li><a href="#">Corporate</a></li>
+                        <li><a href="#">Industrial</a></li>
+                        <li><a href="#">Banking</a></li>
+                        <li><a href="#">Healthcare</a></li>
+                        <li><a href="#">Education</a></li>
+                        <li><a href="#">Retail</a></li>
+                        <li><a href="#">Hospitality</a></li>
+                        <li><a href="#">Government</a></li>
+                    </ul>
+                </div>
+                <div class="footer-contact-col">
+                    <h4>Contact Us</h4>
+                    <p><i data-lucide="map-pin"></i> <span id="contactLocation"></span></p>
+                    <p><i data-lucide="phone"></i> <span id="contactPhone"></span></p>
+                    <p><i data-lucide="mail"></i> <span id="contactEmail"></span></p>
+                    <p><i data-lucide="clock"></i> 24x7 Operations</p>
+                </div>
+            </div>
+            <div class="footer-legal">
+                <p>&copy; <span id="year"></span> <span id="footerBusinessName"></span>. All Rights Reserved.</p>
+                <div class="legal-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms & Conditions</a>
+                </div>
             </div>
         </div>
-    </footer>
+    </section>
 
 </body>
 </html>
