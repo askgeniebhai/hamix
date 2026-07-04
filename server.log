@@ -1,0 +1,14 @@
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/officer.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/logo.png HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /script.js HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/banner.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /customers/neela-security-force.json HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/about.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/ops.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/night.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/monitor.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/guard.png HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/chief.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [04/Jul/2026 05:23:29] "GET /assets/images/security/guard.jpg HTTP/1.1" 200 -
