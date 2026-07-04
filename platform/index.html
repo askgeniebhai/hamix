@@ -22,12 +22,12 @@
             </div>
             <nav class="sidebar-nav">
                 <ul>
-                    <li class="active"><a href="#"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a></li>
-                    <li><a href="#"><i data-lucide="users"></i> <span>Leads</span></a></li>
-                    <li><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
-                    <li><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
-                    <li><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
-                    <li><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
+                    <li class="active" data-page="dashboard"><a href="#"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a></li>
+                    <li data-page="leads"><a href="#"><i data-lucide="users"></i> <span>Leads</span></a></li>
+                    <li data-page="customers"><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
+                    <li data-page="templates"><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
+                    <li data-page="deployments"><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
+                    <li data-page="settings"><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
                 </ul>
             </nav>
             <div class="sidebar-footer">
@@ -57,45 +57,312 @@
             </header>
 
             <div class="content-body">
-                <div class="welcome-section">
-                    <h2>Welcome to HAMIX</h2>
-                    <p>The control centre of your platform.</p>
+                <!-- Dashboard Page -->
+                <div id="page-dashboard" class="page active">
+                    <div class="welcome-section">
+                        <h2>Welcome to HAMIX</h2>
+                        <p>The control centre of your platform.</p>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon"><i data-lucide="users"></i></div>
+                            <div class="stat-data">
+                                <h3>Total Leads</h3>
+                                <p class="stat-value" id="stat-total-leads">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i data-lucide="user-check"></i></div>
+                            <div class="stat-data">
+                                <h3>Total Customers</h3>
+                                <p class="stat-value" id="stat-total-customers">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i data-lucide="check-circle"></i></div>
+                            <div class="stat-data">
+                                <h3>Approved Leads</h3>
+                                <p class="stat-value" id="stat-approved-leads">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i data-lucide="clock"></i></div>
+                            <div class="stat-data">
+                                <h3>Pending Actions</h3>
+                                <p class="stat-value" id="stat-pending-leads">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-section" style="margin-top: 32px;">
+                        <h3>Pipeline Status</h3>
+                        <div class="pipeline-grid" id="pipeline-stats">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
                 </div>
 
-                <div class="dashboard-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon"><i data-lucide="users"></i></div>
-                        <div class="stat-data">
-                            <h3>Total Leads</h3>
-                            <p class="stat-value">0</p>
+                <!-- Leads Page -->
+                <div id="page-leads" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Leads Management</h2>
+                            <p>Manage and track your business leads.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary" id="btn-import-leads"><i data-lucide="download"></i> Import Leads</button>
+                            <button class="btn btn-primary" id="btn-add-lead"><i data-lucide="plus"></i> Add Lead</button>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i data-lucide="user-check"></i></div>
-                        <div class="stat-data">
-                            <h3>Total Customers</h3>
-                            <p class="stat-value">0</p>
+
+                    <div class="leads-filters">
+                        <div class="filter-group">
+                            <button class="filter-btn active" data-filter="all">All Leads</button>
+                            <button class="filter-btn" data-filter="New">New</button>
+                            <button class="filter-btn" data-filter="Validated">Validated</button>
+                            <button class="filter-btn" data-filter="Approved">Approved</button>
+                        </div>
+                        <div class="workspace-actions">
+                            <div class="search-input">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="search-leads" placeholder="Search leads...">
+                            </div>
+                            <select id="sort-leads">
+                                <option value="newest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="rating">Highest Rating</option>
+                                <option value="name">Name A-Z</option>
+                            </select>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i data-lucide="globe"></i></div>
-                        <div class="stat-data">
-                            <h3>Active Websites</h3>
-                            <p class="stat-value">0</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i data-lucide="zap"></i></div>
-                        <div class="stat-data">
-                            <h3>Deployments</h3>
-                            <p class="stat-value">0</p>
-                        </div>
+
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>Business Name</th>
+                                    <th>Category</th>
+                                    <th>Contact</th>
+                                    <th>Rating</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leads-list">
+                                <!-- Leads will be populated here -->
+                                <tr>
+                                    <td colspan="6" class="empty-state">No leads found. Start by importing or adding a lead.</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+
+                <!-- Customers Page -->
+                <div id="page-customers" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Customer Management</h2>
+                            <p>Manage your active customers and deployments.</p>
+                        </div>
+                        <div class="header-actions">
+                            <div class="search-input">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="search-customers" placeholder="Search customers...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>Business Name</th>
+                                    <th>Category</th>
+                                    <th>Contact</th>
+                                    <th>Website</th>
+                                    <th>Status</th>
+                                    <th>Joined Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customers-list">
+                                <tr>
+                                    <td colspan="6" class="empty-state">No customers yet. Approve leads to see them here.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Other Pages Placeholders -->
+                <div id="page-templates" class="page"><h2>Templates</h2></div>
+                <div id="page-deployments" class="page"><h2>GitHub Deployments</h2></div>
+                <div id="page-settings" class="page"><h2>Settings</h2></div>
             </div>
         </main>
     </div>
 
+    <!-- Modals -->
+    <div id="modal-lead" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-lead-title">Add New Lead</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="form-lead">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="lead-businessName">Business Name *</label>
+                        <input type="text" id="lead-businessName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-category">Category</label>
+                        <input type="text" id="lead-category">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-phone">Phone</label>
+                        <input type="text" id="lead-phone">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-whatsapp">WhatsApp</label>
+                        <input type="text" id="lead-whatsapp">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-email">Email</label>
+                        <input type="email" id="lead-email">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-website">Website</label>
+                        <input type="url" id="lead-website">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="lead-address">Address</label>
+                        <input type="text" id="lead-address">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-rating">Rating</label>
+                        <input type="number" id="lead-rating" step="0.1" min="0" max="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-reviews">Reviews Count</label>
+                        <input type="number" id="lead-reviews">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-industry">Industry</label>
+                        <input type="text" id="lead-industry">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-assignedTo">Assigned To</label>
+                        <input type="text" id="lead-assignedTo">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-status">Status</label>
+                        <select id="lead-status">
+                            <option value="New">New</option>
+                            <option value="Validated">Validated</option>
+                            <option value="Contacted">Contacted</option>
+                            <option value="Follow-up">Follow-up</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Published">Published</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="lead-notes">Notes</label>
+                        <textarea id="lead-notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Lead</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-preview" class="modal modal-full">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Website Preview</h2>
+                <div class="preview-actions">
+                    <select id="preview-theme-select">
+                        <option value="indigo">Indigo Theme</option>
+                        <option value="emerald">Emerald Theme</option>
+                        <option value="slate">Slate Theme</option>
+                        <option value="rose">Rose Theme</option>
+                    </select>
+                    <button class="close-modal">&times;</button>
+                </div>
+            </div>
+            <div class="preview-iframe-container">
+                <iframe id="preview-frame"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-import" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Import Leads</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="import-tabs">
+                <button class="import-tab active" data-tab="gmaps">Google Maps</button>
+                <button class="import-tab" data-tab="csv">CSV Import</button>
+            </div>
+
+            <div id="import-tab-gmaps" class="import-tab-content active">
+                <div class="import-instructions">
+                    <p>Paste business data from Google Maps to import leads.</p>
+                </div>
+                <textarea id="gmaps-import-data" placeholder="Paste business data here..." rows="10"></textarea>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="btn-process-gmaps">Import from G-Maps</button>
+                </div>
+            </div>
+
+            <div id="import-tab-csv" class="import-tab-content">
+                <div class="import-instructions">
+                    <p>Upload a CSV file to import multiple leads.</p>
+                </div>
+                <div class="file-upload-area" id="csv-upload-area">
+                    <i data-lucide="upload-cloud"></i>
+                    <p>Click or drag CSV file here</p>
+                    <input type="file" id="csv-file-input" accept=".csv" hidden>
+                </div>
+                <div id="csv-mapping" class="csv-mapping-container" style="display: none;">
+                    <h3>Field Mapping</h3>
+                    <div id="csv-fields-list"></div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" id="btn-process-csv">Process CSV</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="import-preview" class="import-preview-container" style="display: none;">
+                <h3>Import Preview (<span id="preview-count">0</span> leads)</h3>
+                <div class="preview-table-wrapper">
+                    <table class="preview-table">
+                        <thead>
+                            <tr id="preview-header"></tr>
+                        </thead>
+                        <tbody id="preview-body"></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="btn-back-to-import">Back</button>
+                    <button class="btn btn-primary" id="btn-confirm-import">Confirm Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="leadEngine.js"></script>
+    <script src="generator/themes.js"></script>
+    <script src="generator/components.js"></script>
+    <script src="generator/engine.js"></script>
+    <script src="app.js"></script>
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
