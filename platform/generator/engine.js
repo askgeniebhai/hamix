@@ -21,17 +21,17 @@ const Engine = {
             return '';
         }
 
+        // Generate Theme CSS
+        const themeCSS = themes.generateThemeCSS(themeId);
+
+        // Render Template
         const templateFunc = templates[templateId] || templates.Default;
-        let html = templateFunc(customerData, components);
+        let html = templateFunc(customerData, components, themeCSS);
 
         // Inject Base Tag if provided (useful for CRM preview)
         if (options.baseHref) {
             html = html.replace('<head>', `<head>\n    <base href="${options.baseHref}">`);
         }
-
-        // Inject Theme CSS
-        const themeCSS = themes.generateThemeCSS(themeId);
-        html = html.replace('<style id="theme-styles"></style>', `<style id="theme-styles">\n${themeCSS}\n</style>`);
 
         return html;
     }

@@ -93,18 +93,6 @@ section {
     margin-bottom: 50px;
 }
 
-.section-badge {
-    background-color: var(--accent-color);
-    color: var(--primary-color);
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    text-transform: uppercase;
-    display: inline-block;
-    margin-bottom: 16px;
-}
-
 h1, h2, h3 {
     color: var(--text-dark);
     font-weight: 700;

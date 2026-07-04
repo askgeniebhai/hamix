@@ -1,6 +1,7 @@
 /**
  * HAMIX Website Components
  * Reusable HTML components for generated websites.
+ * Enhanced to support AI-generated content.
  */
 
 const Components = {
@@ -28,23 +29,32 @@ const Components = {
         </nav>
     `,
 
-    Hero: (data) => `
+    Hero: (data) => {
+        const title = data.aiContent?.copy?.heroHeading || data.heroTitle || data.businessName;
+        const subtitle = data.aiContent?.copy?.heroSubheading || data.heroSubtitle || data.tagline || '';
+        const cta = data.aiContent?.copy?.ctaText || 'Get Started';
+
+        return `
         <section id="home" class="hero">
             <div class="container">
                 <div class="hero-content">
-                    <h1>${data.heroTitle || data.businessName}</h1>
-                    <p>${data.heroSubtitle || data.tagline || ''}</p>
+                    <h1>${title}</h1>
+                    <p>${subtitle}</p>
                     <div class="hero-btns">
-                        <a href="#contact" class="btn btn-primary">Get Started</a>
+                        <a href="#contact" class="btn btn-primary">${cta}</a>
                         <a href="#services" class="btn btn-outline">Our Services</a>
                     </div>
                 </div>
                 ${data.heroImage ? `<div class="hero-image"><img src="${data.heroImage}" alt="Hero Image"></div>` : ''}
             </div>
         </section>
-    `,
+    `},
 
-    About: (data) => `
+    About: (data) => {
+        const title = data.aiContent?.copy?.aboutHeading || data.aboutTitle || 'Professional Services for Your Business';
+        const text = data.aiContent?.copy?.aboutText || data.aboutText || data.businessDescription || 'We are committed to delivering the best quality services to our clients.';
+
+        return `
         <section id="about" class="about">
             <div class="container">
                 <div class="about-grid">
@@ -53,8 +63,8 @@ const Components = {
                     </div>
                     <div class="about-content">
                         <span class="section-badge">About Us</span>
-                        <h2>${data.aboutTitle || 'Professional Services for Your Business'}</h2>
-                        <p>${data.aboutText || data.businessDescription || 'We are committed to delivering the best quality services to our clients.'}</p>
+                        <h2>${title}</h2>
+                        <p>${text}</p>
                         ${data.mission ? `
                             <div class="mission-vision">
                                 <h3>Our Mission</h3>
@@ -65,7 +75,7 @@ const Components = {
                 </div>
             </div>
         </section>
-    `,
+    `},
 
     Services: (data) => `
         <section id="services" class="services">
@@ -135,7 +145,13 @@ const Components = {
         </section>
     `,
 
-    FAQ: (data) => `
+    FAQ: (data) => {
+        const faqs = data.aiContent?.faq || data.faq || [
+            { q: "What services do you offer?", a: "We offer a wide range of professional services tailored to your needs." },
+            { q: "How can I contact you?", a: "You can reach us via the contact form, email, or phone number provided on this website." }
+        ];
+
+        return `
         <section id="faq" class="faq">
             <div class="container">
                 <div class="section-header">
@@ -143,10 +159,7 @@ const Components = {
                     <h2>Frequently Asked Questions</h2>
                 </div>
                 <div class="faq-list">
-                    ${(data.faq || [
-                        { q: "What services do you offer?", a: "We offer a wide range of professional services tailored to your needs." },
-                        { q: "How can I contact you?", a: "You can reach us via the contact form, email, or phone number provided on this website." }
-                    ]).map(item => `
+                    ${faqs.map(item => `
                         <div class="faq-item">
                             <div class="faq-question">
                                 <h3>${item.q}</h3>
@@ -160,7 +173,7 @@ const Components = {
                 </div>
             </div>
         </section>
-    `,
+    `},
 
     Contact: (data) => `
         <section id="contact" class="contact">
@@ -261,10 +274,12 @@ const Components = {
         </footer>
     `,
 
-    FloatingActions: (data) => `
+    FloatingActions: (data) => {
+        const whatsappMsg = data.aiContent?.outreach?.whatsapp || 'Hello!';
+        return `
         <div class="floating-actions">
             ${data.whatsapp ? `
-                <a href="https://wa.me/${data.whatsapp}" class="whatsapp-btn" target="_blank">
+                <a href="https://wa.me/${data.whatsapp}?text=${encodeURIComponent(whatsappMsg)}" class="whatsapp-btn" target="_blank">
                     <i data-lucide="message-circle"></i>
                 </a>
             ` : ''}
@@ -272,7 +287,7 @@ const Components = {
                 <i data-lucide="phone"></i>
             </a>
         </div>
-    `
+    `}
 };
 
 // Export for browser usage
