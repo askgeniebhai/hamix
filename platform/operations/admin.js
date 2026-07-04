@@ -42,8 +42,8 @@ const AdminManager = {
      * Platform Statistics (Mocked/Aggregated)
      */
     getPlatformStats() {
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-        const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
+        const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
+        const leads = window.HAMIX_DAL ? window.HAMIX_DAL.getLeads() : [];
 
         return {
             totalUsers: this.users.length,
@@ -60,7 +60,9 @@ const AdminManager = {
      */
     saveSettings(newSettings) {
         this.config = { ...this.config, ...newSettings };
-        localStorage.setItem('hamix_admin_config', JSON.stringify(this.config));
+        if (window.HAMIX_DAL) {
+            window.HAMIX_DAL.saveConfig(this.config);
+        }
         this.logActivity('Admin User', 'Updated workspace settings', 'System');
         console.log('Admin: Settings updated', this.config);
     },
@@ -69,8 +71,8 @@ const AdminManager = {
      * Load Settings from Storage
      */
     loadSettings() {
-        const saved = localStorage.getItem('hamix_admin_config');
-        if (saved) this.config = JSON.parse(saved);
+        const saved = window.HAMIX_DAL ? window.HAMIX_DAL.getConfig() : null;
+        if (saved) this.config = saved;
         return this.config;
     },
 
@@ -119,7 +121,6 @@ const AdminManager = {
      * Activity Logging (Audit Trail)
      */
     logActivity(user, action, target) {
-        const logs = JSON.parse(localStorage.getItem('hamix_audit_logs') || '[]');
         const entry = {
             id: 'log-' + Date.now(),
             timestamp: new Date().toISOString(),
@@ -127,13 +128,14 @@ const AdminManager = {
             action,
             target
         };
-        logs.unshift(entry);
-        localStorage.setItem('hamix_audit_logs', JSON.stringify(logs.slice(0, 500))); // Keep last 500
+        if (window.HAMIX_DAL) {
+            window.HAMIX_DAL.addAuditLog(entry);
+        }
         this.notifyUI();
     },
 
     getAuditLogs() {
-        return JSON.parse(localStorage.getItem('hamix_audit_logs') || '[]');
+        return window.HAMIX_DAL ? window.HAMIX_DAL.getAuditLogs() : [];
     },
 
     /**
@@ -144,8 +146,8 @@ const AdminManager = {
         if (!query) return null;
         query = query.toLowerCase();
 
-        const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+        const leads = window.HAMIX_DAL ? window.HAMIX_DAL.getLeads() : [];
+        const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
         const queue = window.HAMIX_Operations ? window.HAMIX_Operations.deploymentQueue : [];
 
         const logs = this.getAuditLogs();

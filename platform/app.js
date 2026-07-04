@@ -130,7 +130,7 @@ function renderDashboard(container) {
 }
 
 function renderLeads(container) {
-    const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
+    const leads = window.HAMIX_DAL ? window.HAMIX_DAL.getLeads() : [];
 
     if (leads.length === 0) {
         container.innerHTML = `
@@ -179,7 +179,7 @@ function renderLeads(container) {
 }
 
 function renderCustomers(container) {
-    let customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    let customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
 
     // Apply Filters (Simulated - would be triggered by UI events)
     const urlParams = new URLSearchParams(window.location.search);
@@ -296,8 +296,8 @@ function renderTemplates(container) {
 }
 
 function loadDashboardStats() {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-    const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
+    const leads = window.HAMIX_DAL ? window.HAMIX_DAL.getLeads() : [];
 
     const leadsStat = document.getElementById('stat-leads');
     const customersStat = document.getElementById('stat-customers');
@@ -312,8 +312,8 @@ function loadDashboardStats() {
 
 function loadInitialData() {
     // If no customers, add the sample one
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-    const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
+    const leads = window.HAMIX_DAL ? window.HAMIX_DAL.getLeads() : [];
 
     if (customers.length === 0 && leads.length === 0) {
         fetch('../customers/neela-security-force.json')
@@ -346,7 +346,10 @@ window.convertLead = async (index) => {
 };
 
 window.convertLeadById = async (id) => {
-    const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
+    const dal = window.HAMIX_DAL;
+    if (!dal) return;
+
+    const leads = dal.getLeads();
     const index = leads.findIndex(l => l.id === id);
     const lead = leads[index];
 
@@ -357,7 +360,7 @@ window.convertLeadById = async (id) => {
 
     // 1. Move from Leads to Customers
     leads.splice(index, 1);
-    localStorage.setItem('hamix_leads', JSON.stringify(leads));
+    dal.saveLeads(leads);
 
     if (!lead.id.startsWith('cust-')) {
         lead.id = 'cust-' + Date.now() + '-' + Math.floor(Math.random()*1000);
@@ -367,7 +370,7 @@ window.convertLeadById = async (id) => {
 };
 
 window.reprocessCustomer = async (index) => {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
     const customer = customers[index];
 
     if (!customer) return;
@@ -440,149 +443,33 @@ function updateStep(id, currentStatus, targetStatus) {
 
 // Global functions for actions
 window.previewWebsite = (index) => {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
     const customer = customers[index];
-
     if (!customer) return;
 
     const html = window.HAMIX_Engine.generateWebsite(customer, 'Default', 'Indigo', { baseHref: '../' });
-
-    const modal = document.createElement('div');
-    modal.className = 'preview-modal';
-    modal.innerHTML = `
-        <div class="preview-modal-header">
-            <h3>Website Preview: ${customer.businessName}</h3>
-            <div class="header-actions">
-                <div class="theme-selector">
-                    <select onchange="updatePreviewTheme(this.value, ${index})">
-                        <option value="Indigo">Indigo Theme</option>
-                        <option value="Emerald">Emerald Theme</option>
-                        <option value="Slate">Slate Theme</option>
-                        <option value="Rose">Rose Theme</option>
-                    </select>
-                </div>
-                <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
-            </div>
-        </div>
-        <div class="preview-iframe-container">
-            <iframe id="previewIframe"></iframe>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    const iframe = document.getElementById('previewIframe');
-    iframe.contentWindow.document.open();
-    iframe.contentWindow.document.write(html);
-    iframe.contentWindow.document.close();
-
-    if (window.lucide) lucide.createIcons();
+    if (window.HAMIX_Modals) window.HAMIX_Modals.openPreview(customer.id, html, index);
 };
 
 window.updatePreviewTheme = (themeId, index) => {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
     const customer = customers[index];
     const html = window.HAMIX_Engine.generateWebsite(customer, 'Default', themeId, { baseHref: '../' });
 
     const iframe = document.getElementById('previewIframe');
-    iframe.contentWindow.document.open();
-    iframe.contentWindow.document.write(html);
-    iframe.contentWindow.document.close();
+    if (iframe) {
+        iframe.contentWindow.document.open();
+        iframe.contentWindow.document.write(html);
+        iframe.contentWindow.document.close();
+    }
 };
 
 window.closePreview = () => {
-    const modal = document.querySelector('.preview-modal, .history-modal, .ops-modal, .review-modal');
-    if (modal) modal.remove();
+    if (window.HAMIX_Modals) window.HAMIX_Modals.closeAll();
 };
 
 window.openReviewModal = (id) => {
-    const customer = window.HAMIX_Operations.getCustomer(id);
-    if (!customer) return;
-
-    const modal = document.createElement('div');
-    modal.className = 'review-modal';
-    modal.innerHTML = `
-        <div class="preview-modal-header">
-            <h3>Final Review & Approval: ${customer.businessName}</h3>
-            <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
-        </div>
-        <div class="modal-body" style="padding: 24px; max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr 350px; gap: 24px;">
-
-            <!-- Left: Business Intelligence -->
-            <div class="review-sidebar">
-                <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px;">
-                    <h4>Business Summary</h4>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">${customer.aiContent?.summary || 'Generating summary...'}</p>
-                    <div style="margin-top: 16px; display: flex; gap: 12px;">
-                        <div style="flex: 1; text-align: center; background: #f8fafc; padding: 10px; border-radius: 8px;">
-                            <strong style="display: block; font-size: 18px; color: var(--primary-color)">${customer.opportunityScore}%</strong>
-                            <span style="font-size: 9px; text-transform: uppercase; color: var(--text-muted)">Opp Score</span>
-                        </div>
-                        <div style="flex: 1; text-align: center; background: #f8fafc; padding: 10px; border-radius: 8px;">
-                            <strong style="display: block; font-size: 18px; color: #10b981">${customer.aiConfidenceScore}%</strong>
-                            <span style="font-size: 9px; text-transform: uppercase; color: var(--text-muted)">AI Conf</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px;">
-                    <h4>AI Recommendations</h4>
-                    <ul style="font-size: 12px; margin-top: 12px; padding-left: 16px; color: var(--text-muted)">
-                        ${(customer.aiRecommendations || []).map(r => `<li>${r}</li>`).join('') || '<li>No specific recommendations.</li>'}
-                    </ul>
-                </div>
-
-                <div class="card" style="padding: 20px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px;">
-                    <h4 style="color: #be123c;">Missing Information</h4>
-                    <div style="font-size: 12px; color: #be123c; margin-top: 8px;">
-                        ${(customer.missingInfo || []).map(m => `<span class="badge badge-offline" style="margin-right: 4px; margin-bottom: 4px; display: inline-block;">${m}</span>`).join('') || 'None identified.'}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Centre: Website Preview -->
-            <div class="review-main">
-                <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; height: 100%; display: flex; flex-direction: column;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h4>Generated Homepage</h4>
-                        <a href="${customer.liveWebsiteUrl}" target="_blank" class="btn btn-outline btn-sm"><i data-lucide="external-link"></i> View Live</a>
-                    </div>
-                    <div style="flex: 1; background: #f1f5f9; border-radius: 8px; position: relative; overflow: hidden; border: 1px solid #e2e8f0;">
-                         <iframe srcdoc="${customer.generatedHtml?.replace(/"/g, '&quot;')}" style="width: 200%; height: 200%; transform: scale(0.5); transform-origin: top left; border: none;"></iframe>
-                         <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer;" onclick="previewWebsiteById('${customer.id}')"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right: Outreach Control -->
-            <div class="review-sidebar">
-                <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; height: 100%;">
-                    <h4>Personalized Outreach</h4>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px; margin-bottom: 20px;">Personalize and approve the outreach script.</p>
-
-                    <div class="form-group">
-                        <label>Target Phone</label>
-                        <input type="text" value="${customer.phone || ''}" id="reviewPhone">
-                    </div>
-
-                    <div class="form-group">
-                        <label>WhatsApp Message</label>
-                        <textarea id="reviewMessage" rows="12" style="font-family: inherit; resize: none; line-height: 1.5; font-size: 13px;">${customer.aiContent?.outreach?.whatsapp || ''}</textarea>
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
-                        <button class="btn btn-primary" style="justify-content: center; padding: 12px; width: 100%;" onclick="approveAndSend('${customer.id}')">
-                            <i data-lucide="check-circle"></i> Approve & Send
-                        </button>
-                        <button class="btn btn-outline" style="justify-content: center;" onclick="alert('Saving draft script...')">
-                            <i data-lucide="save"></i> Save Changes
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    if (window.lucide) lucide.createIcons();
+    if (window.HAMIX_Modals) window.HAMIX_Modals.openReview(id);
 };
 
 window.approveAndSend = async (id) => {
@@ -631,84 +518,7 @@ window.approveAndSend = async (id) => {
 };
 
 window.openOpsModal = (id) => {
-    const customer = window.HAMIX_Operations.getCustomer(id);
-    if (!customer) return;
-
-    const modal = document.createElement('div');
-    modal.className = 'ops-modal';
-    modal.innerHTML = `
-        <div class="preview-modal-header">
-            <h3>Website Operations: ${customer.businessName}</h3>
-            <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
-        </div>
-        <div class="modal-body" style="padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-            <div class="ops-section">
-                <h4>Management</h4>
-                <div class="ops-btn-group">
-                    <button class="btn btn-outline" onclick="cloneCust('${customer.id}')"><i data-lucide="copy"></i> Clone Website</button>
-                    <button class="btn btn-outline" onclick="exportCust('${customer.id}')"><i data-lucide="download"></i> Export Package</button>
-                    <button class="btn btn-outline" onclick="createBackup('${customer.id}')"><i data-lucide="database"></i> Create Backup</button>
-                    <button class="btn btn-outline" onclick="archiveWebsite('${customer.id}')"><i data-lucide="archive"></i> Archive Website</button>
-                </div>
-
-                <h4 style="margin-top: 24px;">SEO & Metadata</h4>
-                <div class="form-group">
-                    <label>SEO Title</label>
-                    <input type="text" value="${customer.seoTitle || ''}" placeholder="Meta Title">
-                </div>
-                <div class="form-group">
-                    <label>SEO Description</label>
-                    <textarea placeholder="Meta Description">${customer.seoDescription || ''}</textarea>
-                </div>
-            </div>
-
-            <div class="ops-section">
-                <h4>Domain & SSL</h4>
-                <div class="status-list">
-                    <div class="status-item">
-                        <span>Custom Domain</span>
-                        <span class="badge badge-muted">Not Connected</span>
-                    </div>
-                    <div class="status-item">
-                        <span>SSL Certificate</span>
-                        <span class="badge badge-muted">Inactive</span>
-                    </div>
-                    <div class="status-item">
-                        <span>DNS Status</span>
-                        <span class="badge badge-muted">Waiting</span>
-                    </div>
-                </div>
-
-                <h4 style="margin-top: 24px;">Analytics Overview</h4>
-                <div class="mini-stats">
-                    <div class="mini-stat">
-                        <strong>${customer.stats?.visitors || 0}</strong>
-                        <span>Visitors</span>
-                    </div>
-                    <div class="mini-stat">
-                        <strong>${customer.stats?.leads || 0}</strong>
-                        <span>Leads</span>
-                    </div>
-                    <div class="mini-stat">
-                        <strong>${customer.stats?.conversions || 0}</strong>
-                        <span>Conversions</span>
-                    </div>
-                </div>
-
-                <h4 style="margin-top: 24px;">Deployment History</h4>
-                <div class="mini-history">
-                    ${(customer.history || []).slice(0, 3).map(h => `
-                        <div class="history-item">
-                            <span>${h.stage}</span>
-                            <span>${new Date(h.timestamp).toLocaleDateString()}</span>
-                        </div>
-                    `).join('') || 'No history yet.'}
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    if (window.lucide) lucide.createIcons();
+    if (window.HAMIX_Modals) window.HAMIX_Modals.openOperations(id);
 };
 
 window.cloneCust = async (id) => {
@@ -743,47 +553,7 @@ window.createBackup = (id) => {
 };
 
 window.viewHistory = (id) => {
-    const customer = window.HAMIX_Operations.getCustomer(id);
-    if (!customer) return;
-
-    const modal = document.createElement('div');
-    modal.className = 'history-modal';
-    modal.innerHTML = `
-        <div class="preview-modal-header">
-            <h3>Version History: ${customer.businessName}</h3>
-            <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
-        </div>
-        <div class="modal-body" style="padding: 24px;">
-            <div class="data-table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Ver</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                            <th>Theme</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${(customer.versions || []).map(v => `
-                            <tr>
-                                <td><strong>v${v.version}</strong></td>
-                                <td><span style="font-size: 11px;">${new Date(v.timestamp).toLocaleString()}</span></td>
-                                <td><span class="badge badge-${v.status.toLowerCase()}">${v.status}</span></td>
-                                <td>${v.theme}</td>
-                                <td>
-                                    <button class="btn btn-primary btn-sm" onclick="rollback('${customer.id}', ${v.version})">Rollback</button>
-                                </td>
-                            </tr>
-                        `).join('') || '<tr><td colspan="5" style="text-align:center">No version history found.</td></tr>'}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    if (window.lucide) lucide.createIcons();
+    if (window.HAMIX_Modals) window.HAMIX_Modals.openHistory(id);
 };
 
 window.rollback = async (id, version) => {
@@ -796,7 +566,7 @@ window.rollback = async (id, version) => {
 };
 
 window.downloadWebsite = (index) => {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
     const customer = customers[index];
     const html = window.HAMIX_Engine.generateWebsite(customer);
 
@@ -809,7 +579,7 @@ window.downloadWebsite = (index) => {
  */
 
 function renderOperations(container) {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
     const publishedToday = customers.filter(c => {
         if (!c.lastPublished) return false;
         const pubDate = new Date(c.lastPublished);
@@ -952,7 +722,7 @@ window.retryJob = (id) => {
 };
 
 window.previewWebsiteById = (id) => {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
     const index = customers.findIndex(c => c.id === id);
     if (index !== -1) window.previewWebsite(index);
 };
@@ -1284,7 +1054,7 @@ document.addEventListener('click', (e) => {
  */
 
 function renderGithub(container) {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const customers = window.HAMIX_DAL ? window.HAMIX_DAL.getCustomers() : [];
     const deployments = customers.filter(c => c.isPublished);
 
     container.innerHTML = `

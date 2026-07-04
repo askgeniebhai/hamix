@@ -103,19 +103,12 @@ const WorkflowEngine = {
     },
 
     /**
-     * Saves the customer back to localStorage.
+     * Saves the customer via DAL.
      */
     saveCustomer(customer) {
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-        const index = customers.findIndex(c => c.id === customer.id || c.businessName === customer.businessName);
-
-        if (index !== -1) {
-            customers[index] = customer;
-        } else {
-            customers.push(customer);
+        if (window.HAMIX_DAL) {
+            window.HAMIX_DAL.saveCustomer(customer);
         }
-
-        localStorage.setItem('hamix_customers', JSON.stringify(customers));
     }
 };
 

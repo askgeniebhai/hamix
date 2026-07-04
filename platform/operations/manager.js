@@ -49,10 +49,10 @@ const OperationsManager = {
      * Deletes a customer and their website data.
      */
     async deleteCustomer(customerId) {
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-        const customer = customers.find(c => c.id === customerId);
-        const filtered = customers.filter(c => c.id !== customerId);
-        localStorage.setItem('hamix_customers', JSON.stringify(filtered));
+        const customer = this.getCustomer(customerId);
+        if (window.HAMIX_DAL) {
+            window.HAMIX_DAL.deleteCustomer(customerId);
+        }
 
         if (customer && window.HAMIX_Admin) {
             window.HAMIX_Admin.logActivity('Admin User', 'Deleted customer record', customer.businessName);
@@ -123,9 +123,9 @@ const OperationsManager = {
             from: customer.id
         }];
 
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-        customers.push(newCustomer);
-        localStorage.setItem('hamix_customers', JSON.stringify(customers));
+        if (window.HAMIX_DAL) {
+            window.HAMIX_DAL.saveCustomer(newCustomer);
+        }
 
         if (window.HAMIX_Admin) window.HAMIX_Admin.logActivity('Admin User', 'Cloned website/customer', newCustomer.businessName);
 
@@ -154,8 +154,11 @@ const OperationsManager = {
      */
     async importFromGoogleMaps(businessList) {
         console.log(`Operations: Importing ${businessList.length} businesses from Google Maps...`);
-        const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+        const dal = window.HAMIX_DAL;
+        if (!dal) return { imported: 0, duplicates: 0 };
+
+        const leads = dal.getLeads();
+        const customers = dal.getCustomers();
 
         let importedCount = 0;
         let duplicateCount = 0;
@@ -196,16 +199,14 @@ const OperationsManager = {
             importedCount++;
 
             // 3. Immediate AI Processing Pipeline (Automatic)
-            // We'll process them in the background so the UI doesn't lock
             setTimeout(() => {
                 if (window.HAMIX_Workflow) {
-                    // Pass the specific ID instead of index to avoid shifting issues
                     window.convertLeadById(lead.id);
                 }
             }, 500);
         }
 
-        localStorage.setItem('hamix_leads', JSON.stringify(leads));
+        dal.saveLeads(leads);
 
         if (window.HAMIX_Admin) {
             window.HAMIX_Admin.logActivity('System', `Imported ${importedCount} leads from Google Maps (${duplicateCount} duplicates skipped)`, 'Google Maps Engine');
@@ -223,9 +224,9 @@ const OperationsManager = {
         customer.id = `cust_import_${Date.now()}`;
         customer.status = 'Ready for Publishing';
 
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-        customers.push(customer);
-        localStorage.setItem('hamix_customers', JSON.stringify(customers));
+        if (window.HAMIX_DAL) {
+            window.HAMIX_DAL.saveCustomer(customer);
+        }
 
         if (window.HAMIX_Admin) window.HAMIX_Admin.logActivity('Admin User', 'Imported website data package', customer.businessName);
         this.notifyUI();
@@ -341,17 +342,13 @@ const OperationsManager = {
 
     // Helper: Get customer by ID
     getCustomer(id) {
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-        return customers.find(c => c.id === id);
+        return window.HAMIX_DAL ? window.HAMIX_DAL.getCustomer(id) : null;
     },
 
     // Helper: Save customer
     saveCustomer(customer) {
-        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
-        const index = customers.findIndex(c => c.id === customer.id);
-        if (index !== -1) {
-            customers[index] = customer;
-            localStorage.setItem('hamix_customers', JSON.stringify(customers));
+        if (window.HAMIX_DAL) {
+            window.HAMIX_DAL.saveCustomer(customer);
         }
     },
 
