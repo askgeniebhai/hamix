@@ -108,6 +108,7 @@ function initializeWebsite() {
     renderClients(customer.clients || []);
 
     initScrollEffects();
+    initMobileNav();
 
     // Re-initialize Lucide Icons
     if (window.lucide) {
@@ -239,6 +240,27 @@ function renderClients(clients) {
     const items = clients.map(c => `<img src="${c.logo}" alt="${c.name}">`).join("");
     // Triple items for smoother seamless loop
     container.innerHTML = items + items + items;
+}
+
+/* ---------- MOBILE NAV ---------- */
+function initMobileNav() {
+    const toggle = document.getElementById("navToggle");
+    const nav = document.getElementById("mainNav");
+    const links = nav.querySelectorAll("a");
+
+    if (!toggle || !nav) return;
+
+    toggle.addEventListener("click", () => {
+        nav.classList.toggle("active");
+        toggle.classList.toggle("active");
+    });
+
+    links.forEach(link => {
+        link.addEventListener("click", () => {
+            nav.classList.remove("active");
+            toggle.classList.remove("active");
+        });
+    });
 }
 
 /* ---------- SCROLL EFFECTS ---------- */
