@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Refresh page content
         if (pageId === 'dashboard') updateDashboard();
         if (pageId === 'leads') renderLeads();
+        if (pageId === 'customers') renderCustomers();
 
         // Re-initialize icons for new content if necessary
         if (window.lucide) {
@@ -65,7 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modal Logic
     const modals = {
         lead: document.getElementById('modal-lead'),
-        import: document.getElementById('modal-import')
+        import: document.getElementById('modal-import'),
+        preview: document.getElementById('modal-preview')
     };
 
     const openModal = (modalId) => {
@@ -323,11 +325,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><a href="${cust.website}" target="_blank" class="link-text">${cust.website || '-'}</a></td>
                 <td><span class="badge badge-validated">${cust.status}</span></td>
                 <td>${new Date(cust.joinedAt).toLocaleDateString()}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm preview-website" data-id="${cust.id}">
+                        <i data-lucide="eye"></i> Preview
+                    </button>
+                </td>
             </tr>
         `).join('');
 
         if (window.lucide) lucide.createIcons();
+
+        // Preview Handlers
+        document.querySelectorAll('.preview-website').forEach(btn => {
+            btn.addEventListener('click', () => {
+                openWebsitePreview(btn.dataset.id);
+            });
+        });
     };
+
+    let activePreviewCustomer = null;
+
+    const openWebsitePreview = (customerId) => {
+        const customer = state.customers.find(c => c.id === customerId);
+        if (!customer) return;
+
+        activePreviewCustomer = customer;
+        updatePreviewFrame();
+        openModal('preview');
+    };
+
+    const updatePreviewFrame = () => {
+        if (!activePreviewCustomer) return;
+
+        const theme = document.getElementById('preview-theme-select').value;
+        const html = WebsiteGenerator.generate(activePreviewCustomer, theme);
+
+        const frame = document.getElementById('preview-frame');
+        const doc = frame.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+    };
+
+    document.getElementById('preview-theme-select').addEventListener('change', updatePreviewFrame);
 
     // Filter Click Handlers
     document.querySelectorAll('.filter-btn').forEach(btn => {

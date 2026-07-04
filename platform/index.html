@@ -281,6 +281,26 @@
         </div>
     </div>
 
+    <div id="modal-preview" class="modal modal-full">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Website Preview</h2>
+                <div class="preview-actions">
+                    <select id="preview-theme-select">
+                        <option value="indigo">Indigo Theme</option>
+                        <option value="emerald">Emerald Theme</option>
+                        <option value="slate">Slate Theme</option>
+                        <option value="rose">Rose Theme</option>
+                    </select>
+                    <button class="close-modal">&times;</button>
+                </div>
+            </div>
+            <div class="preview-iframe-container">
+                <iframe id="preview-frame"></iframe>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-import" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -339,6 +359,9 @@
     </div>
 
     <script src="leadEngine.js"></script>
+    <script src="generator/themes.js"></script>
+    <script src="generator/components.js"></script>
+    <script src="generator/engine.js"></script>
     <script src="app.js"></script>
     <script>
         // Initialize Lucide icons
