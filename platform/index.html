@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAMIX CRM Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i data-lucide="shield" class="logo-icon"></i>
+                    <span class="logo-text">HAMIX</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active"><a href="#"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a></li>
+                    <li><a href="#"><i data-lucide="users"></i> <span>Leads</span></a></li>
+                    <li><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
+                    <li><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
+                    <li><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
+                    <li><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar">AD</div>
+                    <div class="user-info">
+                        <p class="user-name">Admin User</p>
+                        <p class="user-role">Super Admin</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left">
+                    <h1>Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <div class="search-bar">
+                        <i data-lucide="search"></i>
+                        <input type="text" placeholder="Search...">
+                    </div>
+                    <button class="btn btn-primary"><i data-lucide="plus"></i> New Lead</button>
+                </div>
+            </header>
+
+            <div class="content-body">
+                <div class="welcome-section">
+                    <h2>Welcome to HAMIX</h2>
+                    <p>The control centre of your platform.</p>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i data-lucide="users"></i></div>
+                        <div class="stat-data">
+                            <h3>Total Leads</h3>
+                            <p class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i data-lucide="user-check"></i></div>
+                        <div class="stat-data">
+                            <h3>Total Customers</h3>
+                            <p class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i data-lucide="globe"></i></div>
+                        <div class="stat-data">
+                            <h3>Active Websites</h3>
+                            <p class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i data-lucide="zap"></i></div>
+                        <div class="stat-data">
+                            <h3>Deployments</h3>
+                            <p class="stat-value">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
