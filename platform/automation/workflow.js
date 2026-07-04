@@ -7,6 +7,7 @@ const WorkflowEngine = {
     STAGES: {
         LEAD: 'Lead',
         CUSTOMER: 'Customer',
+        UNDERSTANDING: 'Business Understanding',
         AI_PROCESSING: 'AI Processing',
         GENERATION: 'Website Generation',
         DEPLOYMENT: 'Deployment Package',
@@ -50,12 +51,19 @@ const WorkflowEngine = {
     async processStage(customer, stage) {
         switch (stage) {
             case this.STAGES.CUSTOMER:
-                // When becoming a customer, automatically start AI processing
-                await this.transitionTo(customer, this.STAGES.AI_PROCESSING);
+                // When becoming a customer, start with Understanding
+                await this.transitionTo(customer, this.STAGES.UNDERSTANDING);
+                break;
+
+            case this.STAGES.UNDERSTANDING:
+                // Simulate deep business analysis phase
+                setTimeout(async () => {
+                    await this.transitionTo(customer, this.STAGES.AI_PROCESSING);
+                }, 800);
                 break;
 
             case this.STAGES.AI_PROCESSING:
-                // Trigger AI content generation
+                // Trigger full AI pipeline (Profile, content, SEO, Scores)
                 if (window.HAMIX_AI) {
                     await window.HAMIX_AI.processCustomer(customer);
                     await this.transitionTo(customer, this.STAGES.GENERATION);

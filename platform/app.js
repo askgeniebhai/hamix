@@ -494,52 +494,80 @@ window.openReviewModal = (id) => {
     modal.className = 'review-modal';
     modal.innerHTML = `
         <div class="preview-modal-header">
-            <h3>Approval Workflow: ${customer.businessName}</h3>
+            <h3>Final Review & Approval: ${customer.businessName}</h3>
             <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
         </div>
-        <div class="modal-body" style="padding: 24px; max-width: 1000px; margin: 0 auto;">
-            <div class="review-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
-                <div class="review-left">
-                    <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px;">
-                        <h4>Business Overview</h4>
-                        <div style="margin-top: 12px; font-size: 14px;">
-                            <p><strong>Category:</strong> ${customer.aiContent?.classification || customer.category}</p>
-                            <p><strong>Opportunity Score:</strong> <span class="badge badge-new">${customer.opportunityScore}%</span></p>
-                            <p><strong>Live Website:</strong> <a href="${customer.liveWebsiteUrl}" target="_blank" style="color: var(--primary-color)">${customer.liveWebsiteUrl || 'Not Published'}</a></p>
-                        </div>
-                    </div>
+        <div class="modal-body" style="padding: 24px; max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr 350px; gap: 24px;">
 
-                    <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px;">
-                        <h4>Website Preview</h4>
-                        <div style="aspect-ratio: 16/9; background: #f1f5f9; border-radius: 8px; margin-top: 12px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
-                             <iframe srcdoc="${customer.generatedHtml?.replace(/"/g, '&quot;')}" style="width: 200%; height: 200%; transform: scale(0.5); transform-origin: top left; border: none;"></iframe>
-                             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer;" onclick="previewWebsiteById('${customer.id}')"></div>
+            <!-- Left: Business Intelligence -->
+            <div class="review-sidebar">
+                <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px;">
+                    <h4>Business Summary</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">${customer.aiContent?.summary || 'Generating summary...'}</p>
+                    <div style="margin-top: 16px; display: flex; gap: 12px;">
+                        <div style="flex: 1; text-align: center; background: #f8fafc; padding: 10px; border-radius: 8px;">
+                            <strong style="display: block; font-size: 18px; color: var(--primary-color)">${customer.opportunityScore}%</strong>
+                            <span style="font-size: 9px; text-transform: uppercase; color: var(--text-muted)">Opp Score</span>
                         </div>
-                        <p style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 8px;">Click to view full screen preview</p>
+                        <div style="flex: 1; text-align: center; background: #f8fafc; padding: 10px; border-radius: 8px;">
+                            <strong style="display: block; font-size: 18px; color: #10b981">${customer.aiConfidenceScore}%</strong>
+                            <span style="font-size: 9px; text-transform: uppercase; color: var(--text-muted)">AI Conf</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="review-right">
-                    <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; height: 100%;">
-                        <h4>WhatsApp Outreach</h4>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Review and personalize the message before sending.</p>
+                <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px;">
+                    <h4>AI Recommendations</h4>
+                    <ul style="font-size: 12px; margin-top: 12px; padding-left: 16px; color: var(--text-muted)">
+                        ${(customer.aiRecommendations || []).map(r => `<li>${r}</li>`).join('') || '<li>No specific recommendations.</li>'}
+                    </ul>
+                </div>
 
-                        <div class="form-group">
-                            <label>Target Phone</label>
-                            <input type="text" value="${customer.phone || ''}" id="reviewPhone">
-                        </div>
+                <div class="card" style="padding: 20px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px;">
+                    <h4 style="color: #be123c;">Missing Information</h4>
+                    <div style="font-size: 12px; color: #be123c; margin-top: 8px;">
+                        ${(customer.missingInfo || []).map(m => `<span class="badge badge-offline" style="margin-right: 4px; margin-bottom: 4px; display: inline-block;">${m}</span>`).join('') || 'None identified.'}
+                    </div>
+                </div>
+            </div>
 
-                        <div class="form-group">
-                            <label>Message Script</label>
-                            <textarea id="reviewMessage" rows="10" style="font-family: inherit; resize: none;">${customer.aiContent?.outreach?.whatsapp || ''}</textarea>
-                        </div>
+            <!-- Centre: Website Preview -->
+            <div class="review-main">
+                <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; height: 100%; display: flex; flex-direction: column;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h4>Generated Homepage</h4>
+                        <a href="${customer.liveWebsiteUrl}" target="_blank" class="btn btn-outline btn-sm"><i data-lucide="external-link"></i> View Live</a>
+                    </div>
+                    <div style="flex: 1; background: #f1f5f9; border-radius: 8px; position: relative; overflow: hidden; border: 1px solid #e2e8f0;">
+                         <iframe srcdoc="${customer.generatedHtml?.replace(/"/g, '&quot;')}" style="width: 200%; height: 200%; transform: scale(0.5); transform-origin: top left; border: none;"></iframe>
+                         <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer;" onclick="previewWebsiteById('${customer.id}')"></div>
+                    </div>
+                </div>
+            </div>
 
-                        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
-                            <button class="btn btn-primary" style="justify-content: center; padding: 12px;" onclick="approveAndSend('${customer.id}')">
-                                <i data-lucide="message-circle"></i> Approve & Send WhatsApp
-                            </button>
-                            <p style="font-size: 11px; color: var(--text-muted); text-align: center;">Clicking 'Approve & Send' will open WhatsApp Web/App.</p>
-                        </div>
+            <!-- Right: Outreach Control -->
+            <div class="review-sidebar">
+                <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; height: 100%;">
+                    <h4>Personalized Outreach</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px; margin-bottom: 20px;">Personalize and approve the outreach script.</p>
+
+                    <div class="form-group">
+                        <label>Target Phone</label>
+                        <input type="text" value="${customer.phone || ''}" id="reviewPhone">
+                    </div>
+
+                    <div class="form-group">
+                        <label>WhatsApp Message</label>
+                        <textarea id="reviewMessage" rows="12" style="font-family: inherit; resize: none; line-height: 1.5; font-size: 13px;">${customer.aiContent?.outreach?.whatsapp || ''}</textarea>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
+                        <button class="btn btn-primary" style="justify-content: center; padding: 12px; width: 100%;" onclick="approveAndSend('${customer.id}')">
+                            <i data-lucide="check-circle"></i> Approve & Send
+                        </button>
+                        <button class="btn btn-outline" style="justify-content: center;" onclick="alert('Saving draft script...')">
+                            <i data-lucide="save"></i> Save Changes
+                        </button>
                     </div>
                 </div>
             </div>
@@ -565,12 +593,16 @@ window.approveAndSend = async (id) => {
         status: 'Sent'
     };
 
-    // Add to activity history
+    // Add to activity history (Comprehensive Permanent Record)
     if (!customer.history) customer.history = [];
     customer.history.push({
         stage: 'WhatsApp Approved',
         timestamp: timestamp,
-        detail: 'User approved outreach message'
+        detail: 'User approved outreach message and triggered WhatsApp deep link',
+        metadata: {
+            approvedPhone: phone,
+            approvedMessage: message
+        }
     });
 
     customer.status = 'Contacted';

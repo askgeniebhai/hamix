@@ -161,28 +161,34 @@ const OperationsManager = {
         let duplicateCount = 0;
 
         for (const raw of businessList) {
-            // 1. Validate & De-duplicate
-            const isDuplicate = leads.some(l => l.businessName === raw.businessName) ||
-                               customers.some(c => c.businessName === raw.businessName);
+            // 1. Validate & De-duplicate (Robust check)
+            if (!raw.businessName) continue;
+
+            const isDuplicate = leads.some(l => l.businessName.toLowerCase() === raw.businessName.toLowerCase()) ||
+                               customers.some(c => c.businessName.toLowerCase() === raw.businessName.toLowerCase());
 
             if (isDuplicate) {
                 duplicateCount++;
                 continue;
             }
 
-            // 2. Create Lead Record with original data preserved
+            // 2. Create Lead Record with full original context
             const lead = {
                 id: `lead_gmaps_${Date.now()}_${importedCount}`,
                 businessName: raw.businessName,
-                category: raw.category,
-                phone: raw.phone,
-                website: raw.website,
-                address: raw.address,
-                rating: raw.rating,
-                reviews: raw.reviews,
+                category: raw.category || 'Local Business',
+                phone: raw.phone || '',
+                website: raw.website || '',
+                address: raw.address || '',
+                rating: raw.rating || 0,
+                reviews: raw.reviews || 0,
                 status: 'Lead',
                 source: 'Google Maps Import',
-                originalData: raw, // Permanent record of original import
+                originalData: { ...raw }, // Ensure immutable copy
+                metadata: {
+                    importTimestamp: new Date().toISOString(),
+                    engineVersion: '1.0'
+                },
                 createdAt: new Date().toISOString()
             };
 
