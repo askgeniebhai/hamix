@@ -198,10 +198,9 @@ const OperationsManager = {
             // 3. Immediate AI Processing Pipeline (Automatic)
             // We'll process them in the background so the UI doesn't lock
             setTimeout(() => {
-                const leadIndex = leads.findIndex(l => l.id === lead.id);
-                if (window.HAMIX_Workflow && leadIndex !== -1) {
-                    // Start conversion automatically
-                    window.convertLead(leadIndex);
+                if (window.HAMIX_Workflow) {
+                    // Pass the specific ID instead of index to avoid shifting issues
+                    window.convertLeadById(lead.id);
                 }
             }, 500);
         }

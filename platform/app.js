@@ -342,6 +342,13 @@ function loadInitialData() {
 window.convertLead = async (index) => {
     const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
     const lead = leads[index];
+    if (lead) await window.convertLeadById(lead.id);
+};
+
+window.convertLeadById = async (id) => {
+    const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
+    const index = leads.findIndex(l => l.id === id);
+    const lead = leads[index];
 
     if (!lead) return;
 
@@ -352,10 +359,11 @@ window.convertLead = async (index) => {
     leads.splice(index, 1);
     localStorage.setItem('hamix_leads', JSON.stringify(leads));
 
-    lead.id = 'cust-' + Date.now();
-    await window.HAMIX_Workflow.transitionTo(lead, window.HAMIX_Workflow.STAGES.CUSTOMER);
+    if (!lead.id.startsWith('cust-')) {
+        lead.id = 'cust-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+    }
 
-    // The workflow engine will handle the rest of the stages automatically
+    await window.HAMIX_Workflow.transitionTo(lead, window.HAMIX_Workflow.STAGES.CUSTOMER);
 };
 
 window.reprocessCustomer = async (index) => {

@@ -299,14 +299,30 @@ body {
     color: #0369a1;
 }
 
-.badge-generation {
+.badge-website-generation {
     background-color: #fef9c3;
     color: #854d0e;
 }
 
-.badge-deployment {
+.badge-deployment-package {
     background-color: #f3e8ff;
     color: #6b21a8;
+}
+
+.badge-business-understanding {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+.badge-ready-for-publishing {
+    background-color: #ecfdf5;
+    color: #047857;
+}
+
+.badge-contacted {
+    background-color: #e0f2fe;
+    color: #0369a1;
 }
 
 .badge-new {
