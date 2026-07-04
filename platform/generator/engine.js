@@ -24,7 +24,7 @@ const Engine = {
         // Generate Theme CSS
         const themeCSS = themes.generateThemeCSS(themeId);
 
-        // Render Template via Registry if available, otherwise fallback to templates object
+        // Render Template via Registry if available
         const registry = window.HAMIX_TemplatesRegistry;
         const templateFunc = (registry && registry.get(templateId)) || templates[templateId] || templates.Default;
         let html = templateFunc(customerData, components, themeCSS);
@@ -35,6 +35,11 @@ const Engine = {
         }
 
         return html;
+    },
+
+    // Legacy support for v0.3 calling patterns if any
+    generate: function(customerData, themeId = 'Indigo') {
+        return this.generateWebsite(customerData, 'Default', themeId);
     }
 };
 
@@ -43,4 +48,5 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = Engine;
 } else {
     window.HAMIX_Engine = Engine;
+    window.WebsiteGenerator = Engine; // Compatibility with origin/main
 }

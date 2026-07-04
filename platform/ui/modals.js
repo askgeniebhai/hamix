@@ -11,7 +11,7 @@ const Modals = {
     openPreview: (id, html, index) => {
         const customer = window.HAMIX_Operations.getCustomer(id);
         const modal = document.createElement('div');
-        modal.className = 'preview-modal';
+        modal.className = 'preview-modal active'; // Add active class
         modal.innerHTML = `
             <div class="preview-modal-header">
                 <h3>Website Preview: ${customer.businessName}</h3>
@@ -45,7 +45,7 @@ const Modals = {
         if (!customer) return;
 
         const modal = document.createElement('div');
-        modal.className = 'review-modal';
+        modal.className = 'review-modal active'; // Add active class
         modal.innerHTML = `
             <div class="preview-modal-header">
                 <h3>Final Review & Approval: ${customer.businessName}</h3>
@@ -111,7 +111,7 @@ const Modals = {
         if (!customer) return;
 
         const modal = document.createElement('div');
-        modal.className = 'ops-modal';
+        modal.className = 'ops-modal active'; // Add active class
         modal.innerHTML = `
             <div class="preview-modal-header">
                 <h3>Website Operations: ${customer.businessName}</h3>
@@ -166,7 +166,7 @@ const Modals = {
         if (!customer) return;
 
         const modal = document.createElement('div');
-        modal.className = 'history-modal';
+        modal.className = 'history-modal active'; // Add active class
         modal.innerHTML = `
             <div class="preview-modal-header">
                 <h3>Version History: ${customer.businessName}</h3>

@@ -85,7 +85,11 @@ const Components = {
                     <h2>What We Offer</h2>
                 </div>
                 <div class="services-grid">
-                    ${(data.services || []).map(service => `
+                    ${(data.services || [
+                        { title: "Standard Service", description: "High-quality implementation of core industry standards.", icon: "check-circle" },
+                        { title: "Premium Support", description: "24/7 priority assistance for all your business needs.", icon: "zap" },
+                        { title: "Guaranteed Quality", description: "We stand behind our work with full satisfaction guarantee.", icon: "shield" }
+                    ]).map(service => `
                         <div class="service-card">
                             <div class="service-icon">
                                 <i data-lucide="${service.icon || 'check-circle'}"></i>
@@ -209,15 +213,6 @@ const Components = {
                                     <p>${data.location || data.address}</p>
                                 </div>
                             </div>
-                            ${data.businessHours ? `
-                            <div class="contact-item">
-                                <i data-lucide="clock"></i>
-                                <div>
-                                    <h4>Business Hours</h4>
-                                    <p>${data.businessHours}</p>
-                                </div>
-                            </div>
-                            ` : ''}
                         </div>
                     </div>
                     <div class="contact-form">
@@ -254,22 +249,12 @@ const Components = {
                         <iframe
                             width="100%"
                             height="450"
-                            style="border:0; border-radius: var(--card-radius); box-shadow: 0 10px 30px rgba(0,0,0,0.05);"
+                            style="border:0; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);"
                             loading="lazy"
                             allowfullscreen
                             src="https://www.google.com/maps/embed/v1/place?key=REPLACE_WITH_API_KEY&q=${encodedAddress}">
                         </iframe>
-                        <!-- Fallback/Static Map UI if no API Key -->
-                        <div class="map-overlay-info">
-                            <i data-lucide="map-pin"></i>
-                            <p>${address}</p>
-                        </div>
-                    ` : `
-                        <div class="map-placeholder">
-                            <i data-lucide="map"></i>
-                            <p>Map location not provided</p>
-                        </div>
-                    `}
+                    ` : '<div class="map-placeholder"><i data-lucide="map"></i><p>Map not provided</p></div>'}
                 </div>
             </div>
         </section>
@@ -284,11 +269,6 @@ const Components = {
                             ${data.logo ? `<img src="${data.logo}" alt="${data.businessName}">` : `<span>${data.businessName}</span>`}
                         </div>
                         <p>${data.tagline || ''}</p>
-                        <div class="social-links">
-                            ${(data.socialLinks || []).map(link => `
-                                <a href="${link.url}"><i data-lucide="${link.platform.toLowerCase()}"></i></a>
-                            `).join('')}
-                        </div>
                     </div>
                     <div class="footer-links">
                         <h4>Quick Links</h4>
@@ -311,12 +291,10 @@ const Components = {
         </footer>
     `,
 
-    FloatingActions: (data) => {
-        const whatsappMsg = data.aiContent?.outreach?.whatsapp || 'Hello!';
-        return `
+    FloatingActions: (data) => `
         <div class="floating-actions">
             ${data.whatsapp ? `
-                <a href="https://wa.me/${data.whatsapp}?text=${encodeURIComponent(whatsappMsg)}" class="whatsapp-btn" target="_blank">
+                <a href="https://wa.me/${data.whatsapp}" class="whatsapp-btn" target="_blank">
                     <i data-lucide="message-circle"></i>
                 </a>
             ` : ''}
@@ -324,7 +302,7 @@ const Components = {
                 <i data-lucide="phone"></i>
             </a>
         </div>
-    `}
+    `
 };
 
 // Export for browser usage
