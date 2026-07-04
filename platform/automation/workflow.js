@@ -76,6 +76,11 @@ const WorkflowEngine = {
                 if (window.HAMIX_Deployment) {
                     const pkg = window.HAMIX_Deployment.prepareDeployment(customer, customer.generatedHtml);
                     customer.deploymentPackage = pkg;
+
+                    // Simulate GitHub Storage and Pages Deployment
+                    customer.githubRepo = `github.com/hamix-org/${customer.id}`;
+                    customer.liveWebsiteUrl = `https://hamix-org.github.io/${customer.id}/`;
+
                     await this.transitionTo(customer, this.STAGES.PUBLISHING);
                 }
                 break;

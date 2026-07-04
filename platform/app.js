@@ -248,6 +248,7 @@ function renderCustomers(container) {
                                     <div class="action-btns">
                                     <div class="action-btns">
                                         <button class="btn-icon" onclick="previewWebsiteById('${c.id}')" title="Preview"><i data-lucide="eye"></i></button>
+                                        <button class="btn-icon" onclick="openReviewModal('${c.id}')" title="Review & WhatsApp"><i data-lucide="message-square"></i></button>
                                         <button class="btn-icon" onclick="openOpsModal('${c.id}')" title="Website Operations"><i data-lucide="cog"></i></button>
                                         ${window.HAMIX_Admin.canPerform(userRole, 'rollback_website') ? `<button class="btn-icon" onclick="viewHistory('${c.id}')" title="Version History"><i data-lucide="history"></i></button>` : ''}
                                         ${window.HAMIX_Admin.canPerform(userRole, 'publish_website') ? `<button class="btn-icon" onclick="publishWebsite('${c.id}')" title="Publish/Update"><i data-lucide="upload-cloud"></i></button>` : ''}
@@ -318,18 +319,20 @@ function loadInitialData() {
         fetch('../customers/neela-security-force.json')
             .then(res => res.json())
             .then(data => {
-                // Add as a lead first
-                data.id = 'lead-' + Date.now();
-                data.status = 'Lead';
-                data.opportunityScore = window.HAMIX_AI.calculateOpportunityScore(data);
-                localStorage.setItem('hamix_leads', JSON.stringify([data]));
-                loadDashboardStats();
+                // Store original lead for reference
+                const leadData = {
+                    businessName: data.businessName,
+                    category: data.category,
+                    phone: data.phone,
+                    website: data.website,
+                    address: data.address,
+                    rating: data.rating,
+                    reviews: data.reviews,
+                    logo: data.logo
+                };
 
-                // If we are on the leads page, re-render
-                const activePage = document.querySelector('.sidebar-nav li.active span').innerText.toLowerCase();
-                if (activePage === 'dashboard' || activePage === 'leads') {
-                    renderPage(activePage);
-                }
+                // Use the new Import Engine logic
+                window.HAMIX_Operations.importFromGoogleMaps([leadData]);
             })
             .catch(err => console.error('Error loading sample data:', err));
     }
@@ -479,8 +482,112 @@ window.updatePreviewTheme = (themeId, index) => {
 };
 
 window.closePreview = () => {
-    const modal = document.querySelector('.preview-modal, .history-modal, .ops-modal');
+    const modal = document.querySelector('.preview-modal, .history-modal, .ops-modal, .review-modal');
     if (modal) modal.remove();
+};
+
+window.openReviewModal = (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (!customer) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'review-modal';
+    modal.innerHTML = `
+        <div class="preview-modal-header">
+            <h3>Approval Workflow: ${customer.businessName}</h3>
+            <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 24px; max-width: 1000px; margin: 0 auto;">
+            <div class="review-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+                <div class="review-left">
+                    <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px;">
+                        <h4>Business Overview</h4>
+                        <div style="margin-top: 12px; font-size: 14px;">
+                            <p><strong>Category:</strong> ${customer.aiContent?.classification || customer.category}</p>
+                            <p><strong>Opportunity Score:</strong> <span class="badge badge-new">${customer.opportunityScore}%</span></p>
+                            <p><strong>Live Website:</strong> <a href="${customer.liveWebsiteUrl}" target="_blank" style="color: var(--primary-color)">${customer.liveWebsiteUrl || 'Not Published'}</a></p>
+                        </div>
+                    </div>
+
+                    <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h4>Website Preview</h4>
+                        <div style="aspect-ratio: 16/9; background: #f1f5f9; border-radius: 8px; margin-top: 12px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                             <iframe srcdoc="${customer.generatedHtml?.replace(/"/g, '&quot;')}" style="width: 200%; height: 200%; transform: scale(0.5); transform-origin: top left; border: none;"></iframe>
+                             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer;" onclick="previewWebsiteById('${customer.id}')"></div>
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 8px;">Click to view full screen preview</p>
+                    </div>
+                </div>
+
+                <div class="review-right">
+                    <div class="card" style="padding: 20px; background: white; border: 1px solid var(--border-color); border-radius: 12px; height: 100%;">
+                        <h4>WhatsApp Outreach</h4>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Review and personalize the message before sending.</p>
+
+                        <div class="form-group">
+                            <label>Target Phone</label>
+                            <input type="text" value="${customer.phone || ''}" id="reviewPhone">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Message Script</label>
+                            <textarea id="reviewMessage" rows="10" style="font-family: inherit; resize: none;">${customer.aiContent?.outreach?.whatsapp || ''}</textarea>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
+                            <button class="btn btn-primary" style="justify-content: center; padding: 12px;" onclick="approveAndSend('${customer.id}')">
+                                <i data-lucide="message-circle"></i> Approve & Send WhatsApp
+                            </button>
+                            <p style="font-size: 11px; color: var(--text-muted); text-align: center;">Clicking 'Approve & Send' will open WhatsApp Web/App.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    if (window.lucide) lucide.createIcons();
+};
+
+window.approveAndSend = async (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    const phone = document.getElementById('reviewPhone').value;
+    const message = document.getElementById('reviewMessage').value;
+
+    if (!customer || !phone || !message) return;
+
+    // 1. Update Record with Approval
+    const timestamp = new Date().toISOString();
+    customer.whatsappApproval = {
+        approvedAt: timestamp,
+        phone: phone,
+        message: message,
+        status: 'Sent'
+    };
+
+    // Add to activity history
+    if (!customer.history) customer.history = [];
+    customer.history.push({
+        stage: 'WhatsApp Approved',
+        timestamp: timestamp,
+        detail: 'User approved outreach message'
+    });
+
+    customer.status = 'Contacted';
+    window.HAMIX_Operations.saveCustomer(customer);
+
+    // 2. Log Activity
+    if (window.HAMIX_Admin) {
+        window.HAMIX_Admin.logActivity('Admin User', 'Approved outreach & initiated WhatsApp', customer.businessName);
+    }
+
+    // 3. Open WhatsApp Deep Link
+    const waUrl = `https://wa.me/${phone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+
+    // 4. Cleanup & Feedback
+    closePreview();
+    renderPage('customers');
 };
 
 window.openOpsModal = (id) => {

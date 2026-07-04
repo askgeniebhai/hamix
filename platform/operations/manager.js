@@ -149,6 +149,68 @@ const OperationsManager = {
     },
 
     /**
+     * Imports businesses from Google Maps data.
+     * @param {Array} businessList - Array of raw business records.
+     */
+    async importFromGoogleMaps(businessList) {
+        console.log(`Operations: Importing ${businessList.length} businesses from Google Maps...`);
+        const leads = JSON.parse(localStorage.getItem('hamix_leads') || '[]');
+        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+
+        let importedCount = 0;
+        let duplicateCount = 0;
+
+        for (const raw of businessList) {
+            // 1. Validate & De-duplicate
+            const isDuplicate = leads.some(l => l.businessName === raw.businessName) ||
+                               customers.some(c => c.businessName === raw.businessName);
+
+            if (isDuplicate) {
+                duplicateCount++;
+                continue;
+            }
+
+            // 2. Create Lead Record with original data preserved
+            const lead = {
+                id: `lead_gmaps_${Date.now()}_${importedCount}`,
+                businessName: raw.businessName,
+                category: raw.category,
+                phone: raw.phone,
+                website: raw.website,
+                address: raw.address,
+                rating: raw.rating,
+                reviews: raw.reviews,
+                status: 'Lead',
+                source: 'Google Maps Import',
+                originalData: raw, // Permanent record of original import
+                createdAt: new Date().toISOString()
+            };
+
+            leads.push(lead);
+            importedCount++;
+
+            // 3. Immediate AI Processing Pipeline (Automatic)
+            // We'll process them in the background so the UI doesn't lock
+            setTimeout(() => {
+                const leadIndex = leads.findIndex(l => l.id === lead.id);
+                if (window.HAMIX_Workflow && leadIndex !== -1) {
+                    // Start conversion automatically
+                    window.convertLead(leadIndex);
+                }
+            }, 500);
+        }
+
+        localStorage.setItem('hamix_leads', JSON.stringify(leads));
+
+        if (window.HAMIX_Admin) {
+            window.HAMIX_Admin.logActivity('System', `Imported ${importedCount} leads from Google Maps (${duplicateCount} duplicates skipped)`, 'Google Maps Engine');
+        }
+
+        this.notifyUI();
+        return { imported: importedCount, duplicates: duplicateCount };
+    },
+
+    /**
      * Imports a website from a data package.
      */
     async importWebsite(dataPackage) {

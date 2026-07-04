@@ -11,10 +11,16 @@ const AIEngine = {
     async processCustomer(customer) {
         console.log(`AI: Processing ${customer.businessName}...`);
 
+        // 1. Clean and Normalize Data
+        customer.cleanedData = this.modules.normalize(customer);
+
+        // 2. Enrich Information
+        customer.enrichedData = this.modules.enrich(customer);
+
         // Ensure aiContent object exists
         if (!customer.aiContent) customer.aiContent = {};
 
-        // Run modules
+        // 3. Content Generation Modules
         customer.aiContent.classification = this.modules.classify(customer);
         customer.aiContent.summary = this.modules.summarize(customer);
         customer.aiContent.seo = this.modules.generateSEO(customer);
@@ -22,13 +28,50 @@ const AIEngine = {
         customer.aiContent.outreach = this.modules.generateOutreach(customer);
         customer.aiContent.faq = this.modules.generateFAQ(customer);
 
-        // Business Logic: Opportunity Score
+        // 4. Generate Homepage JSON (Dynamic Structure for the engine)
+        customer.homepageJson = this.modules.generateHomepageJson(customer);
+
+        // 5. Business Logic: Opportunity Score
         customer.opportunityScore = this.calculateOpportunityScore(customer);
 
         return customer;
     },
 
     modules: {
+        normalize: (data) => {
+            // Data Cleaning & Normalization
+            return {
+                businessName: data.businessName.trim(),
+                phone: data.phone ? data.phone.replace(/[^\d+]/g, '') : '',
+                website: data.website ? data.website.toLowerCase().trim() : '',
+                category: data.category ? data.category.split(',')[0].trim() : 'Local Business'
+            };
+        },
+
+        enrich: (data) => {
+            // Mock Enrichment (e.g., detecting price range, hours, neighborhood)
+            return {
+                priceRange: data.rating > 4.5 ? 'Premium' : 'Standard',
+                sentiment: 'Positive',
+                marketPosition: data.reviews > 100 ? 'Market Leader' : 'Established'
+            };
+        },
+
+        generateHomepageJson: (data) => {
+            // Full Website configuration mapping
+            return {
+                branding: {
+                    logo: data.logo || '',
+                    primaryColor: '#4f46e5'
+                },
+                sections: ['hero', 'about', 'services', 'gallery', 'faq', 'contact'],
+                meta: {
+                    title: `${data.businessName} - Official Website`,
+                    description: data.businessDescription || ''
+                }
+            };
+        },
+
         classify: (data) => {
             // Mock Classification
             const categories = ['Security', 'Technology', 'Healthcare', 'Retail', 'Professional Services'];
