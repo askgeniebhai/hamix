@@ -19,6 +19,7 @@
 
     <!-- Operations -->
     <script src="operations/manager.js"></script>
+    <script src="operations/admin.js"></script>
 
     <!-- Automation & AI -->
     <script src="ai/engine.js"></script>
@@ -44,6 +45,7 @@
                     <li><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
                     <li><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
                     <li><a href="#"><i data-lucide="activity"></i> <span>Operations</span></a></li>
+                    <li><a href="#"><i data-lucide="shield-check"></i> <span>Users</span></a></li>
                     <li><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
                     <li><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
                 </ul>
@@ -68,7 +70,8 @@
                 <div class="header-right">
                     <div class="search-bar">
                         <i data-lucide="search"></i>
-                        <input type="text" placeholder="Search...">
+                        <input type="text" placeholder="Global search (leads, customers, users...)" id="globalSearchInput" oninput="handleGlobalSearch(this.value)">
+                        <div class="search-results-overlay" id="searchResults"></div>
                     </div>
                     <button class="btn btn-primary"><i data-lucide="plus"></i> New Lead</button>
                 </div>

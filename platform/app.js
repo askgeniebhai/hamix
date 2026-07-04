@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     loadDashboardStats();
 
+    // Initial icon render
+    if (window.lucide) lucide.createIcons();
+
     // Check if we have default customer data
     loadInitialData();
 
@@ -58,6 +61,15 @@ function renderPage(page) {
             break;
         case 'operations':
             renderOperations(contentBody);
+            break;
+        case 'github deployments':
+            renderGithub(contentBody);
+            break;
+        case 'users':
+            renderUsers(contentBody);
+            break;
+        case 'settings':
+            renderSettings(contentBody);
             break;
         default:
             contentBody.innerHTML = `<div class="empty-state"><h2>${page}</h2><p>This module is coming soon.</p></div>`;
@@ -626,3 +638,303 @@ window.addEventListener('hamix:operations-update', (e) => {
         if (logsContainer) logsContainer.innerHTML = renderLogs();
     }
 });
+
+/**
+ * Admin & Settings Rendering
+ */
+
+function renderUsers(container) {
+    const users = window.HAMIX_Admin.users;
+
+    container.innerHTML = `
+        <div class="welcome-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2>Platform Users</h2>
+                    <p>Manage access and roles for your platform staff.</p>
+                </div>
+                <button class="btn btn-primary" onclick="alert('Invite user feature coming soon.')"><i data-lucide="user-plus"></i> Invite User</button>
+            </div>
+        </div>
+
+        <div class="user-card-grid">
+            ${users.map(u => `
+                <div class="user-card">
+                    <div class="user-card-avatar" style="background: ${u.status === 'Inactive' ? '#94a3b8' : 'var(--primary-color)'}">${u.avatar}</div>
+                    <div class="user-card-info">
+                        <h4>${u.name}</h4>
+                        <p>${u.email}</p>
+                        <span class="user-role-badge">${u.role}</span>
+                        <span style="font-size: 11px; margin-left: 8px; color: ${u.status === 'Active' ? '#10b981' : '#f43f5e'}">${u.status}</span>
+                    </div>
+                    <button class="btn-icon" style="position: absolute; top: 12px; right: 12px;" onclick="window.HAMIX_Admin.deleteUser('${u.id}')"><i data-lucide="trash-2"></i></button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+}
+
+function renderSettings(container) {
+    const config = window.HAMIX_Admin.loadSettings();
+
+    container.innerHTML = `
+        <div class="welcome-section">
+            <h2>Platform Settings</h2>
+            <p>Configure workspace defaults, AI parameters, and deployment targets.</p>
+        </div>
+
+        <div class="settings-tabs">
+            <div class="settings-tab active" onclick="switchSettingsTab('workspace')">Workspace</div>
+            <div class="settings-tab" onclick="switchSettingsTab('ai')">AI Engine</div>
+            <div class="settings-tab" onclick="switchSettingsTab('deployment')">Deployment</div>
+        </div>
+
+        <div id="settingsPanel" class="settings-panel">
+            ${renderWorkspaceSettings(config)}
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+}
+
+function renderWorkspaceSettings(config) {
+    return `
+        <div class="form-group">
+            <label>Workspace Name</label>
+            <input type="text" value="${config.workspace.name}" onchange="updateConfig('workspace', 'name', this.value)">
+        </div>
+        <div class="form-group">
+            <label>Default Branding Theme</label>
+            <select onchange="updateConfig('workspace', 'branding', this.value)">
+                <option value="Indigo" ${config.workspace.branding === 'Indigo' ? 'selected' : ''}>Indigo (SaaS Default)</option>
+                <option value="Emerald" ${config.workspace.branding === 'Emerald' ? 'selected' : ''}>Emerald (Growth)</option>
+                <option value="Slate" ${config.workspace.branding === 'Slate' ? 'selected' : ''}>Slate (Corporate)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Primary Deployment Region</label>
+            <select onchange="updateConfig('workspace', 'deploymentRegion', this.value)">
+                <option value="EU-West-1">EU-West-1 (Dublin)</option>
+                <option value="US-East-1">US-East-1 (N. Virginia)</option>
+                <option value="AP-Southeast-1">AP-Southeast-1 (Singapore)</option>
+            </select>
+        </div>
+        <button class="btn btn-primary" onclick="alert('Settings saved successfully!')">Save Changes</button>
+    `;
+}
+
+window.switchSettingsTab = (tab) => {
+    const tabs = document.querySelectorAll('.settings-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+
+    const panel = document.getElementById('settingsPanel');
+    const config = window.HAMIX_Admin.config;
+
+    if (tab === 'workspace') {
+        panel.innerHTML = renderWorkspaceSettings(config);
+    } else if (tab === 'ai') {
+        panel.innerHTML = `
+            <div class="form-group">
+                <label>AI Model</label>
+                <select onchange="updateConfig('ai', 'engine', this.value)">
+                    <option value="GPT-4o">GPT-4o (Recommended)</option>
+                    <option value="GPT-4-Turbo">GPT-4 Turbo</option>
+                    <option value="Claude-3.5-Sonnet">Claude 3.5 Sonnet</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Creativity (Temperature)</label>
+                <input type="range" min="0" max="1" step="0.1" value="${config.ai.temperature}" onchange="updateConfig('ai', 'temperature', this.value)">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted);">
+                    <span>Precise</span>
+                    <span>Creative</span>
+                </div>
+            </div>
+        `;
+    } else if (tab === 'deployment') {
+        panel.innerHTML = `
+            <div class="form-group">
+                <label>Deployment Provider</label>
+                <input type="text" value="${config.deployment.provider}" disabled>
+            </div>
+            <div class="form-group">
+                <label>GitHub Repository Prefix</label>
+                <input type="text" value="${config.deployment.repoPrefix}" onchange="updateConfig('deployment', 'repoPrefix', this.value)">
+            </div>
+        `;
+    }
+};
+
+window.updateConfig = (section, key, value) => {
+    window.HAMIX_Admin.config[section][key] = value;
+    window.HAMIX_Admin.saveSettings(window.HAMIX_Admin.config);
+};
+
+window.addEventListener('hamix:admin-update', () => {
+    const activePage = document.querySelector('.sidebar-nav li.active span').innerText.toLowerCase();
+    if (activePage === 'users') renderUsers(document.querySelector('.content-body'));
+});
+
+/**
+ * Global Search UI Logic
+ */
+
+window.handleGlobalSearch = (query) => {
+    const results = window.HAMIX_Admin.globalSearch(query);
+    const overlay = document.getElementById('searchResults');
+
+    if (!results || query.length < 2) {
+        overlay.classList.remove('active');
+        return;
+    }
+
+    let html = '';
+
+    if (results.customers.length > 0) {
+        html += '<div class="search-section-header">Customers</div>';
+        results.customers.forEach(c => {
+            html += `
+                <div class="search-item" onclick="navigateTo('customers', '${c.id}')">
+                    <i data-lucide="user-check"></i>
+                    <div class="search-item-info">
+                        <strong>${c.businessName}</strong>
+                        <span>${c.status}</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (results.leads.length > 0) {
+        html += '<div class="search-section-header">Leads</div>';
+        results.leads.forEach(l => {
+            html += `
+                <div class="search-item" onclick="navigateTo('leads')">
+                    <i data-lucide="users"></i>
+                    <div class="search-item-info">
+                        <strong>${l.businessName}</strong>
+                        <span>${l.category}</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (results.users.length > 0) {
+        html += '<div class="search-section-header">Staff</div>';
+        results.users.forEach(u => {
+            html += `
+                <div class="search-item" onclick="navigateTo('users')">
+                    <i data-lucide="shield-check"></i>
+                    <div class="search-item-info">
+                        <strong>${u.name}</strong>
+                        <span>${u.role}</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (html === '') {
+        html = '<div style="padding: 16px; font-size: 13px; color: var(--text-muted);">No results found.</div>';
+    }
+
+    overlay.innerHTML = html;
+    overlay.classList.add('active');
+    if (window.lucide) lucide.createIcons();
+};
+
+window.navigateTo = (page, id = null) => {
+    document.getElementById('searchResults').classList.remove('active');
+    document.getElementById('globalSearchInput').value = '';
+
+    // Update sidebar active state
+    const navLinks = document.querySelectorAll('.sidebar-nav a');
+    navLinks.forEach(link => {
+        const span = link.querySelector('span');
+        if (span && span.innerText.toLowerCase() === page) {
+            document.querySelectorAll('.sidebar-nav li').forEach(li => li.classList.remove('active'));
+            link.parentElement.classList.add('active');
+        }
+    });
+
+    renderPage(page);
+};
+
+// Close search overlay on click outside
+document.addEventListener('click', (e) => {
+    const searchBar = document.querySelector('.search-bar');
+    if (!searchBar.contains(e.target)) {
+        document.getElementById('searchResults').classList.remove('active');
+    }
+});
+
+/**
+ * GitHub Deployments Rendering
+ */
+
+function renderGithub(container) {
+    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const deployments = customers.filter(c => c.isPublished);
+
+    container.innerHTML = `
+        <div class="welcome-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2>GitHub Deployments</h2>
+                    <p>Track the synchronization state of customer repositories.</p>
+                </div>
+                <button class="btn btn-primary" onclick="alert('Connect GitHub Organization feature coming soon.')"><i data-lucide="github"></i> Connect Org</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid" style="margin-bottom: 32px;">
+            <div class="stat-card">
+                <div class="stat-icon"><i data-lucide="git-branch"></i></div>
+                <div class="stat-data">
+                    <h3>Active Repos</h3>
+                    <p class="stat-value">${deployments.length}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="color: #10b981"><i data-lucide="server"></i></div>
+                <div class="stat-data">
+                    <h3>Environment Health</h3>
+                    <p class="stat-value">Healthy</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Repository</th>
+                        <th>Environment</th>
+                        <th>Last Commit</th>
+                        <th>Build Status</th>
+                        <th>URL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${deployments.length === 0 ? `
+                        <tr><td colspan="5" style="text-align: center; padding: 32px; color: var(--text-muted);">No active GitHub deployments found.</td></tr>
+                    ` : deployments.map(d => `
+                        <tr>
+                            <td>
+                                <strong>hamix-client-${d.id.split('-')[1] || d.id}</strong><br>
+                                <span style="font-size: 11px; color: var(--text-muted)">main</span>
+                            </td>
+                            <td>Production</td>
+                            <td>${new Date(d.lastPublished).toLocaleTimeString()}</td>
+                            <td><span class="badge badge-published">Success</span></td>
+                            <td><a href="#" style="color: var(--primary-color); font-size: 12px;"><i data-lucide="external-link" style="width: 12px;"></i> View Site</a></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+}
