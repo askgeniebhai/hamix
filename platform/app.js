@@ -56,6 +56,9 @@ function renderPage(page) {
         case 'templates':
             renderTemplates(contentBody);
             break;
+        case 'operations':
+            renderOperations(contentBody);
+            break;
         default:
             contentBody.innerHTML = `<div class="empty-state"><h2>${page}</h2><p>This module is coming soon.</p></div>`;
     }
@@ -154,56 +157,86 @@ function renderLeads(container) {
 }
 
 function renderCustomers(container) {
-    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    let customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
 
-    if (customers.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i data-lucide="users" style="width: 64px; height: 64px; color: var(--text-muted); margin-bottom: 24px;"></i>
-                <h2>No customers found</h2>
-                <p>Convert leads to customers to start building websites.</p>
-            </div>
-        `;
-        return;
+    // Apply Filters (Simulated - would be triggered by UI events)
+    const urlParams = new URLSearchParams(window.location.search);
+    const filterStatus = urlParams.get('status');
+    const searchQuery = urlParams.get('q');
+
+    if (filterStatus && filterStatus !== 'All') {
+        customers = customers.filter(c => c.status === filterStatus);
+    }
+    if (searchQuery) {
+        customers = customers.filter(c => c.businessName.toLowerCase().includes(searchQuery.toLowerCase()));
     }
 
     container.innerHTML = `
-        <div class="data-table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Customer Name</th>
-                        <th>Category</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${customers.map((c, index) => {
-                        const statusClass = (c.status || 'Published').toLowerCase().replace(/\s+/g, '-');
-                        return `
-                        <tr>
-                            <td>
-                                <div class="customer-info-cell">
-                                    <strong>${c.businessName}</strong>
-                                    <span>${c.email}</span>
-                                </div>
-                            </td>
-                            <td>${c.category || 'Security'}</td>
-                            <td><span class="badge badge-${statusClass}">${c.status || 'Published'}</span></td>
-                            <td>
-                                <div class="action-btns">
-                                    <button class="btn-icon" onclick="previewWebsite(${index})" title="Preview Website"><i data-lucide="eye"></i></button>
-                                    <button class="btn-icon" onclick="downloadWebsite(${index})" title="Download Package"><i data-lucide="download"></i></button>
-                                    <button class="btn-icon" onclick="reprocessCustomer(${index})" title="Reprocess AI"><i data-lucide="refresh-cw"></i></button>
-                                </div>
-                            </td>
-                        </tr>
-                    `}).join('')}
-                </tbody>
-            </table>
+        <div class="filters-bar">
+            <div class="filter-group">
+                <i data-lucide="search" style="width: 16px;"></i>
+                <input type="text" placeholder="Search customers..." id="custSearch" onkeyup="handleCustomerSearch(event)" value="${searchQuery || ''}">
+            </div>
+            <div class="filter-group">
+                <span>Status:</span>
+                <select onchange="handleStatusFilter(this.value)">
+                    <option value="All" ${filterStatus === 'All' ? 'selected' : ''}>All</option>
+                    <option value="Ready for Publishing" ${filterStatus === 'Ready for Publishing' ? 'selected' : ''}>Ready</option>
+                    <option value="Published" ${filterStatus === 'Published' ? 'selected' : ''}>Published</option>
+                    <option value="Updated" ${filterStatus === 'Updated' ? 'selected' : ''}>Updated</option>
+                    <option value="Offline" ${filterStatus === 'Offline' ? 'selected' : ''}>Offline</option>
+                </select>
+            </div>
         </div>
+
+        ${customers.length === 0 ? `
+            <div class="empty-state">
+                <i data-lucide="users" style="width: 64px; height: 64px; color: var(--text-muted); margin-bottom: 24px;"></i>
+                <h2>No customers found</h2>
+                <p>Try adjusting your filters or search.</p>
+            </div>
+        ` : `
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Status</th>
+                            <th>Last Activity</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${customers.map((c, index) => {
+                            const statusClass = (c.status || 'Published').toLowerCase().replace(/\s+/g, '-');
+                            const lastActivity = c.updatedAt || c.lastPublished || 'N/A';
+                            return `
+                            <tr>
+                                <td>
+                                    <div class="customer-info-cell">
+                                        <strong>${c.businessName}</strong>
+                                        <span>${c.email}</span>
+                                    </div>
+                                </td>
+                                <td><span class="badge badge-${statusClass}">${c.status || 'Published'}</span></td>
+                                <td><span style="font-size: 12px; color: var(--text-muted)">${new Date(lastActivity).toLocaleDateString()}</span></td>
+                                <td>
+                                    <div class="action-btns">
+                                        <button class="btn-icon" onclick="previewWebsiteById('${c.id}')" title="Preview"><i data-lucide="eye"></i></button>
+                                        <button class="btn-icon" onclick="publishWebsite('${c.id}')" title="Publish/Update"><i data-lucide="upload-cloud"></i></button>
+                                        <button class="btn-icon" onclick="unpublishWebsite('${c.id}')" title="Take Offline"><i data-lucide="cloud-off"></i></button>
+                                        <button class="btn-icon" onclick="archiveWebsite('${c.id}')" title="Archive"><i data-lucide="archive"></i></button>
+                                        <button class="btn-icon" onclick="deleteCustomer('${c.id}')" title="Delete" style="color: #ef4444"><i data-lucide="trash-2"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `}).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `}
     `;
+    if (window.lucide) lucide.createIcons();
 }
 
 function renderTemplates(container) {
@@ -429,3 +462,167 @@ window.downloadWebsite = (index) => {
     const pkg = window.HAMIX_Deployment.prepareDeployment(customer, html, 'Indigo');
     window.HAMIX_Deployment.downloadPackage(pkg);
 };
+
+/**
+ * Operations Rendering & Logic
+ */
+
+function renderOperations(container) {
+    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const publishedToday = customers.filter(c => {
+        if (!c.lastPublished) return false;
+        const pubDate = new Date(c.lastPublished);
+        const today = new Date();
+        return pubDate.toDateString() === today.toDateString();
+    }).length;
+
+    const pending = customers.filter(c => c.status === 'Ready for Publishing').length;
+    const failures = window.HAMIX_Operations.deploymentQueue.filter(j => j.status === 'Error').length;
+
+    container.innerHTML = `
+        <div class="welcome-section">
+            <h2>Operations Centre</h2>
+            <p>Manage platform-wide deployments and website health.</p>
+        </div>
+
+        <div class="dashboard-grid" style="margin-bottom: 32px;">
+            <div class="stat-card">
+                <div class="stat-icon"><i data-lucide="globe"></i></div>
+                <div class="stat-data">
+                    <h3>Total Websites</h3>
+                    <p class="stat-value">${customers.length}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i data-lucide="check-circle"></i></div>
+                <div class="stat-data">
+                    <h3>Published Today</h3>
+                    <p class="stat-value">${publishedToday}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i data-lucide="clock"></i></div>
+                <div class="stat-data">
+                    <h3>Pending Publishing</h3>
+                    <p class="stat-value">${pending}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #fee2e2; color: #dc2626;"><i data-lucide="alert-circle"></i></div>
+                <div class="stat-data">
+                    <h3>Deployment Failures</h3>
+                    <p class="stat-value">${failures}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="ops-grid">
+            <div class="ops-card">
+                <h3><i data-lucide="loader"></i> Active Deployment Queue</h3>
+                <div class="queue-list" id="deploymentQueue">
+                    ${renderQueueList()}
+                </div>
+            </div>
+            <div class="ops-card">
+                <h3><i data-lucide="terminal"></i> Deployment Logs</h3>
+                <div class="log-container" id="deploymentLogs">
+                    ${renderLogs()}
+                </div>
+            </div>
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+}
+
+function renderQueueList() {
+    const queue = window.HAMIX_Operations.deploymentQueue;
+    if (queue.length === 0) return '<p style="color: var(--text-muted); font-size: 14px;">No active deployments.</p>';
+
+    return queue.slice(0, 5).map(job => `
+        <div class="queue-item">
+            <div class="queue-item-header">
+                <strong>${job.businessName}</strong>
+                <span class="badge badge-${job.status.toLowerCase()}">${job.status}</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" style="width: ${job.progress}%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: var(--text-muted);">
+                <span>${job.type}</span>
+                ${job.status === 'Error' ? `<a href="#" onclick="retryJob('${job.id}')" style="color: var(--primary-color)">Retry</a>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderLogs() {
+    const queue = window.HAMIX_Operations.deploymentQueue;
+    const allLogs = queue.flatMap(j => j.logs).reverse();
+    if (allLogs.length === 0) return '<div class="log-entry">Waiting for activity...</div>';
+    return allLogs.slice(0, 50).map(log => `<div class="log-entry">${log}</div>`).join('');
+}
+
+// UI Event Handlers
+window.handleStatusFilter = (status) => {
+    const url = new URL(window.location);
+    url.searchParams.set('status', status);
+    window.history.pushState({}, '', url);
+    renderPage('customers');
+};
+
+window.handleCustomerSearch = (e) => {
+    if (e.key === 'Enter' || e.type === 'blur' || e.target.value === '') {
+        const url = new URL(window.location);
+        url.searchParams.set('q', e.target.value);
+        window.history.pushState({}, '', url);
+        renderPage('customers');
+    }
+};
+
+window.publishWebsite = async (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (customer) {
+        await window.HAMIX_Operations.publishWebsite(customer);
+    }
+};
+
+window.unpublishWebsite = async (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (customer && confirm('Take this website offline?')) {
+        await window.HAMIX_Operations.unpublishWebsite(customer);
+    }
+};
+
+window.archiveWebsite = async (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (customer && confirm('Archive this customer?')) {
+        await window.HAMIX_Operations.archiveWebsite(customer);
+    }
+};
+
+window.deleteCustomer = async (id) => {
+    if (confirm('Permanently delete this customer and all data? This cannot be undone.')) {
+        await window.HAMIX_Operations.deleteCustomer(id);
+    }
+};
+
+window.retryJob = (id) => {
+    window.HAMIX_Operations.retryDeployment(id);
+};
+
+window.previewWebsiteById = (id) => {
+    const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+    const index = customers.findIndex(c => c.id === id);
+    if (index !== -1) window.previewWebsite(index);
+};
+
+// Listen for operations updates to refresh components
+window.addEventListener('hamix:operations-update', (e) => {
+    const activePage = document.querySelector('.sidebar-nav li.active span').innerText.toLowerCase();
+    if (activePage === 'operations') {
+        const queueContainer = document.getElementById('deploymentQueue');
+        const logsContainer = document.getElementById('deploymentLogs');
+        if (queueContainer) queueContainer.innerHTML = renderQueueList();
+        if (logsContainer) logsContainer.innerHTML = renderLogs();
+    }
+});

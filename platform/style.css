@@ -319,6 +319,27 @@ body {
     color: #475569;
 }
 
+.badge-updated {
+    background-color: #dcfce7;
+    color: #15803d;
+    border: 1px solid #b91c1c00;
+}
+
+.badge-offline {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+.badge-archived {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+.badge-error {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
 .action-btns {
     display: flex;
     gap: 8px;
@@ -559,4 +580,98 @@ body {
 .stat-value {
     font-size: 24px;
     font-weight: 700;
+}
+
+/* Operations / Dashboard Extensions */
+.ops-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.ops-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 24px;
+}
+
+.ops-card h3 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Deployment Queue List */
+.queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.queue-item {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #f8fafc;
+}
+
+.queue-item-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.progress-bar-container {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+/* History / Logs */
+.log-container {
+    height: 200px;
+    overflow-y: auto;
+    background: #0f172a;
+    color: #94a3b8;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 12px;
+    border-radius: 6px;
+}
+
+.log-entry {
+    margin-bottom: 4px;
+}
+
+/* Customer Filters */
+.filters-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.filter-group select, .filter-group input {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    outline: none;
 }

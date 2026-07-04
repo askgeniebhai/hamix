@@ -10,7 +10,11 @@ const WorkflowEngine = {
         AI_PROCESSING: 'AI Processing',
         GENERATION: 'Website Generation',
         DEPLOYMENT: 'Deployment Package',
-        PUBLISHING: 'Ready for Publishing'
+        PUBLISHING: 'Ready for Publishing',
+        PUBLISHED: 'Published',
+        UPDATED: 'Updated',
+        OFFLINE: 'Offline',
+        ARCHIVED: 'Archived'
     },
 
     /**
