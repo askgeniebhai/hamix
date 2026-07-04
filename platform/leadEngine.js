@@ -8,13 +8,18 @@ const LeadEngine = (() => {
     const STATUS = {
         NEW: 'New',
         VALIDATED: 'Validated',
-        READY: 'Ready for AI'
+        CONTACTED: 'Contacted',
+        FOLLOWUP: 'Follow-up',
+        APPROVED: 'Approved',
+        PUBLISHED: 'Published',
+        COMPLETED: 'Completed'
     };
 
     /**
      * Create a new Lead object with default values
      */
     const createLead = (data = {}) => {
+        const now = new Date().toISOString();
         return {
             id: data.id || 'lead_' + Math.random().toString(36).substr(2, 9),
             businessName: data.businessName || '',
@@ -30,11 +35,33 @@ const LeadEngine = (() => {
             longitude: data.longitude || null,
             mapsUrl: data.mapsUrl || '',
             industry: data.industry || '',
-            notes: data.notes || '',
+            assignedTo: data.assignedTo || 'Unassigned',
             status: data.status || STATUS.NEW,
-            createdAt: data.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            homepageUrl: data.homepageUrl || '',
+            notes: data.notes || '',
+            createdAt: data.createdAt || now,
+            updatedAt: now,
             validationErrors: []
+        };
+    };
+
+    /**
+     * Create a new Customer object from a Lead
+     */
+    const createCustomer = (lead) => {
+        const now = new Date().toISOString();
+        return {
+            id: 'cust_' + lead.id.split('_')[1],
+            leadId: lead.id,
+            businessName: lead.businessName,
+            category: lead.category,
+            email: lead.email,
+            phone: lead.phone,
+            website: lead.website,
+            homepageUrl: lead.homepageUrl,
+            status: 'Active',
+            joinedAt: now,
+            updatedAt: now
         };
     };
 
@@ -57,7 +84,7 @@ const LeadEngine = (() => {
             const samePhone = lead.phone && existing.phone === lead.phone;
             const sameWebsite = lead.website && existing.website === lead.website;
 
-            return sameName && (samePhone || sameWebsite || !lead.phone && !lead.website);
+            return sameName && (samePhone || sameWebsite || (!lead.phone && !lead.website));
         });
 
         if (isDuplicate) {
@@ -72,16 +99,9 @@ const LeadEngine = (() => {
 
         lead.validationErrors = errors;
 
-        // Auto-update status based on validation
-        if (errors.length === 0) {
+        // Auto-update status to Validated if it was New and now has no errors
+        if (lead.status === STATUS.NEW && errors.length === 0) {
             lead.status = STATUS.VALIDATED;
-
-            // Check if "Ready for AI" (needs enough data)
-            if (lead.businessName && (lead.website || lead.phone) && lead.category) {
-                lead.status = STATUS.READY;
-            }
-        } else {
-            lead.status = STATUS.NEW;
         }
 
         return lead;
@@ -89,27 +109,24 @@ const LeadEngine = (() => {
 
     /**
      * Parse Google Maps raw data
-     * (Simulated parser for business info)
      */
     const parseGMapsData = (rawData) => {
-        // This is a simple parser that looks for common patterns in G-Maps copy-paste
-        // Real implementation would be more robust
         const lines = rawData.split('\n').map(l => l.trim()).filter(l => l !== '');
         const leads = [];
 
-        // Very basic heuristic: if first line looks like a business name
-        // In a real app, this would be a complex regex or NLP-based parser
         if (lines.length > 0) {
             const lead = createLead({
                 businessName: lines[0],
                 notes: 'Imported from Google Maps'
             });
 
-            // Try to find phone numbers, ratings, etc.
             lines.forEach(line => {
                 if (line.includes('stars')) lead.rating = parseFloat(line);
                 if (/\d{3}-\d{3}-\d{4}/.test(line)) lead.phone = line;
-                if (line.startsWith('http')) lead.website = line;
+                if (line.startsWith('http')) {
+                    if (line.includes('google.com/maps')) lead.mapsUrl = line;
+                    else lead.website = line;
+                }
                 if (line.includes(',') && /\d{5}/.test(line)) lead.address = line;
             });
 
@@ -122,6 +139,7 @@ const LeadEngine = (() => {
     return {
         STATUS,
         createLead,
+        createCustomer,
         validateLead,
         parseGMapsData
     };

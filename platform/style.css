@@ -198,6 +198,44 @@ body {
     gap: 12px;
 }
 
+.workspace-actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.search-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input i {
+    position: absolute;
+    left: 10px;
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+}
+
+.search-input input {
+    padding: 6px 12px 6px 34px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-size: 13px;
+    outline: none;
+    width: 200px;
+}
+
+select {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-size: 13px;
+    outline: none;
+    background: white;
+}
+
 .btn-secondary {
     background-color: var(--white);
     color: var(--text-main);
@@ -296,6 +334,25 @@ body {
 .badge-new { background: #eff6ff; color: #2563eb; }
 .badge-validated { background: #ecfdf5; color: #059669; }
 .badge-ready-for-ai { background: #fef2f2; color: #dc2626; }
+.badge-contacted { background: #fff7ed; color: #ea580c; }
+.badge-follow-up { background: #fdf4ff; color: #9333ea; }
+.badge-approved { background: #f0fdf4; color: #16a34a; }
+.badge-published { background: #ecfeff; color: #0891b2; }
+.badge-completed { background: #f8fafc; color: #475569; }
+
+.action-group {
+    display: flex;
+    gap: 8px;
+}
+
+.link-text {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.link-text:hover {
+    text-decoration: underline;
+}
 
 /* Modals */
 .modal {
@@ -582,6 +639,40 @@ form {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 24px;
+}
+
+.dashboard-section h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.pipeline-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+}
+
+.pipeline-card {
+    background: white;
+    padding: 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.pipeline-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.pipeline-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary-color);
 }
 
 .stat-card {

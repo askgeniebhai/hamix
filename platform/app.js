@@ -7,7 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const state = {
         currentPage: 'dashboard',
         leads: JSON.parse(localStorage.getItem('hamix_leads')) || [],
-        customers: [],
+        customers: JSON.parse(localStorage.getItem('hamix_customers')) || [],
+        filters: {
+            leads: { search: '', status: 'all', sort: 'newest' },
+            customers: { search: '', sort: 'newest' }
+        }
     };
 
     // UI Elements
@@ -95,6 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
     leadForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
+        const leadId = leadForm.dataset.editId;
+
         const formData = {
             businessName: document.getElementById('lead-businessName').value,
             category: document.getElementById('lead-category').value,
@@ -106,19 +112,40 @@ document.addEventListener('DOMContentLoaded', () => {
             rating: parseFloat(document.getElementById('lead-rating').value) || 0,
             reviews: parseInt(document.getElementById('lead-reviews').value) || 0,
             industry: document.getElementById('lead-industry').value,
-            notes: document.getElementById('lead-notes').value
+            notes: document.getElementById('lead-notes').value,
+            assignedTo: document.getElementById('lead-assignedTo').value,
+            status: document.getElementById('lead-status').value
         };
 
-        const newLead = LeadEngine.createLead(formData);
-        LeadEngine.validateLead(newLead, state.leads);
+        if (leadId) {
+            // Update Existing
+            const index = state.leads.findIndex(l => l.id === leadId);
+            if (index !== -1) {
+                const oldStatus = state.leads[index].status;
+                state.leads[index] = { ...state.leads[index], ...formData, updatedAt: new Date().toISOString() };
+                LeadEngine.validateLead(state.leads[index], state.leads);
 
-        state.leads.push(newLead);
+                // Handle conversion to customer if status becomes Approved
+                if (oldStatus !== 'Approved' && formData.status === 'Approved') {
+                    const customer = LeadEngine.createCustomer(state.leads[index]);
+                    state.customers.push(customer);
+                    saveCustomers();
+                }
+            }
+        } else {
+            // Create New
+            const newLead = LeadEngine.createLead(formData);
+            LeadEngine.validateLead(newLead, state.leads);
+            state.leads.push(newLead);
+        }
+
         saveLeads();
-
         closeModal('lead');
         leadForm.reset();
+        delete leadForm.dataset.editId;
 
         if (state.currentPage === 'leads') renderLeads();
+        if (state.currentPage === 'customers') renderCustomers();
         updateDashboard();
     });
 
@@ -127,28 +154,67 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('hamix_leads', JSON.stringify(state.leads));
     };
 
+    const saveCustomers = () => {
+        localStorage.setItem('hamix_customers', JSON.stringify(state.customers));
+    };
+
     // Helper: Update Dashboard Stats
     const updateDashboard = () => {
         const totalLeads = state.leads.length;
         const totalCustomers = state.customers.length;
+        const approvedLeads = state.leads.filter(l => l.status === 'Approved').length;
+        const pendingLeads = state.leads.filter(l => ['New', 'Validated', 'Follow-up'].includes(l.status)).length;
 
         document.getElementById('stat-total-leads').textContent = totalLeads;
         document.getElementById('stat-total-customers').textContent = totalCustomers;
+        document.getElementById('stat-approved-leads').textContent = approvedLeads;
+        document.getElementById('stat-pending-leads').textContent = pendingLeads;
+
+        // Render Pipeline Breakdown
+        const pipelineContainer = document.getElementById('pipeline-stats');
+        const statuses = Object.values(LeadEngine.STATUS);
+
+        pipelineContainer.innerHTML = statuses.map(status => {
+            const count = state.leads.filter(l => l.status === status).length;
+            return `
+                <div class="pipeline-card">
+                    <span class="pipeline-label">${status}</span>
+                    <span class="pipeline-value">${count}</span>
+                </div>
+            `;
+        }).join('');
     };
 
     // Helper: Render Leads Table
-    const renderLeads = (filter = 'all') => {
+    const renderLeads = () => {
         const listContainer = document.getElementById('leads-list');
+        const filter = state.filters.leads;
+
         let filteredLeads = state.leads;
 
-        if (filter !== 'all') {
-            filteredLeads = state.leads.filter(l => {
-                if (filter === 'new') return l.status === LeadEngine.STATUS.NEW;
-                if (filter === 'validated') return l.status === LeadEngine.STATUS.VALIDATED;
-                if (filter === 'ready') return l.status === LeadEngine.STATUS.READY;
-                return true;
-            });
+        // Apply Status Filter
+        if (filter.status !== 'all') {
+            filteredLeads = filteredLeads.filter(l => l.status === filter.status);
         }
+
+        // Apply Search
+        if (filter.search) {
+            const query = filter.search.toLowerCase();
+            filteredLeads = filteredLeads.filter(l =>
+                l.businessName.toLowerCase().includes(query) ||
+                l.category.toLowerCase().includes(query) ||
+                l.email.toLowerCase().includes(query)
+            );
+        }
+
+        // Apply Sort
+        filteredLeads.sort((a, b) => {
+            if (filter.sort === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
+            if (filter.sort === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
+            if (filter.sort === 'rating') return b.rating - a.rating;
+            if (filter.sort === 'name') return a.businessName.localeCompare(b.businessName);
+            return 0;
+        });
 
         if (filteredLeads.length === 0) {
             listContainer.innerHTML = `<tr><td colspan="6" class="empty-state">No leads found.</td></tr>`;
@@ -156,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         listContainer.innerHTML = filteredLeads.map(lead => `
-            <tr>
+            <tr class="clickable-row" data-id="${lead.id}">
                 <td><strong>${lead.businessName}</strong></td>
                 <td>${lead.category || '-'}</td>
                 <td>
@@ -168,23 +234,99 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${lead.rating ? `${lead.rating} ★ (${lead.reviews})` : '-'}</td>
                 <td><span class="badge badge-${lead.status.toLowerCase().replace(/ /g, '-')}">${lead.status}</span></td>
                 <td>
-                    <button class="btn-icon delete-lead" data-id="${lead.id}"><i data-lucide="trash-2"></i></button>
+                    <div class="action-group">
+                        <button class="btn-icon edit-lead" data-id="${lead.id}"><i data-lucide="edit-2"></i></button>
+                        <button class="btn-icon delete-lead" data-id="${lead.id}"><i data-lucide="trash-2"></i></button>
+                    </div>
                 </td>
             </tr>
         `).join('');
 
         if (window.lucide) lucide.createIcons();
 
-        // Add Delete Handlers
+        // Add Handlers
         document.querySelectorAll('.delete-lead').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const id = btn.dataset.id;
                 state.leads = state.leads.filter(l => l.id !== id);
                 saveLeads();
-                renderLeads(filter);
+                renderLeads();
                 updateDashboard();
             });
         });
+
+        document.querySelectorAll('.edit-lead').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openLeadEditor(btn.dataset.id);
+            });
+        });
+    };
+
+    const openLeadEditor = (id) => {
+        const lead = state.leads.find(l => l.id === id);
+        if (!lead) return;
+
+        document.getElementById('modal-lead-title').textContent = 'Edit Lead';
+        leadForm.dataset.editId = id;
+
+        // Fill form
+        document.getElementById('lead-businessName').value = lead.businessName;
+        document.getElementById('lead-category').value = lead.category;
+        document.getElementById('lead-phone').value = lead.phone;
+        document.getElementById('lead-whatsapp').value = lead.whatsapp;
+        document.getElementById('lead-email').value = lead.email;
+        document.getElementById('lead-website').value = lead.website;
+        document.getElementById('lead-address').value = lead.address;
+        document.getElementById('lead-rating').value = lead.rating;
+        document.getElementById('lead-reviews').value = lead.reviews;
+        document.getElementById('lead-industry').value = lead.industry;
+        document.getElementById('lead-notes').value = lead.notes;
+        document.getElementById('lead-assignedTo').value = lead.assignedTo || '';
+        document.getElementById('lead-status').value = lead.status;
+
+        openModal('lead');
+    };
+
+    // Render Customers Table
+    const renderCustomers = () => {
+        const listContainer = document.getElementById('customers-list');
+        const filter = state.filters.customers;
+
+        let filteredCustomers = state.customers;
+
+        // Apply Search
+        if (filter.search) {
+            const query = filter.search.toLowerCase();
+            filteredCustomers = filteredCustomers.filter(c =>
+                c.businessName.toLowerCase().includes(query) ||
+                c.email.toLowerCase().includes(query)
+            );
+        }
+
+        if (filteredCustomers.length === 0) {
+            listContainer.innerHTML = `<tr><td colspan="6" class="empty-state">No customers found.</td></tr>`;
+            return;
+        }
+
+        listContainer.innerHTML = filteredCustomers.map(cust => `
+            <tr>
+                <td><strong>${cust.businessName}</strong></td>
+                <td>${cust.category || '-'}</td>
+                <td>
+                    <div class="contact-info">
+                        ${cust.phone ? `<div><i data-lucide="phone" style="width:12px;height:12px"></i> ${cust.phone}</div>` : ''}
+                        ${cust.email ? `<div><i data-lucide="mail" style="width:12px;height:12px"></i> ${cust.email}</div>` : ''}
+                    </div>
+                </td>
+                <td><a href="${cust.website}" target="_blank" class="link-text">${cust.website || '-'}</a></td>
+                <td><span class="badge badge-validated">${cust.status}</span></td>
+                <td>${new Date(cust.joinedAt).toLocaleDateString()}</td>
+            </tr>
+        `).join('');
+
+        if (window.lucide) lucide.createIcons();
     };
 
     // Filter Click Handlers
@@ -192,8 +334,25 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            renderLeads(btn.dataset.filter);
+            state.filters.leads.status = btn.dataset.filter;
+            renderLeads();
         });
+    });
+
+    // Search and Sort Handlers
+    document.getElementById('search-leads').addEventListener('input', (e) => {
+        state.filters.leads.search = e.target.value;
+        renderLeads();
+    });
+
+    document.getElementById('sort-leads').addEventListener('change', (e) => {
+        state.filters.leads.sort = e.target.value;
+        renderLeads();
+    });
+
+    document.getElementById('search-customers').addEventListener('input', (e) => {
+        state.filters.customers.search = e.target.value;
+        renderCustomers();
     });
 
     // Button Handlers
@@ -340,7 +499,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnImportLeads = document.getElementById('btn-import-leads');
     const topNewLeadBtn = document.querySelector('.header-right .btn-primary');
 
-    if (btnAddLead) btnAddLead.addEventListener('click', () => openModal('lead'));
+    if (btnAddLead) btnAddLead.addEventListener('click', () => {
+        document.getElementById('modal-lead-title').textContent = 'Add New Lead';
+        leadForm.reset();
+        delete leadForm.dataset.editId;
+        openModal('lead');
+    });
     if (btnImportLeads) btnImportLeads.addEventListener('click', () => openModal('import'));
     if (topNewLeadBtn) topNewLeadBtn.addEventListener('click', () => {
         navigateTo('leads');
@@ -369,4 +533,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     navigateTo('dashboard');
+    updateDashboard();
 });

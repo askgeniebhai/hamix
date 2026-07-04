@@ -80,18 +80,25 @@
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon"><i data-lucide="globe"></i></div>
+                            <div class="stat-icon"><i data-lucide="check-circle"></i></div>
                             <div class="stat-data">
-                                <h3>Active Websites</h3>
-                                <p class="stat-value">0</p>
+                                <h3>Approved Leads</h3>
+                                <p class="stat-value" id="stat-approved-leads">0</p>
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon"><i data-lucide="zap"></i></div>
+                            <div class="stat-icon"><i data-lucide="clock"></i></div>
                             <div class="stat-data">
-                                <h3>Deployments</h3>
-                                <p class="stat-value">0</p>
+                                <h3>Pending Actions</h3>
+                                <p class="stat-value" id="stat-pending-leads">0</p>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-section" style="margin-top: 32px;">
+                        <h3>Pipeline Status</h3>
+                        <div class="pipeline-grid" id="pipeline-stats">
+                            <!-- Populated by JS -->
                         </div>
                     </div>
                 </div>
@@ -112,9 +119,21 @@
                     <div class="leads-filters">
                         <div class="filter-group">
                             <button class="filter-btn active" data-filter="all">All Leads</button>
-                            <button class="filter-btn" data-filter="new">New</button>
-                            <button class="filter-btn" data-filter="validated">Validated</button>
-                            <button class="filter-btn" data-filter="ready">Ready for AI</button>
+                            <button class="filter-btn" data-filter="New">New</button>
+                            <button class="filter-btn" data-filter="Validated">Validated</button>
+                            <button class="filter-btn" data-filter="Approved">Approved</button>
+                        </div>
+                        <div class="workspace-actions">
+                            <div class="search-input">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="search-leads" placeholder="Search leads...">
+                            </div>
+                            <select id="sort-leads">
+                                <option value="newest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="rating">Highest Rating</option>
+                                <option value="name">Name A-Z</option>
+                            </select>
                         </div>
                     </div>
 
@@ -140,8 +159,43 @@
                     </div>
                 </div>
 
+                <!-- Customers Page -->
+                <div id="page-customers" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Customer Management</h2>
+                            <p>Manage your active customers and deployments.</p>
+                        </div>
+                        <div class="header-actions">
+                            <div class="search-input">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="search-customers" placeholder="Search customers...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>Business Name</th>
+                                    <th>Category</th>
+                                    <th>Contact</th>
+                                    <th>Website</th>
+                                    <th>Status</th>
+                                    <th>Joined Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customers-list">
+                                <tr>
+                                    <td colspan="6" class="empty-state">No customers yet. Approve leads to see them here.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Other Pages Placeholders -->
-                <div id="page-customers" class="page"><h2>Customers</h2></div>
                 <div id="page-templates" class="page"><h2>Templates</h2></div>
                 <div id="page-deployments" class="page"><h2>GitHub Deployments</h2></div>
                 <div id="page-settings" class="page"><h2>Settings</h2></div>
@@ -197,6 +251,22 @@
                     <div class="form-group">
                         <label for="lead-industry">Industry</label>
                         <input type="text" id="lead-industry">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-assignedTo">Assigned To</label>
+                        <input type="text" id="lead-assignedTo">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-status">Status</label>
+                        <select id="lead-status">
+                            <option value="New">New</option>
+                            <option value="Validated">Validated</option>
+                            <option value="Contacted">Contacted</option>
+                            <option value="Follow-up">Follow-up</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Published">Published</option>
+                            <option value="Completed">Completed</option>
+                        </select>
                     </div>
                     <div class="form-group full-width">
                         <label for="lead-notes">Notes</label>
