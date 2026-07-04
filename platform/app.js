@@ -43,8 +43,15 @@ function initNavigation() {
 function renderPage(page) {
     const contentBody = document.querySelector('.content-body');
     const headerTitle = document.querySelector('.top-header h1');
+    const currentUser = window.HAMIX_Admin.getCurrentUser();
 
     headerTitle.innerText = page.charAt(0).toUpperCase() + page.slice(1);
+
+    // RBAC Check for Page access
+    if (page === 'users' && !window.HAMIX_Admin.canPerform(currentUser.role, 'manage_users')) {
+        contentBody.innerHTML = '<div class="empty-state"><h2>Access Denied</h2><p>You do not have permission to view this page.</p></div>';
+        return;
+    }
 
     switch(page) {
         case 'dashboard':
@@ -70,6 +77,9 @@ function renderPage(page) {
             break;
         case 'settings':
             renderSettings(contentBody);
+            break;
+        case 'audit logs':
+            renderAuditLogs(contentBody);
             break;
         default:
             contentBody.innerHTML = `<div class="empty-state"><h2>${page}</h2><p>This module is coming soon.</p></div>`;
@@ -183,6 +193,8 @@ function renderCustomers(container) {
         customers = customers.filter(c => c.businessName.toLowerCase().includes(searchQuery.toLowerCase()));
     }
 
+    const userRole = window.HAMIX_Admin.getCurrentUser().role;
+
     container.innerHTML = `
         <div class="filters-bar">
             <div class="filter-group">
@@ -234,11 +246,15 @@ function renderCustomers(container) {
                                 <td><span style="font-size: 12px; color: var(--text-muted)">${new Date(lastActivity).toLocaleDateString()}</span></td>
                                 <td>
                                     <div class="action-btns">
+                                    <div class="action-btns">
                                         <button class="btn-icon" onclick="previewWebsiteById('${c.id}')" title="Preview"><i data-lucide="eye"></i></button>
-                                        <button class="btn-icon" onclick="publishWebsite('${c.id}')" title="Publish/Update"><i data-lucide="upload-cloud"></i></button>
-                                        <button class="btn-icon" onclick="unpublishWebsite('${c.id}')" title="Take Offline"><i data-lucide="cloud-off"></i></button>
-                                        <button class="btn-icon" onclick="archiveWebsite('${c.id}')" title="Archive"><i data-lucide="archive"></i></button>
-                                        <button class="btn-icon" onclick="deleteCustomer('${c.id}')" title="Delete" style="color: #ef4444"><i data-lucide="trash-2"></i></button>
+                                        <button class="btn-icon" onclick="openOpsModal('${c.id}')" title="Website Operations"><i data-lucide="cog"></i></button>
+                                        ${window.HAMIX_Admin.canPerform(userRole, 'rollback_website') ? `<button class="btn-icon" onclick="viewHistory('${c.id}')" title="Version History"><i data-lucide="history"></i></button>` : ''}
+                                        ${window.HAMIX_Admin.canPerform(userRole, 'publish_website') ? `<button class="btn-icon" onclick="publishWebsite('${c.id}')" title="Publish/Update"><i data-lucide="upload-cloud"></i></button>` : ''}
+                                        ${window.HAMIX_Admin.canPerform(userRole, 'manage_customers') ? `
+                                            <button class="btn-icon" onclick="unpublishWebsite('${c.id}')" title="Take Offline"><i data-lucide="cloud-off"></i></button>
+                                            <button class="btn-icon" onclick="deleteCustomer('${c.id}')" title="Delete" style="color: #ef4444"><i data-lucide="trash-2"></i></button>
+                                        ` : ''}
                                     </div>
                                 </td>
                             </tr>
@@ -431,6 +447,7 @@ window.previewWebsite = (index) => {
                         <option value="Indigo">Indigo Theme</option>
                         <option value="Emerald">Emerald Theme</option>
                         <option value="Slate">Slate Theme</option>
+                        <option value="Rose">Rose Theme</option>
                     </select>
                 </div>
                 <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
@@ -462,8 +479,173 @@ window.updatePreviewTheme = (themeId, index) => {
 };
 
 window.closePreview = () => {
-    const modal = document.querySelector('.preview-modal');
+    const modal = document.querySelector('.preview-modal, .history-modal, .ops-modal');
     if (modal) modal.remove();
+};
+
+window.openOpsModal = (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (!customer) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'ops-modal';
+    modal.innerHTML = `
+        <div class="preview-modal-header">
+            <h3>Website Operations: ${customer.businessName}</h3>
+            <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div class="ops-section">
+                <h4>Management</h4>
+                <div class="ops-btn-group">
+                    <button class="btn btn-outline" onclick="cloneCust('${customer.id}')"><i data-lucide="copy"></i> Clone Website</button>
+                    <button class="btn btn-outline" onclick="exportCust('${customer.id}')"><i data-lucide="download"></i> Export Package</button>
+                    <button class="btn btn-outline" onclick="createBackup('${customer.id}')"><i data-lucide="database"></i> Create Backup</button>
+                    <button class="btn btn-outline" onclick="archiveWebsite('${customer.id}')"><i data-lucide="archive"></i> Archive Website</button>
+                </div>
+
+                <h4 style="margin-top: 24px;">SEO & Metadata</h4>
+                <div class="form-group">
+                    <label>SEO Title</label>
+                    <input type="text" value="${customer.seoTitle || ''}" placeholder="Meta Title">
+                </div>
+                <div class="form-group">
+                    <label>SEO Description</label>
+                    <textarea placeholder="Meta Description">${customer.seoDescription || ''}</textarea>
+                </div>
+            </div>
+
+            <div class="ops-section">
+                <h4>Domain & SSL</h4>
+                <div class="status-list">
+                    <div class="status-item">
+                        <span>Custom Domain</span>
+                        <span class="badge badge-muted">Not Connected</span>
+                    </div>
+                    <div class="status-item">
+                        <span>SSL Certificate</span>
+                        <span class="badge badge-muted">Inactive</span>
+                    </div>
+                    <div class="status-item">
+                        <span>DNS Status</span>
+                        <span class="badge badge-muted">Waiting</span>
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 24px;">Analytics Overview</h4>
+                <div class="mini-stats">
+                    <div class="mini-stat">
+                        <strong>${customer.stats?.visitors || 0}</strong>
+                        <span>Visitors</span>
+                    </div>
+                    <div class="mini-stat">
+                        <strong>${customer.stats?.leads || 0}</strong>
+                        <span>Leads</span>
+                    </div>
+                    <div class="mini-stat">
+                        <strong>${customer.stats?.conversions || 0}</strong>
+                        <span>Conversions</span>
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 24px;">Deployment History</h4>
+                <div class="mini-history">
+                    ${(customer.history || []).slice(0, 3).map(h => `
+                        <div class="history-item">
+                            <span>${h.stage}</span>
+                            <span>${new Date(h.timestamp).toLocaleDateString()}</span>
+                        </div>
+                    `).join('') || 'No history yet.'}
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    if (window.lucide) lucide.createIcons();
+};
+
+window.cloneCust = async (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (customer && confirm('Create a duplicate of this website?')) {
+        await window.HAMIX_Operations.cloneWebsite(customer);
+        closePreview();
+        renderPage('customers');
+    }
+};
+
+window.exportCust = async (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (customer) {
+        const data = await window.HAMIX_Operations.exportWebsite(customer);
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `hamix_export_${customer.id}.json`;
+        a.click();
+    }
+};
+
+window.createBackup = (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (customer) {
+        window.HAMIX_Operations.createVersion(customer);
+        alert('Website backup (Version ' + customer.currentVersion + ') created successfully.');
+        openOpsModal(id); // Refresh
+    }
+};
+
+window.viewHistory = (id) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (!customer) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'history-modal';
+    modal.innerHTML = `
+        <div class="preview-modal-header">
+            <h3>Version History: ${customer.businessName}</h3>
+            <button onclick="closePreview()" class="btn-close"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 24px;">
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ver</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Theme</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(customer.versions || []).map(v => `
+                            <tr>
+                                <td><strong>v${v.version}</strong></td>
+                                <td><span style="font-size: 11px;">${new Date(v.timestamp).toLocaleString()}</span></td>
+                                <td><span class="badge badge-${v.status.toLowerCase()}">${v.status}</span></td>
+                                <td>${v.theme}</td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm" onclick="rollback('${customer.id}', ${v.version})">Rollback</button>
+                                </td>
+                            </tr>
+                        `).join('') || '<tr><td colspan="5" style="text-align:center">No version history found.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    if (window.lucide) lucide.createIcons();
+};
+
+window.rollback = async (id, version) => {
+    const customer = window.HAMIX_Operations.getCustomer(id);
+    if (customer && confirm(`Rollback to version ${version}? Current published site will be replaced.`)) {
+        await window.HAMIX_Operations.rollbackToVersion(customer, version);
+        closePreview();
+        alert(`Rollback to v${version} initiated.`);
+    }
 };
 
 window.downloadWebsite = (index) => {
@@ -645,6 +827,8 @@ window.addEventListener('hamix:operations-update', (e) => {
 
 function renderUsers(container) {
     const users = window.HAMIX_Admin.users;
+    const user = window.HAMIX_Admin.getCurrentUser();
+    const canManage = window.HAMIX_Admin.canPerform(user.role, 'manage_users');
 
     container.innerHTML = `
         <div class="welcome-section">
@@ -653,7 +837,7 @@ function renderUsers(container) {
                     <h2>Platform Users</h2>
                     <p>Manage access and roles for your platform staff.</p>
                 </div>
-                <button class="btn btn-primary" onclick="alert('Invite user feature coming soon.')"><i data-lucide="user-plus"></i> Invite User</button>
+                ${canManage ? `<button class="btn btn-primary" onclick="alert('Invite user feature coming soon.')"><i data-lucide="user-plus"></i> Invite User</button>` : ''}
             </div>
         </div>
 
@@ -667,7 +851,7 @@ function renderUsers(container) {
                         <span class="user-role-badge">${u.role}</span>
                         <span style="font-size: 11px; margin-left: 8px; color: ${u.status === 'Active' ? '#10b981' : '#f43f5e'}">${u.status}</span>
                     </div>
-                    <button class="btn-icon" style="position: absolute; top: 12px; right: 12px;" onclick="window.HAMIX_Admin.deleteUser('${u.id}')"><i data-lucide="trash-2"></i></button>
+                    ${canManage ? `<button class="btn-icon" style="position: absolute; top: 12px; right: 12px;" onclick="window.HAMIX_Admin.deleteUser('${u.id}')"><i data-lucide="trash-2"></i></button>` : ''}
                 </div>
             `).join('')}
         </div>
@@ -688,6 +872,7 @@ function renderSettings(container) {
             <div class="settings-tab active" onclick="switchSettingsTab('workspace')">Workspace</div>
             <div class="settings-tab" onclick="switchSettingsTab('ai')">AI Engine</div>
             <div class="settings-tab" onclick="switchSettingsTab('deployment')">Deployment</div>
+            <div class="settings-tab" onclick="switchSettingsTab('audit')">Audit Trail</div>
         </div>
 
         <div id="settingsPanel" class="settings-panel">
@@ -697,27 +882,87 @@ function renderSettings(container) {
     if (window.lucide) lucide.createIcons();
 }
 
+function renderAuditLogs(container) {
+    const logs = window.HAMIX_Admin.getAuditLogs();
+
+    container.innerHTML = `
+        <div class="welcome-section">
+            <h2>Audit Trail</h2>
+            <p>Platform-wide activity and security logs.</p>
+        </div>
+
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${logs.length === 0 ? '<tr><td colspan="4" style="text-align:center; padding: 20px;">No activity logs found.</td></tr>' : logs.map(l => `
+                        <tr>
+                            <td><span style="font-size: 11px; color: var(--text-muted)">${new Date(l.timestamp).toLocaleString()}</span></td>
+                            <td><strong>${l.user}</strong></td>
+                            <td>${l.action}</td>
+                            <td><span class="badge badge-muted">${l.target}</span></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+}
+
 function renderWorkspaceSettings(config) {
     return `
-        <div class="form-group">
-            <label>Workspace Name</label>
-            <input type="text" value="${config.workspace.name}" onchange="updateConfig('workspace', 'name', this.value)">
+        <div class="settings-section">
+            <h4>General Information</h4>
+            <div class="form-group">
+                <label>Workspace Name</label>
+                <input type="text" value="${config.workspace.name}" onchange="updateConfig('workspace', 'name', this.value)">
+            </div>
+            <div class="form-group">
+                <label>Organization Email</label>
+                <input type="email" value="${config.workspace.orgEmail}" onchange="updateConfig('workspace', 'orgEmail', this.value)">
+            </div>
         </div>
-        <div class="form-group">
-            <label>Default Branding Theme</label>
-            <select onchange="updateConfig('workspace', 'branding', this.value)">
-                <option value="Indigo" ${config.workspace.branding === 'Indigo' ? 'selected' : ''}>Indigo (SaaS Default)</option>
-                <option value="Emerald" ${config.workspace.branding === 'Emerald' ? 'selected' : ''}>Emerald (Growth)</option>
-                <option value="Slate" ${config.workspace.branding === 'Slate' ? 'selected' : ''}>Slate (Corporate)</option>
-            </select>
+
+        <div class="settings-section">
+            <h4>Branding & Identity</h4>
+            <div class="form-group">
+                <label>Organization Logo (URL)</label>
+                <input type="text" value="${config.workspace.orgLogo}" placeholder="https://..." onchange="updateConfig('workspace', 'orgLogo', this.value)">
+            </div>
+            <div class="form-group">
+                <label>Primary Brand Color</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="color" value="${config.workspace.orgPrimaryColor}" onchange="updateConfig('workspace', 'orgPrimaryColor', this.value)" style="width: 40px; padding: 0; border: none; height: 40px;">
+                    <input type="text" value="${config.workspace.orgPrimaryColor}" onchange="updateConfig('workspace', 'orgPrimaryColor', this.value)">
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label>Primary Deployment Region</label>
-            <select onchange="updateConfig('workspace', 'deploymentRegion', this.value)">
-                <option value="EU-West-1">EU-West-1 (Dublin)</option>
-                <option value="US-East-1">US-East-1 (N. Virginia)</option>
-                <option value="AP-Southeast-1">AP-Southeast-1 (Singapore)</option>
-            </select>
+        <div class="settings-section">
+            <h4>Defaults & Regions</h4>
+            <div class="form-group">
+                <label>Default Branding Theme</label>
+                <select onchange="updateConfig('workspace', 'branding', this.value)">
+                    <option value="Indigo" ${config.workspace.branding === 'Indigo' ? 'selected' : ''}>Indigo (SaaS Default)</option>
+                    <option value="Emerald" ${config.workspace.branding === 'Emerald' ? 'selected' : ''}>Emerald (Growth)</option>
+                    <option value="Slate" ${config.workspace.branding === 'Slate' ? 'selected' : ''}>Slate (Corporate)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Primary Deployment Region</label>
+                <select onchange="updateConfig('workspace', 'deploymentRegion', this.value)">
+                    <option value="EU-West-1">EU-West-1 (Dublin)</option>
+                    <option value="US-East-1">US-East-1 (N. Virginia)</option>
+                    <option value="AP-Southeast-1">AP-Southeast-1 (Singapore)</option>
+                </select>
+            </div>
         </div>
         <button class="btn btn-primary" onclick="alert('Settings saved successfully!')">Save Changes</button>
     `;
@@ -733,6 +978,8 @@ window.switchSettingsTab = (tab) => {
 
     if (tab === 'workspace') {
         panel.innerHTML = renderWorkspaceSettings(config);
+    } else if (tab === 'audit') {
+        renderAuditLogs(panel);
     } else if (tab === 'ai') {
         panel.innerHTML = `
             <div class="form-group">
@@ -830,6 +1077,21 @@ window.handleGlobalSearch = (query) => {
                     <div class="search-item-info">
                         <strong>${u.name}</strong>
                         <span>${u.role}</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (results.logs && results.logs.length > 0) {
+        html += '<div class="search-section-header">Audit Logs</div>';
+        results.logs.forEach(l => {
+            html += `
+                <div class="search-item" onclick="navigateTo('audit logs')">
+                    <i data-lucide="activity"></i>
+                    <div class="search-item-info">
+                        <strong>${l.action}</strong>
+                        <span>${l.target} - ${new Date(l.timestamp).toLocaleDateString()}</span>
                     </div>
                 </div>
             `;

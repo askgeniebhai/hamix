@@ -17,17 +17,55 @@ const Deployment = {
             customerId: customerData.id || customerData.businessName.toLowerCase().replace(/\s+/g, '-'),
             timestamp: timestamp,
             theme: themeId,
-            files: [
-                { path: 'index.html', type: 'text/html' },
-                { path: 'customer.json', type: 'application/json' },
-                { path: 'manifest.json', type: 'application/json' }
-            ],
+            structure: {
+                root: [
+                    'index.html',
+                    'manifest.json',
+                    'config.json',
+                    'customer.json'
+                ],
+                assets: [
+                    'assets/css/theme.css',
+                    'assets/js/main.js'
+                ],
+                images: customerData.images || []
+            },
             metadata: {
                 generator: 'HAMIX Website Engine v0.4',
+                environment: 'Production',
                 seo: {
-                    title: `${customerData.businessName} - ${customerData.tagline || ''}`,
-                    description: customerData.heroSubtitle || ''
+                    title: customerData.seoTitle || `${customerData.businessName} - ${customerData.category || ''}`,
+                    description: customerData.seoDescription || customerData.businessDescription || '',
+                    keywords: customerData.keywords || [customerData.category, customerData.businessName],
+                    openGraph: {
+                        title: customerData.ogTitle || customerData.businessName,
+                        description: customerData.ogDescription || customerData.businessDescription,
+                        image: customerData.ogImage || customerData.logo || '',
+                        url: customerData.websiteUrl || ''
+                    },
+                    sitemap: `/sitemap.xml`
+                },
+                social: customerData.socialLinks || [],
+                analytics: {
+                    visitors: customerData.stats?.visitors || 0,
+                    leads: customerData.stats?.leads || 0,
+                    conversions: customerData.stats?.conversions || 0,
+                    lastPublished: customerData.lastPublished || null
                 }
+            }
+        };
+
+        const config = {
+            businessId: manifest.customerId,
+            theme: themeId,
+            features: {
+                whatsapp: !!customerData.whatsapp,
+                contactForm: true,
+                gallery: true
+            },
+            deploymentInfo: {
+                id: deploymentId,
+                date: timestamp
             }
         };
 
@@ -35,6 +73,7 @@ const Deployment = {
             manifest: manifest,
             indexHtml: html,
             customerJson: JSON.stringify(customerData, null, 2),
+            configJson: JSON.stringify(config, null, 2),
             deploymentReady: true
         };
     },

@@ -3,6 +3,31 @@
  * Assembles components into complete page templates.
  */
 
+const TemplatesRegistry = {
+    templates: {},
+
+    /**
+     * Registers a new template.
+     */
+    register: function(id, templateFunc) {
+        this.templates[id] = templateFunc;
+    },
+
+    /**
+     * Gets a template by ID.
+     */
+    get: function(id) {
+        return this.templates[id] || this.templates.Default;
+    },
+
+    /**
+     * Lists all available templates.
+     */
+    list: function() {
+        return Object.keys(this.templates);
+    }
+};
+
 const Templates = {
     Default: (data, components, themeStyles) => `
 <!DOCTYPE html>
@@ -214,9 +239,13 @@ const Templates = {
 `
 };
 
+// Register initial templates
+TemplatesRegistry.register('Default', Templates.Default);
+
 // Export for browser usage
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Templates;
+    module.exports = { Templates, TemplatesRegistry };
 } else {
     window.HAMIX_Templates = Templates;
+    window.HAMIX_TemplatesRegistry = TemplatesRegistry;
 }

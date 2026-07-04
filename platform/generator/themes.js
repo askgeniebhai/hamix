@@ -54,6 +54,23 @@ const Themes = {
             '--btn-radius': '4px',
             '--card-radius': '8px'
         }
+    },
+    Rose: {
+        id: 'rose',
+        name: 'Elegant Rose',
+        variables: {
+            '--primary-color': '#e11d48',
+            '--primary-hover': '#be123c',
+            '--secondary-color': '#fb7185',
+            '--text-dark': '#4c0519',
+            '--text-light': '#881337',
+            '--bg-white': '#ffffff',
+            '--bg-light': '#fff1f2',
+            '--accent-color': '#ffe4e6',
+            '--font-family': "'Inter', sans-serif",
+            '--btn-radius': '20px',
+            '--card-radius': '16px'
+        }
     }
 };
 
@@ -149,6 +166,13 @@ p {
     position: sticky;
     top: 0;
     z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.navbar.scrolled {
+    height: 70px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
 }
 
 .navbar .container {

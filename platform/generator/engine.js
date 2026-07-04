@@ -24,8 +24,9 @@ const Engine = {
         // Generate Theme CSS
         const themeCSS = themes.generateThemeCSS(themeId);
 
-        // Render Template
-        const templateFunc = templates[templateId] || templates.Default;
+        // Render Template via Registry if available, otherwise fallback to templates object
+        const registry = window.HAMIX_TemplatesRegistry;
+        const templateFunc = (registry && registry.get(templateId)) || templates[templateId] || templates.Default;
         let html = templateFunc(customerData, components, themeCSS);
 
         // Inject Base Tag if provided (useful for CRM preview)

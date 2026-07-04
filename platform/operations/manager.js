@@ -30,6 +30,7 @@ const OperationsManager = {
         customer.status = 'Offline';
         customer.isPublished = false;
         this.saveCustomer(customer);
+        if (window.HAMIX_Admin) window.HAMIX_Admin.logActivity('Admin User', 'Took website offline', customer.businessName);
         this.notifyUI(customer);
     },
 
@@ -40,6 +41,7 @@ const OperationsManager = {
         customer.status = 'Archived';
         customer.isArchived = true;
         this.saveCustomer(customer);
+        if (window.HAMIX_Admin) window.HAMIX_Admin.logActivity('Admin User', 'Archived customer', customer.businessName);
         this.notifyUI(customer);
     },
 
@@ -48,8 +50,13 @@ const OperationsManager = {
      */
     async deleteCustomer(customerId) {
         const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+        const customer = customers.find(c => c.id === customerId);
         const filtered = customers.filter(c => c.id !== customerId);
         localStorage.setItem('hamix_customers', JSON.stringify(filtered));
+
+        if (customer && window.HAMIX_Admin) {
+            window.HAMIX_Admin.logActivity('Admin User', 'Deleted customer record', customer.businessName);
+        }
 
         // Notify UI to re-render
         window.dispatchEvent(new CustomEvent('hamix:workflow-update', { detail: { type: 'delete' } }));
@@ -89,10 +96,72 @@ const OperationsManager = {
 
         console.log(`Operations: Rolling back ${customer.businessName} to version ${versionNumber}`);
 
-        // Update customer data based on version metadata if applicable
-        // For now, we'll just trigger a republish of that state
+        // In a real system, we would restore the customer.json/data state from the version backup
+        // For this prototype, we'll log the restore and re-publish.
+        if (window.HAMIX_Admin) window.HAMIX_Admin.logActivity('Admin User', `Restored website from v${versionNumber}`, customer.businessName);
+
         customer.status = 'Updated';
         await this.publishWebsite(customer);
+    },
+
+    /**
+     * Clones/Duplicates a website and customer record.
+     */
+    async cloneWebsite(customer) {
+        console.log(`Operations: Cloning ${customer.businessName}`);
+
+        const newCustomer = JSON.parse(JSON.stringify(customer));
+        newCustomer.id = `cust_${Date.now()}`;
+        newCustomer.businessName = `${customer.businessName} (Copy)`;
+        newCustomer.status = 'Ready for Publishing';
+        newCustomer.isPublished = false;
+        newCustomer.lastPublished = null;
+        newCustomer.versions = [];
+        newCustomer.history = [{
+            stage: 'Cloned',
+            timestamp: new Date().toISOString(),
+            from: customer.id
+        }];
+
+        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+        customers.push(newCustomer);
+        localStorage.setItem('hamix_customers', JSON.stringify(customers));
+
+        if (window.HAMIX_Admin) window.HAMIX_Admin.logActivity('Admin User', 'Cloned website/customer', newCustomer.businessName);
+
+        this.notifyUI();
+        return newCustomer;
+    },
+
+    /**
+     * Prepares an export package (JSON based for this layer).
+     */
+    async exportWebsite(customer) {
+        const data = {
+            exportDate: new Date().toISOString(),
+            version: customer.currentVersion,
+            customerData: customer,
+            platform: 'HAMIX v0.4'
+        };
+
+        if (window.HAMIX_Admin) window.HAMIX_Admin.logActivity('Admin User', 'Exported website data package', customer.businessName);
+        return data;
+    },
+
+    /**
+     * Imports a website from a data package.
+     */
+    async importWebsite(dataPackage) {
+        const customer = dataPackage.customerData;
+        customer.id = `cust_import_${Date.now()}`;
+        customer.status = 'Ready for Publishing';
+
+        const customers = JSON.parse(localStorage.getItem('hamix_customers') || '[]');
+        customers.push(customer);
+        localStorage.setItem('hamix_customers', JSON.stringify(customers));
+
+        if (window.HAMIX_Admin) window.HAMIX_Admin.logActivity('Admin User', 'Imported website data package', customer.businessName);
+        this.notifyUI();
     },
 
     /**
@@ -166,6 +235,10 @@ const OperationsManager = {
             job.status = 'Completed';
             job.endTime = new Date().toISOString();
             this.addLog(job, 'Deployment successful.');
+
+            if (window.HAMIX_Admin) {
+                window.HAMIX_Admin.logActivity('System', `Successfully ${job.type === 'Publish' ? 'published' : 'updated'} website`, job.businessName);
+            }
 
             // Update customer record
             customer.status = job.type === 'Publish' ? 'Published' : 'Updated';

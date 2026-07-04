@@ -99,7 +99,11 @@ const Components = {
         </section>
     `,
 
-    Gallery: (data) => `
+    Gallery: (data) => {
+        const images = data.images || data.aboutSecondaryImages || [];
+        if (images.length === 0) return '';
+
+        return `
         <section id="gallery" class="gallery">
             <div class="container">
                 <div class="section-header">
@@ -107,15 +111,15 @@ const Components = {
                     <h2>Our Work</h2>
                 </div>
                 <div class="gallery-grid">
-                    ${(data.images || data.aboutSecondaryImages || []).map(img => `
+                    ${images.map(img => `
                         <div class="gallery-item">
-                            <img src="${img}" alt="Gallery Image">
+                            <img src="${img}" alt="Gallery Image" loading="lazy">
                         </div>
                     `).join('')}
                 </div>
             </div>
         </section>
-    `,
+    `},
 
     Testimonials: (data) => `
         <section id="testimonials" class="testimonials">
@@ -188,14 +192,14 @@ const Components = {
                                 <i data-lucide="phone"></i>
                                 <div>
                                     <h4>Phone</h4>
-                                    <p>${data.phone}</p>
+                                    <p><a href="tel:${data.phone}">${data.phone}</a></p>
                                 </div>
                             </div>
                             <div class="contact-item">
                                 <i data-lucide="mail"></i>
                                 <div>
                                     <h4>Email</h4>
-                                    <p>${data.email}</p>
+                                    <p><a href="mailto:${data.email}">${data.email}</a></p>
                                 </div>
                             </div>
                             <div class="contact-item">
@@ -205,6 +209,15 @@ const Components = {
                                     <p>${data.location || data.address}</p>
                                 </div>
                             </div>
+                            ${data.businessHours ? `
+                            <div class="contact-item">
+                                <i data-lucide="clock"></i>
+                                <div>
+                                    <h4>Business Hours</h4>
+                                    <p>${data.businessHours}</p>
+                                </div>
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
                     <div class="contact-form">
@@ -226,17 +239,41 @@ const Components = {
         </section>
     `,
 
-    GoogleMap: (data) => `
+    GoogleMap: (data) => {
+        const address = data.location || data.address || '';
+        const encodedAddress = encodeURIComponent(address);
+        return `
         <section class="map-section">
-            <div class="map-container">
-                <!-- Placeholder for Google Map -->
-                <div class="map-placeholder">
-                    <i data-lucide="map"></i>
-                    <p>Map showing: ${data.location || data.address}</p>
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-badge">Location</span>
+                    <h2>Visit Our Office</h2>
+                </div>
+                <div class="map-container">
+                    ${address ? `
+                        <iframe
+                            width="100%"
+                            height="450"
+                            style="border:0; border-radius: var(--card-radius); box-shadow: 0 10px 30px rgba(0,0,0,0.05);"
+                            loading="lazy"
+                            allowfullscreen
+                            src="https://www.google.com/maps/embed/v1/place?key=REPLACE_WITH_API_KEY&q=${encodedAddress}">
+                        </iframe>
+                        <!-- Fallback/Static Map UI if no API Key -->
+                        <div class="map-overlay-info">
+                            <i data-lucide="map-pin"></i>
+                            <p>${address}</p>
+                        </div>
+                    ` : `
+                        <div class="map-placeholder">
+                            <i data-lucide="map"></i>
+                            <p>Map location not provided</p>
+                        </div>
+                    `}
                 </div>
             </div>
         </section>
-    `,
+    `},
 
     Footer: (data) => `
         <footer class="footer">

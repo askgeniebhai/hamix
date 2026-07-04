@@ -365,7 +365,7 @@ body {
 }
 
 /* Preview Modal */
-.preview-modal {
+.preview-modal, .history-modal, .ops-modal {
     position: fixed;
     top: 0;
     left: 0;
@@ -375,6 +375,15 @@ body {
     z-index: 2000;
     display: flex;
     flex-direction: column;
+}
+
+.history-modal {
+    max-width: 800px;
+    max-height: 80vh;
+    margin: auto;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
 }
 
 .preview-modal-header {
@@ -758,7 +767,26 @@ body {
 }
 
 .settings-panel {
-    max-width: 600px;
+    max-width: 800px;
+}
+
+.settings-section {
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+}
+
+.settings-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .form-group {
@@ -830,4 +858,76 @@ body {
 .search-item-info span {
     font-size: 12px;
     color: var(--text-muted);
+}
+
+.ops-section h4 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: var(--text-main);
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+}
+
+.ops-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+
+.mini-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.mini-stat {
+    background: var(--bg-light);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.mini-stat strong {
+    display: block;
+    font-size: 18px;
+    color: var(--primary-color);
+}
+
+.mini-stat span {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.mini-history {
+    background: var(--bg-light);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.history-item:last-child {
+    border-bottom: none;
 }
