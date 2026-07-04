@@ -36,6 +36,11 @@ function setText(id, value) {
     if (el && value) el.textContent = value;
 }
 
+function setHTML(id, value) {
+    const el = document.getElementById(id);
+    if (el && value) el.innerHTML = value;
+}
+
 function setImage(id, src, alt = "") {
     const img = document.getElementById(id);
     if (img && src) {
@@ -60,53 +65,85 @@ function initializeWebsite() {
     setText("footerBusinessName", customer.businessName);
     setText("tagline", customer.tagline);
     setImage("logo", customer.logo, customer.businessName);
+    setImage("logoFooter", customer.logo, customer.businessName);
+
+    // Top Bar & Contact
+    setText("topEmail", customer.email);
+    setText("topPhone", customer.phone);
+    setText("topLocation", customer.location.split(',')[0]); // Short location
+    setText("contactPhone", customer.phone);
+    setText("contactEmail", customer.email);
+    setText("contactLocation", customer.location);
 
     // Hero
-    setText("heroTitle", customer.heroTitle);
+    setHTML("heroTitle", customer.heroTitle);
     setText("heroSubtitle", customer.heroSubtitle);
     if (customer.heroImage) {
         document.documentElement.style.setProperty('--hero-bg', `url('${customer.heroImage}')`);
     }
 
     // About
+    setText("aboutBadge", "About " + customer.businessName);
     setText("aboutTitle", customer.aboutTitle);
     setText("aboutText", customer.aboutText);
-    setImage("aboutImage", customer.aboutImage);
+    renderAboutImages();
+
+    // Mission & Vision
     setText("missionText", customer.mission);
     setText("visionText", customer.vision);
-
-    // Contact
-    setText("contactPhone", customer.phone);
-    setText("contactEmail", customer.email);
-    setText("contactLocation", customer.location);
 
     // WhatsApp
     if (customer.whatsapp) {
         const wa = "https://wa.me/" + customer.whatsapp;
         setLink("heroWhatsapp", wa);
-        setLink("contactWhatsapp", wa);
-        setLink("parallaxWhatsapp", wa);
     }
 
     // Dynamic Renderings
-    renderStats(customer.stats || []);
+    renderHeroStats(customer.stats || []);
     renderServices(customer.services || []);
     renderIndustries(customer.industries || []);
     renderFeatures(customer.whyChooseUs || []);
+    renderAttendance(customer.attendance);
     renderLeadership(customer.leadership || []);
-    renderTestimonials(customer.testimonials || []);
     renderClients(customer.clients || []);
 
     initScrollEffects();
+
+    // Re-initialize Lucide Icons
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
 }
 
 /* ---------- RENDERING ENGINE ---------- */
 
-function renderStats(stats) {
-    const container = document.querySelector(".stats-banner-grid");
+function renderAboutImages() {
+    const container = document.getElementById("aboutImagesContainer");
     if (!container) return;
-    container.innerHTML = stats.map(s => `
-        <div class="stat-item">
+
+    let html = `
+        <div class="img-large">
+            <img src="${customer.aboutImage}" alt="Security Team">
+        </div>
+    `;
+
+    if (customer.aboutSecondaryImages && customer.aboutSecondaryImages.length > 0) {
+        html += `<div class="img-small-wrap">`;
+        customer.aboutSecondaryImages.forEach(img => {
+            html += `<div class="img-small"><img src="${img}" alt="Secondary"></div>`;
+        });
+        html += `</div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderHeroStats(stats) {
+    const container = document.getElementById("heroStatsContainer");
+    if (!container) return;
+    container.innerHTML = stats.slice(0, 4).map(s => `
+        <div class="hero-stat-item">
+            <i data-lucide="${s.icon || 'star'}"></i>
             <h3>${s.value}</h3>
             <p>${s.label}</p>
         </div>
@@ -117,15 +154,10 @@ function renderServices(services) {
     const container = document.getElementById("servicesContainer");
     if (!container) return;
     container.innerHTML = services.map((s, index) => `
-        <div class="service-card reveal reveal-delay-${(index % 3) + 1}">
-            <div class="service-card-icon">${s.icon || '🛡️'}</div>
-            <div class="service-card-img">
-                <img src="${s.image}" alt="${s.title}">
-            </div>
-            <div class="service-card-content">
-                <h3>${s.title}</h3>
-                <p>${s.description}</p>
-            </div>
+        <div class="service-card-v2 reveal reveal-delay-${(index % 3) + 1}">
+            <div class="serv-icon"><i data-lucide="${s.icon || 'shield'}"></i></div>
+            <h3>${s.title}</h3>
+            <p>${s.description}</p>
         </div>
     `).join("");
 }
@@ -134,12 +166,9 @@ function renderIndustries(industries) {
     const container = document.getElementById("industriesContainer");
     if (!container) return;
     container.innerHTML = industries.map((i, index) => `
-        <div class="industry-card reveal reveal-delay-${(index % 4) + 1}">
-            <img src="${i.image}" alt="${i.name}">
-            <div class="industry-card-overlay">
-                <p>${i.category || 'Sector'}</p>
-                <h3>${i.name}</h3>
-            </div>
+        <div class="industry-card-v2 reveal reveal-delay-${(index % 4) + 1}">
+            <div class="ind-icon"><i data-lucide="${i.icon || 'building'}"></i></div>
+            <h3>${i.name}</h3>
         </div>
     `).join("");
 }
@@ -148,40 +177,53 @@ function renderFeatures(features) {
     const container = document.getElementById("featuresContainer");
     if (!container) return;
     container.innerHTML = features.map((f, index) => `
-        <div class="feature-card reveal reveal-delay-${(index % 4) + 1}">
-            <div class="feature-icon">${f.icon || '✓'}</div>
-            <h3>${f.title}</h3>
-            <p>${f.description}</p>
+        <div class="why-feat-item reveal reveal-delay-${(index % 2) + 1}">
+            <div class="why-feat-icon"><i data-lucide="${f.icon || 'check'}"></i></div>
+            <div class="why-feat-text">
+                <h4>${f.title}</h4>
+                <p>${f.description}</p>
+            </div>
         </div>
     `).join("");
+}
+
+function renderAttendance(attendance) {
+    const container = document.getElementById("attendanceContainer");
+    if (!container || !attendance) return;
+
+    container.innerHTML = `
+        <div class="attendance-content reveal">
+            <span class="badge">${attendance.badge}</span>
+            <h2>${attendance.title}</h2>
+            <p>${attendance.description}</p>
+            <div class="attendance-features">
+                ${attendance.features.map(f => `
+                    <div class="att-feat">
+                        <div class="att-icon"><i data-lucide="${f.icon}"></i></div>
+                        <p>${f.text}</p>
+                    </div>
+                `).join("")}
+            </div>
+            <a href="#contact" class="btn btn-gold">Learn More <i data-lucide="arrow-right"></i></a>
+        </div>
+        <div class="attendance-visual reveal reveal-delay-1">
+            <div class="mockup-container">
+                <img src="${attendance.images.main}" class="laptop-mockup" alt="Dashboard">
+                <img src="${attendance.images.secondary}" class="mobile-mockup" alt="Mobile App">
+            </div>
+        </div>
+    `;
 }
 
 function renderLeadership(leadership) {
     const container = document.getElementById("leadershipContainer");
     if (!container) return;
     container.innerHTML = leadership.map((l, index) => `
-        <div class="leader-card-premium reveal reveal-delay-${(index % 3) + 1}">
+        <div class="leader-card-v2 reveal reveal-delay-${(index % 3) + 1}">
             <img src="${l.image}" alt="${l.name}">
-            <div class="leader-info">
+            <div class="leader-overlay">
                 <p>${l.role}</p>
                 <h3>${l.name}</h3>
-            </div>
-        </div>
-    `).join("");
-}
-
-function renderTestimonials(testimonials) {
-    const container = document.getElementById("testimonialsContainer");
-    if (!container) return;
-    container.innerHTML = testimonials.map(t => `
-        <div class="testimonial-card reveal">
-            <div class="testimonial-content">${t.content}</div>
-            <div class="testimonial-author">
-                <img src="${t.image || 'assets/images/security/guard.png'}" alt="${t.name}">
-                <div>
-                    <h4>${t.name}</h4>
-                    <p>${t.company}</p>
-                </div>
             </div>
         </div>
     `).join("");
@@ -191,16 +233,21 @@ function renderClients(clients) {
     const container = document.getElementById("clientsTrack");
     if (!container) return;
     const items = clients.map(c => `<img src="${c.logo}" alt="${c.name}">`).join("");
-    // Double items for seamless loop
-    container.innerHTML = items + items;
+    // Triple items for smoother seamless loop
+    container.innerHTML = items + items + items;
 }
 
 /* ---------- SCROLL EFFECTS ---------- */
 function initScrollEffects() {
     const header = document.querySelector("header");
     window.addEventListener("scroll", () => {
-        if (window.scrollY > 100) header.classList.add("sticky");
-        else header.classList.remove("sticky");
+        if (window.scrollY > 100) {
+            header.style.padding = "10px 0";
+            header.style.background = "rgba(11, 31, 58, 0.98)";
+        } else {
+            header.style.padding = "20px 0";
+            header.style.background = "var(--primary)";
+        }
     });
 
     const revealObserver = new IntersectionObserver((entries) => {
