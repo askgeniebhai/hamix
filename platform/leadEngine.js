@@ -119,10 +119,12 @@ const LeadEngine = (() => {
      */
     const cleanCategory = (category) => {
         if (!category) return '';
-        // Remove price ranges like $$, £££, ₹₹, etc. and numeric chars
-        // Also remove specific phrases commonly found in maps like "Open 24 hours"
+        // Remove price ranges like $$, £££, ₹₹, etc.
+        // Also remove numeric chars, and specific phrases like "Open 24 hours"
+        // Also filter out common price patterns like "₹200-400"
         return category
-            .replace(/[£$€₹¥\d·]/g, '')
+            .replace(/[£$€₹¥]\d+([-–]\d+)?/g, '') // Remove ₹200-400
+            .replace(/[£$€₹¥\d·]/g, '')           // Remove symbols and remaining digits
             .replace(/Open\s+\d+\s+hours/gi, '')
             .replace(/\s+/g, ' ')
             .trim();
@@ -191,8 +193,12 @@ const LeadEngine = (() => {
                     currentLead.category = cleanCategory(ratingMatch[3]);
                 }
             } else if (phoneRegex.test(line) && !line.startsWith('http')) {
-                if (currentLead && !currentLead.phone) {
-                    currentLead.phone = line;
+                if (currentLead) {
+                    if (!currentLead.phone || currentLead.phone === 'Phone not available') {
+                        currentLead.phone = line;
+                    } else if (!currentLead.phone.includes(line)) {
+                        currentLead.phone += ', ' + line;
+                    }
                 }
             } else if (websiteRegex.test(line)) {
                 if (currentLead) {

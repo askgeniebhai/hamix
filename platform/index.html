@@ -149,7 +149,6 @@
                                     <th>Pincode</th>
                                     <th>Rating</th>
                                     <th>Reviews</th>
-                                    <th>AI Score</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -157,7 +156,7 @@
                             <tbody id="leads-list">
                                 <!-- Leads will be populated here -->
                                 <tr>
-                                    <td colspan="6" class="empty-state">No leads found. Start by importing or adding a lead.</td>
+                                    <td colspan="9" class="empty-state">No leads found. Start by importing or adding a lead.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -469,16 +468,32 @@
                 <h3>Import Results</h3>
                 <div class="summary-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0;">
                     <div class="summary-card" style="padding: 15px; background: #f8fafc; border-radius: 8px; text-align: center;">
-                        <span style="font-size: 12px; color: #64748b;">Total</span>
+                        <span style="font-size: 12px; color: #64748b;">Detected</span>
                         <h4 id="summary-total" style="font-size: 24px;">0</h4>
+                    </div>
+                    <div class="summary-card" style="padding: 15px; background: #f0fdf4; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 12px; color: #16a34a;">Imported</span>
+                        <h4 id="summary-imported" style="font-size: 24px;">0</h4>
                     </div>
                     <div class="summary-card" style="padding: 15px; background: #fff1f2; border-radius: 8px; text-align: center;">
                         <span style="font-size: 12px; color: #e11d48;">Duplicates</span>
                         <h4 id="summary-dupes" style="font-size: 24px;">0</h4>
                     </div>
-                    <div class="summary-card" style="padding: 15px; background: #f0fdf4; border-radius: 8px; text-align: center;">
-                        <span style="font-size: 12px; color: #16a34a;">New</span>
-                        <h4 id="summary-new" style="font-size: 24px;">0</h4>
+                    <div class="summary-card" style="padding: 15px; background: #f8fafc; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 12px; color: #64748b;">Phones</span>
+                        <h4 id="summary-phones" style="font-size: 24px;">0</h4>
+                    </div>
+                    <div class="summary-card" style="padding: 15px; background: #f8fafc; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 12px; color: #64748b;">Websites</span>
+                        <h4 id="summary-websites" style="font-size: 24px;">0</h4>
+                    </div>
+                    <div class="summary-card" style="padding: 15px; background: #f8fafc; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 12px; color: #64748b;">Categories</span>
+                        <h4 id="summary-categories" style="font-size: 24px;">0</h4>
+                    </div>
+                    <div class="summary-card" style="padding: 15px; background: #fff1f2; border-radius: 8px; text-align: center; grid-column: span 3;">
+                        <span style="font-size: 12px; color: #e11d48;">Missing Phone Numbers</span>
+                        <h4 id="summary-no-phone" style="font-size: 24px;">0</h4>
                     </div>
                 </div>
                 <div class="modal-footer">

@@ -215,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${lead.pincode || '-'}</td>
                 <td>${lead.rating || '-'} ★</td>
                 <td>${lead.reviews || 0}</td>
-                <td>${lead.score || 0} ★</td>
                 <td><span class="badge badge-${lead.status.toLowerCase()}">${lead.status}</span></td>
                 <td>
                     <button class="btn-icon edit-lead" data-id="${lead.id}"><i data-lucide="edit-2"></i></button>
@@ -387,16 +386,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const processImport = async (rawLeads) => {
-        let stats = { total: rawLeads.length, dupes: 0, new: 0 };
+        let stats = {
+            total: rawLeads.length,
+            imported: 0,
+            dupes: 0,
+            phones: 0,
+            websites: 0,
+            categories: 0,
+            noPhone: 0
+        };
+
         for (const raw of rawLeads) {
+            // Count metadata before processing pipeline
+            if (raw.phone && raw.phone !== 'Phone not available') stats.phones++;
+            else stats.noPhone++;
+
+            if (raw.website) stats.websites++;
+            if (raw.category) stats.categories++;
+
             const result = await PipelineService.process(raw, state.leads);
             if (result.action === 'CREATE') {
                 state.leads.push(result.data);
-                stats.new++;
+                stats.imported++;
             } else {
                 const idx = state.leads.findIndex(l => l.id === result.data.id);
                 state.leads[idx] = result.data;
                 stats.dupes++;
+                stats.imported++;
             }
         }
         StorageService.saveLeads(state.leads);
@@ -404,8 +420,12 @@ document.addEventListener('DOMContentLoaded', () => {
         importTabContents.forEach(c => c.style.display = 'none');
         document.getElementById('import-summary').style.display = 'block';
         document.getElementById('summary-total').textContent = stats.total;
+        document.getElementById('summary-imported').textContent = stats.imported;
         document.getElementById('summary-dupes').textContent = stats.dupes;
-        document.getElementById('summary-new').textContent = stats.new;
+        document.getElementById('summary-phones').textContent = stats.phones;
+        document.getElementById('summary-websites').textContent = stats.websites;
+        document.getElementById('summary-categories').textContent = stats.categories;
+        document.getElementById('summary-no-phone').textContent = stats.noPhone;
     };
 
     // Campaign Handlers
