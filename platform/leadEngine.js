@@ -111,28 +111,118 @@ const LeadEngine = (() => {
      * Parse Google Maps raw data
      */
     const parseGMapsData = (rawData) => {
-        const lines = rawData.split('\n').map(l => l.trim()).filter(l => l !== '');
+        const lines = rawData.split('\n').map(l => l.trim());
         const leads = [];
+        const stats = {
+            imported: 0,
+            skippedNoPhone: 0,
+            skippedNoWhatsApp: 0
+        };
 
-        if (lines.length > 0) {
-            const lead = createLead({
-                businessName: lines[0],
-                notes: 'Imported from Google Maps'
-            });
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line) continue;
 
-            lines.forEach(line => {
-                if (line.includes('stars')) lead.rating = parseFloat(line);
-                if (/\d{3}-\d{3}-\d{4}/.test(line)) lead.phone = line;
-                if (line.startsWith('http')) {
-                    if (line.includes('google.com/maps')) lead.mapsUrl = line;
-                    else lead.website = line;
+            // Look for Rating(Reviews) pattern: e.g. "4.7(138)"
+            const ratingMatch = line.match(/^(\d\.\d)\((\d+(?:,\d+)*)\)$/);
+            if (ratingMatch) {
+                let businessName = "";
+                let backtrack = i - 1;
+
+                // Backtrack to find business name
+                while (backtrack >= 0) {
+                    const prevLine = lines[backtrack];
+                    if (prevLine &&
+                        prevLine !== 'Sponsored' &&
+                        prevLine !== '' &&
+                        prevLine !== 'Results' &&
+                        prevLine !== 'Share' &&
+                        prevLine !== 'Saved' &&
+                        prevLine !== 'Recents' &&
+                        prevLine !== 'Get app' &&
+                        prevLine !== 'On-site services' &&
+                        !prevLine.match(/^\d\.\d\(\d+\)$/) &&
+                        !/^(\+91|0)?\s?(\d{2,5}\s?\d{5,8}|\d{10,12})$/.test(prevLine.replace(/\s/g, ''))
+                    ) {
+                        businessName = prevLine;
+                        break;
+                    }
+                    backtrack--;
                 }
-                if (line.includes(',') && /\d{5}/.test(line)) lead.address = line;
-            });
 
-            leads.push(lead);
+                if (!businessName) continue;
+
+                const leadData = {
+                    businessName: businessName,
+                    rating: parseFloat(ratingMatch[1]),
+                    reviews: parseInt(ratingMatch[2].replace(/,/g, '')),
+                    notes: 'Imported from Google Maps'
+                };
+
+                let extractedPhone = "";
+                // Forward scan for fields
+                for (let j = i + 1; j < Math.min(i + 15, lines.length); j++) {
+                    const nextLine = lines[j];
+                    if (!nextLine) continue;
+                    if (nextLine.match(/^\d\.\d\(\d+\)$/)) break;
+
+                    const parts = nextLine.split(/[·\u00B7]/).map(p => p.trim());
+
+                    parts.forEach(part => {
+                        // Phone check
+                        if (/^(\+91|0)?\s?(\d{2,5}\s?\d{5,8}|\d{10,12})$/.test(part.replace(/\s/g, ''))) {
+                            if (!extractedPhone) extractedPhone = part;
+                        }
+                        // Category keywords
+                        else if (!leadData.category && (
+                            part.toLowerCase().includes('service') ||
+                            part.toLowerCase().includes('agency') ||
+                            part.toLowerCase().includes('company') ||
+                            part.toLowerCase().includes('guard') ||
+                            part.toLowerCase().includes('supplier') ||
+                            part.toLowerCase().includes('office') ||
+                            part.toLowerCase().includes('management') ||
+                            part.toLowerCase().includes('property')
+                        )) {
+                            leadData.category = part;
+                        }
+                        // Address check
+                        else if (!leadData.address && (part.includes(',') || /\d/.test(part)) && part.length > 5 && !part.match(/\d+\s*(am|pm)/i) && !part.match(/Open|Closed/i)) {
+                            leadData.address = part;
+                        }
+                    });
+
+                    if (!extractedPhone && nextLine.match(/^(\+91|0)?\s?(\d{2,5}\s?\d{5,8}|\d{10,12})$/)) {
+                        extractedPhone = nextLine;
+                    } else if (nextLine === 'Website' || nextLine === 'Visit site') {
+                        leadData.website = 'Available';
+                    }
+                }
+
+                if (!extractedPhone) {
+                    stats.skippedNoPhone++;
+                    console.warn(`Skipped "${businessName}": No phone number found`);
+                    continue;
+                }
+
+                // WhatsApp eligibility check (Indian Mobiles: 6-9 prefix, 10 digits excluding country code)
+                const cleanPhone = extractedPhone.replace(/\s/g, '');
+                const isLandline = cleanPhone.startsWith('080') && cleanPhone.length === 11 && /^[2346]/.test(cleanPhone[3]);
+                const mobilePart = cleanPhone.replace(/^\+91/, '').replace(/^0/, '');
+                const isMobile = mobilePart.length === 10 && /^[6-9]/.test(mobilePart);
+
+                if (isMobile && !isLandline) {
+                    leadData.phone = extractedPhone;
+                    leads.push(createLead(leadData));
+                    stats.imported++;
+                } else {
+                    stats.skippedNoWhatsApp++;
+                    console.warn(`Skipped "${businessName}": WhatsApp number unavailable (${extractedPhone})`);
+                }
+            }
         }
 
+        leads.importStats = stats;
         return leads;
     };
 
