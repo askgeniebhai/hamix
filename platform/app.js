@@ -560,15 +560,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('form-campaign').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = document.getElementById('campaign-name').value;
-        const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
-        const leads = state.leads.filter(l => selectedIds.includes(l.id));
-        const camp = CampaignService.createCampaign(name, leads);
-        state.campaigns.push(camp);
-        StorageService.saveCampaigns(state.campaigns);
-        closeModal('campaign');
-        navigateTo('campaigns');
+        try {
+            e.preventDefault();
+            const name = document.getElementById('campaign-name').value;
+            const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
+
+            if (selectedIds.length === 0) {
+                alert('Please select at least one lead for the campaign.');
+                return;
+            }
+
+            const leads = state.leads.filter(l => selectedIds.includes(l.id));
+            const camp = CampaignService.createCampaign(name, leads);
+
+            if (!camp || !camp.messages) {
+                throw new Error('Failed to generate campaign messages.');
+            }
+
+            state.campaigns.push(camp);
+            StorageService.saveCampaigns(state.campaigns);
+            closeModal('campaign');
+            navigateTo('campaigns');
+        } catch (error) {
+            console.error('Campaign Generation Error:', error);
+            alert('An error occurred while generating the campaign. Please check the console for details.');
+        }
     });
 
     // Initial load

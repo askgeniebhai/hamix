@@ -10,10 +10,10 @@ const CampaignService = (() => {
      */
     const generatePersonalizedMessage = (lead) => {
         // Core Logic: Understand the business using all available information
-        const name = lead.businessName;
+        const name = lead.businessName || 'Valued Business';
         const category = lead.category || 'business';
         const rating = lead.rating || 0;
-        const location = lead.address ? lead.address.split(',')[0] : '';
+        const location = (lead.address && typeof lead.address === 'string') ? lead.address.split(',')[0] : (lead.locality || '');
         const websiteQuality = lead.website ? 'excellent' : 'missing';
 
         // Generate dynamic components to avoid repetition
