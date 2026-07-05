@@ -26,6 +26,8 @@
                     <li data-page="leads"><a href="#"><i data-lucide="users"></i> <span>Leads</span></a></li>
                     <li data-page="campaigns"><a href="#"><i data-lucide="message-square"></i> <span>Campaigns</span></a></li>
                     <li data-page="customers"><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
+                    <li data-page="attendance"><a href="#"><i data-lucide="calendar-check"></i> <span>Attendance</span></a></li>
+                    <li data-page="payroll"><a href="#"><i data-lucide="banknote"></i> <span>Payroll</span></a></li>
                     <li data-page="templates"><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
                     <li data-page="deployments"><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
                     <li data-page="settings"><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
@@ -225,6 +227,68 @@
                             <tbody id="campaigns-list">
                                 <tr>
                                     <td colspan="5" class="empty-state">No campaigns created yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Attendance Page -->
+                <div id="page-attendance" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Attendance Management</h2>
+                            <p>Track guard attendance and site coverage.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-primary" id="btn-guard-portal"><i data-lucide="external-link"></i> Open Guard Portal</button>
+                        </div>
+                    </div>
+
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>Guard Name</th>
+                                    <th>Site</th>
+                                    <th>Check-in</th>
+                                    <th>Check-out</th>
+                                    <th>Status</th>
+                                    <th>Location</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-list">
+                                <tr>
+                                    <td colspan="6" class="empty-state">No attendance records for today.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Payroll Page -->
+                <div id="page-payroll" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Payroll Management</h2>
+                            <p>Calculate and manage employee salaries.</p>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Days Present</th>
+                                    <th>Base Salary</th>
+                                    <th>Deductions</th>
+                                    <th>Net Pay</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payroll-list">
+                                <tr>
+                                    <td colspan="6" class="empty-state">Payroll data will appear after attendance records are processed.</td>
                                 </tr>
                             </tbody>
                         </table>

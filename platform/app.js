@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageId === 'leads') renderLeads();
         if (pageId === 'campaigns') renderCampaigns();
         if (pageId === 'customers') renderCustomers();
+        if (pageId === 'attendance') renderAttendanceRecords();
+        if (pageId === 'payroll') renderPayroll();
 
         if (window.lucide) window.lucide.createIcons();
     };
@@ -363,6 +365,75 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Acquisition Handlers
+    const csvFileInput = document.getElementById('csv-file-input');
+    const csvUploadArea = document.getElementById('csv-upload-area');
+    const csvMappingDiv = document.getElementById('csv-mapping');
+    const csvFieldsList = document.getElementById('csv-fields-list');
+    let currentCsvData = null;
+
+    if (csvUploadArea) {
+        csvUploadArea.addEventListener('click', () => csvFileInput.click());
+    }
+
+    if (csvFileInput) {
+        csvFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const text = event.target.result;
+                const rows = text.split('\n').map(r => r.split(',').map(cell => cell.trim()));
+                const headers = rows[0];
+                const data = rows.slice(1).filter(r => r.length === headers.length).map(row => {
+                    const obj = {};
+                    headers.forEach((h, i) => obj[h] = row[i]);
+                    return obj;
+                });
+
+                currentCsvData = data;
+                renderCsvMapping(headers);
+            };
+            reader.readAsText(file);
+        });
+    }
+
+    const renderCsvMapping = (headers) => {
+        csvUploadArea.style.display = 'none';
+        csvMappingDiv.style.display = 'block';
+
+        const leadFields = [
+            { id: 'businessName', label: 'Business Name' },
+            { id: 'phone', label: 'Phone' },
+            { id: 'category', label: 'Category' },
+            { id: 'email', label: 'Email' },
+            { id: 'website', label: 'Website' },
+            { id: 'address', label: 'Address' }
+        ];
+
+        csvFieldsList.innerHTML = leadFields.map(field => `
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="font-size: 13px; font-weight: 500;">${field.label}</label>
+                <select class="csv-map-select" data-field="${field.id}" style="width: 100%;">
+                    <option value="">-- Skip --</option>
+                    ${headers.map(h => `<option value="${h}" ${h.toLowerCase().includes(field.id.toLowerCase()) ? 'selected' : ''}>${h}</option>`).join('')}
+                </select>
+            </div>
+        `).join('');
+    };
+
+    document.getElementById('btn-process-csv').addEventListener('click', async () => {
+        if (!currentCsvData) return;
+
+        const mapping = {};
+        document.querySelectorAll('.csv-map-select').forEach(select => {
+            if (select.value) mapping[select.dataset.field] = select.value;
+        });
+
+        const leads = await AcquisitionService.importFromSource('csv', currentCsvData, { mapping });
+        processImport(leads);
+    });
+
     document.getElementById('btn-process-gmaps').addEventListener('click', async () => {
         const rawData = document.getElementById('gmaps-import-data').value;
         const leads = await AcquisitionService.importFromSource('gmaps', rawData);
@@ -448,6 +519,80 @@ document.addEventListener('DOMContentLoaded', () => {
         closeModal('campaign');
         navigateTo('campaigns');
     });
+
+    // Attendance & Payroll Rendering (Placeholders for now)
+    const renderAttendanceRecords = () => {
+        const container = document.getElementById('attendance-list');
+        const records = StorageService.load('nfs_attendance', []);
+
+        if (records.length === 0) {
+            container.innerHTML = `<tr><td colspan="6" class="empty-state">No attendance records found.</td></tr>`;
+            return;
+        }
+
+        container.innerHTML = records.map(r => `
+            <tr>
+                <td><strong>${r.guardName}</strong></td>
+                <td>${r.siteName}</td>
+                <td>${new Date(r.timestamp).toLocaleTimeString()}</td>
+                <td>-</td>
+                <td><span class="badge ${r.status === 'Verified' ? 'badge-validated' : 'badge-ready-for-ai'}">${r.status}</span></td>
+                <td><small>${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</small></td>
+            </tr>
+        `).join('');
+    };
+
+    const renderPayroll = () => {
+        const container = document.getElementById('payroll-list');
+        const attendance = StorageService.load('nfs_attendance', []);
+
+        // Mock Employee Database (Phase 1)
+        const employees = {
+            "NFS-9921": { name: "John Smith", baseSalary: 25000 }
+        };
+
+        const summary = attendance.reduce((acc, curr) => {
+            if (!acc[curr.guardId]) {
+                acc[curr.guardId] = {
+                    name: curr.guardName,
+                    days: new Set(),
+                    base: employees[curr.guardId]?.baseSalary || 20000
+                };
+            }
+            acc[curr.guardId].days.add(new Date(curr.timestamp).toDateString());
+            return acc;
+        }, {});
+
+        const rows = Object.values(summary);
+
+        if (rows.length === 0) {
+            container.innerHTML = `<tr><td colspan="6" class="empty-state">No attendance data found to calculate payroll.</td></tr>`;
+            return;
+        }
+
+        container.innerHTML = rows.map(r => {
+            const daysCount = r.days.size;
+            const dailyRate = r.base / 30;
+            const netPay = Math.round(dailyRate * daysCount);
+            return `
+                <tr>
+                    <td><strong>${r.name}</strong></td>
+                    <td>${daysCount} days</td>
+                    <td>₹${r.base.toLocaleString()}</td>
+                    <td>-</td>
+                    <td><strong>₹${netPay.toLocaleString()}</strong></td>
+                    <td><span class="badge badge-new">Draft</span></td>
+                </tr>
+            `;
+        }).join('');
+    };
+
+    const btnGuardPortal = document.getElementById('btn-guard-portal');
+    if (btnGuardPortal) {
+        btnGuardPortal.addEventListener('click', () => {
+            window.open('guard-portal.html', '_blank');
+        });
+    }
 
     // Initial load
     navigateTo('dashboard');
