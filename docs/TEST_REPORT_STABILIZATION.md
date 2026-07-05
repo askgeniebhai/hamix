@@ -1,51 +1,45 @@
-# HAMIX Stabilization Pass - Test Report
+# HAMIX Lead Collection Engine - Stabilization Test Report
 
-## Objective Completed
-Comprehensive bug-fixing and stabilization of the Lead Collection Engine, focusing on Google Maps import, AI scoring, and campaign generation workflows.
+## Objective
+The objective of this task was to conduct a comprehensive bug-fixing and stabilization pass on the HAMIX Lead Collection Engine, focusing on G-Maps import reliability, data mapping accuracy, AI scoring, and campaign generation stability.
 
 ## Issues Fixed
 
-### 1. Google Maps Import Robustness
-- **Problem:** Only 1-2 businesses were being imported from pasted results.
-- **Fix:** Refactored `parseGMapsData` in `platform/leadEngine.js` to use a more resilient multi-signal detection for business blocks (Name + Rating line).
-- **Verification:** Successfully parsed 5+ businesses from a single paste in E2E tests.
+### 1. Google Maps Import & Parsing
+- **Multiple Business Import:** Fixed an issue where only 1-2 businesses were imported from search results. The parser now uses global regex matches to extract all business blocks from pasted data.
+- **Phone Number Requirement:** Modified the engine to import businesses even if a phone number is missing. Added a `hasPhone` flag to indicate availability.
+- **Field Mapping Accuracy:**
+    - **Locality:** Refined address extraction to filter out date strings (e.g., "Jan 14") that were previously misidentified as localities.
+    - **Category:** Enhanced category cleaning to strip price ranges and extraneous text.
+    - **Rating & Reviews:** Fixed regex patterns to correctly capture numeric ratings and review counts (e.g., "4.1(2.5K)").
 
-### 2. Missing Phone Number Handling
-- **Problem:** Businesses without phone numbers were being skipped.
-- **Fix:** Modified parser to import all detected businesses. Added a `hasPhone` boolean flag to the Lead model. Defaulted missing phones to "Phone not available".
-- **Verification:** Verified in `reproduce_issues.js` and E2E dashboard screenshots showing leads with and without phone numbers.
+### 2. AI Scoring Pipeline
+- **Deterministic Scoring:** Replaced random score generation with a data-driven pipeline in `PipelineService.js`. Scores (1-5 stars) and Confidence levels are now calculated based on the completeness and quality of lead data (phone, website, rating, enrichment status).
 
-### 3. Field Mapping & Locality Extraction
-- **Problem:** Locality incorrectly mapped (e.g., "Jan 14"), missing categories, incorrect ratings/reviews.
-- **Fix:**
-    - Updated `ratingRegex` to support "No reviews" and various separators.
-    - Added a date-check in `extractAddressParts` to skip strings starting with month names.
-    - Ensured `category` and `reviews` are extracted correctly from the rating line.
-- **Verification:** Verified accurate field mapping in the Leads table via E2E testing.
+### 3. Campaign & AI Message Generation
+- **Stability:** Fixed a "blank screen" crash during campaign generation by adding validation and safety checks for missing lead fields.
+- **Message Quality:** Implemented rotating templates for greetings, openers, and value propositions. Messages now adapt dynamically to the business category and location.
+- **WhatsApp Preview:** Enabled `white-space: pre-wrap` in the message editor to accurately reflect line breaks in the final outreach message.
 
-### 4. AI Scoring Logic
-- **Problem:** AI Score remained the same for all leads.
-- **Fix:** Refactored `calculateScore` in `PipelineService.js` to be deterministic, weighting phone/website presence, actual ratings, and review counts.
-- **Verification:** Verified that AI scores now range from 1 to 5 based on lead data quality.
+### 4. UI/UX Enhancements
+- **Landing Page:** Integrated a professional SaaS landing page as the entry point for the platform.
+- **Demo Mode:** Relabeled outreach actions to "Demo Mode" to clearly indicate that live WhatsApp integration is pending in the next development phase.
 
-### 5. Campaign Generation Stability
-- **Problem:** Generating messages resulted in a blank screen.
-- **Fix:**
-    - Added defensive checks in `CampaignService.generatePersonalizedMessage` for missing address, category, or name.
-    - Added `try...catch` and input validation in `app.js` campaign form handler.
-- **Verification:** Verified with `test_campaign.js` and E2E walkthrough; campaigns now generate successfully even with incomplete lead data.
+## Testing Summary
 
-## Files Modified
-- `platform/leadEngine.js`
-- `platform/services/PipelineService.js`
-- `platform/services/CampaignService.js`
-- `platform/app.js`
+### Automated Testing
+- **Parsing Test (`reproduce_issues.js`):** Verified that the G-Maps parser correctly identifies multiple businesses and maps all fields.
+- **E2E Flow (`verify_final.py`):** A Playwright-based end-to-end test confirmed the full workflow:
+    1. Navigation from Landing Page to CRM Dashboard.
+    2. Batch import of leads from raw Google Maps data.
+    3. Persistence of leads in the management table.
+    4. Successful campaign creation and AI message generation.
+    5. UI verification of the Campaign Review modal.
 
-## Files Created
-- `docs/TEST_REPORT_STABILIZATION.md` (This report)
+### Manual Verification
+- Verified that the "Launch CRM" button transitions correctly.
+- Confirmed that clicking "Approve & Send" triggers the Demo Mode alert.
+- Verified responsive layout of the new landing page components.
 
-## Summary of Implementation
-The stabilization pass has moved the Lead Collection Engine from a fragile, regex-dependent state to a more robust, stateful parsing model. Defensive programming was applied across the pipeline to ensure that missing data in one lead does not crash the entire application or campaign generation process. The AI scoring is now a meaningful metric reflecting lead quality.
-
-## Recommended Next Roadmap Task
-Proceed to **Step 5 — Build Project Generation** (Generate a complete customer project using reusable HAMIX components).
+## Conclusion
+The HAMIX Lead Collection Engine is now stable and reliable. The parsing logic is robust against variations in raw data, and the campaign workflow is protected against runtime errors. The platform is ready for the next phase of development.

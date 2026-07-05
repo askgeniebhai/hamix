@@ -127,8 +127,9 @@ const LeadEngine = (() => {
         if (!category) return '';
         // Remove price ranges like $$, £££, ₹₹, etc. and numeric chars
         // Also remove specific phrases commonly found in maps like "Open 24 hours"
+        // And common separators like · or •
         return category
-            .replace(/[£$€₹¥\d·]/g, '')
+            .replace(/[£$€₹¥\d·•]/g, '')
             .replace(/Open\s+\d+\s+hours/gi, '')
             .replace(/\s+/g, ' ')
             .trim();
@@ -153,12 +154,15 @@ const LeadEngine = (() => {
         }
 
         // Locality is often the second to last or third to last part in a comma-separated address
-        const parts = address.split(',').map(p => p.trim());
+        const parts = address.split(',').map(p => p.trim()).filter(p => !p.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+/i));
+
         if (parts.length > 2) {
             // Usually: [Shop No], [Building], [Locality/Area], [City], [State] [Pincode]
             // We take parts that aren't the last two (City/State)
             result.locality = parts[parts.length - 3] || parts[0];
         } else if (parts.length > 1) {
+            result.locality = parts[0];
+        } else if (parts.length === 1) {
             result.locality = parts[0];
         }
 
