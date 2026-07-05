@@ -24,6 +24,7 @@
                 <ul>
                     <li class="active" data-page="dashboard"><a href="#"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a></li>
                     <li data-page="leads"><a href="#"><i data-lucide="users"></i> <span>Leads</span></a></li>
+                    <li data-page="campaigns"><a href="#"><i data-lucide="message-square"></i> <span>Campaigns</span></a></li>
                     <li data-page="customers"><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
                     <li data-page="templates"><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
                     <li data-page="deployments"><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
@@ -142,9 +143,13 @@
                             <thead>
                                 <tr>
                                     <th>Business Name</th>
+                                    <th>Phone</th>
                                     <th>Category</th>
-                                    <th>Contact</th>
+                                    <th>Locality</th>
+                                    <th>Pincode</th>
                                     <th>Rating</th>
+                                    <th>Reviews</th>
+                                    <th>AI Score</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -152,7 +157,7 @@
                             <tbody id="leads-list">
                                 <!-- Leads will be populated here -->
                                 <tr>
-                                    <td colspan="6" class="empty-state">No leads found. Start by importing or adding a lead.</td>
+                                    <td colspan="10" class="empty-state">No leads found. Start by importing or adding a lead.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -184,11 +189,44 @@
                                     <th>Website</th>
                                     <th>Status</th>
                                     <th>Joined Date</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="customers-list">
                                 <tr>
-                                    <td colspan="6" class="empty-state">No customers yet. Approve leads to see them here.</td>
+                                    <td colspan="7" class="empty-state">No customers yet. Approve leads to see them here.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Campaigns Page -->
+                <div id="page-campaigns" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>WhatsApp Campaigns</h2>
+                            <p>AI-powered personalized outreach.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-primary" id="btn-new-campaign"><i data-lucide="plus"></i> New Campaign</button>
+                        </div>
+                    </div>
+
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>Campaign Name</th>
+                                    <th>Leads</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="campaigns-list">
+                                <tr>
+                                    <td colspan="5" class="empty-state">No campaigns created yet.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -241,6 +279,14 @@
                         <input type="text" id="lead-address">
                     </div>
                     <div class="form-group">
+                        <label for="lead-locality">Locality</label>
+                        <input type="text" id="lead-locality">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-pincode">Pincode</label>
+                        <input type="text" id="lead-pincode">
+                    </div>
+                    <div class="form-group">
                         <label for="lead-rating">Rating</label>
                         <input type="number" id="lead-rating" step="0.1" min="0" max="5">
                     </div>
@@ -263,9 +309,18 @@
                             <option value="Validated">Validated</option>
                             <option value="Contacted">Contacted</option>
                             <option value="Follow-up">Follow-up</option>
+                            <option value="Sent">Sent</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Read">Read</option>
+                            <option value="Replied">Replied</option>
+                            <option value="Interested">Interested</option>
+                            <option value="Quotation">Quotation</option>
+                            <option value="Meeting">Meeting</option>
                             <option value="Approved">Approved</option>
+                            <option value="Customer">Customer</option>
                             <option value="Published">Published</option>
                             <option value="Completed">Completed</option>
+                            <option value="Lost">Lost</option>
                         </select>
                     </div>
                     <div class="form-group full-width">
@@ -278,6 +333,56 @@
                     <button type="submit" class="btn btn-primary">Save Lead</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="modal-campaign" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Campaign</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="form-campaign">
+                <div class="form-group">
+                    <label>Campaign Name</label>
+                    <input type="text" id="campaign-name" required placeholder="e.g., Q1 Plumbing Outreach">
+                </div>
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>Select Target Leads</label>
+                    <div id="campaign-leads-selector" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 8px;">
+                        <!-- Checkboxes populated by JS -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Generate Messages</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-review-messages" class="modal modal-full">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Review & Personalize Messages</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="review-workspace">
+                <div class="review-sidebar">
+                    <ul id="review-leads-list">
+                        <!-- List of leads to review -->
+                    </ul>
+                </div>
+                <div class="review-editor">
+                    <div id="message-metrics" class="metrics-grid">
+                        <!-- Metrics like AI Score, Spam Risk -->
+                    </div>
+                    <textarea id="message-editor-text" rows="12" style="width: 100%; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); font-family: sans-serif;"></textarea>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="btn-regenerate-msg"><i data-lucide="refresh-cw"></i> Regenerate</button>
+                        <button class="btn btn-primary" id="btn-approve-msg"><i data-lucide="check"></i> Approve & Send</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -308,8 +413,10 @@
                 <button class="close-modal">&times;</button>
             </div>
             <div class="import-tabs">
-                <button class="import-tab active" data-tab="gmaps">Google Maps</button>
-                <button class="import-tab" data-tab="csv">CSV Import</button>
+                <button class="import-tab active" data-tab="gmaps">G-Maps</button>
+                <button class="import-tab" data-tab="csv">Files</button>
+                <button class="import-tab" data-tab="ocr">AI OCR</button>
+                <button class="import-tab" data-tab="clipboard">Universal</button>
             </div>
 
             <div id="import-tab-gmaps" class="import-tab-content active">
@@ -324,19 +431,64 @@
 
             <div id="import-tab-csv" class="import-tab-content">
                 <div class="import-instructions">
-                    <p>Upload a CSV file to import multiple leads.</p>
+                    <p>Upload a CSV or Excel file to import multiple leads.</p>
                 </div>
                 <div class="file-upload-area" id="csv-upload-area">
                     <i data-lucide="upload-cloud"></i>
-                    <p>Click or drag CSV file here</p>
-                    <input type="file" id="csv-file-input" accept=".csv" hidden>
+                    <p>Click or drag file here</p>
+                    <input type="file" id="csv-file-input" accept=".csv, .xlsx" hidden>
                 </div>
                 <div id="csv-mapping" class="csv-mapping-container" style="display: none;">
                     <h3>Field Mapping</h3>
                     <div id="csv-fields-list"></div>
                     <div class="modal-footer">
-                        <button class="btn btn-primary" id="btn-process-csv">Process CSV</button>
+                        <button class="btn btn-primary" id="btn-process-csv">Process File</button>
                     </div>
+                </div>
+            </div>
+
+            <div id="import-tab-ocr" class="import-tab-content">
+                <div class="import-instructions">
+                    <p>Upload photographs of signboards, cards, or brochures.</p>
+                </div>
+                <div class="file-upload-area" id="ocr-upload-area">
+                    <i data-lucide="camera"></i>
+                    <p>Upload Business Board Image</p>
+                    <input type="file" id="ocr-file-input" accept="image/*" hidden>
+                </div>
+                <div id="ocr-status" style="margin-top: 10px; display: none;" class="alert alert-info">
+                    Scanning image with AI OCR...
+                </div>
+            </div>
+
+            <div id="import-tab-clipboard" class="import-tab-content">
+                <div class="import-instructions">
+                    <p>Paste text containing business info or phone numbers.</p>
+                </div>
+                <textarea id="clipboard-import-data" placeholder="Paste from Search results, PDF, or Clipboard..." rows="10" class="form-control"></textarea>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="btn-process-clipboard">Extract Leads</button>
+                </div>
+            </div>
+
+            <div id="import-summary" class="import-summary-container" style="display: none; padding: 20px;">
+                <h3>Import Results</h3>
+                <div class="summary-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0;">
+                    <div class="summary-card" style="padding: 15px; background: #f8fafc; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 12px; color: #64748b;">Total</span>
+                        <h4 id="summary-total" style="font-size: 24px;">0</h4>
+                    </div>
+                    <div class="summary-card" style="padding: 15px; background: #fff1f2; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 12px; color: #e11d48;">Duplicates</span>
+                        <h4 id="summary-dupes" style="font-size: 24px;">0</h4>
+                    </div>
+                    <div class="summary-card" style="padding: 15px; background: #f0fdf4; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 12px; color: #16a34a;">New</span>
+                        <h4 id="summary-new" style="font-size: 24px;">0</h4>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="location.reload()">Finish</button>
                 </div>
             </div>
 
@@ -358,6 +510,10 @@
         </div>
     </div>
 
+    <script src="services/StorageService.js"></script>
+    <script src="services/AcquisitionService.js"></script>
+    <script src="services/PipelineService.js"></script>
+    <script src="services/CampaignService.js"></script>
     <script src="leadEngine.js"></script>
     <script src="generator/themes.js"></script>
     <script src="generator/components.js"></script>
