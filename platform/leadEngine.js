@@ -129,7 +129,8 @@ const LeadEngine = (() => {
         // Also remove specific phrases commonly found in maps like "Open 24 hours"
         // And common separators like · or •
         return category
-            .replace(/[£$€₹¥\d·•]/g, '')
+            .replace(/[£$€₹¥]\d+([-–]\d+)?/g, '') // Remove ₹200-400
+            .replace(/[£$€₹¥\d·•]/g, '')           // Remove symbols, digits and separators
             .replace(/Open\s+\d+\s+hours/gi, '')
             .replace(/\s+/g, ' ')
             .trim();
@@ -213,7 +214,9 @@ const LeadEngine = (() => {
                 }
                 currentLead.category = cleanCategory(ratingMatch[4]);
             } else if (isPhoneLine(line) && currentLead) {
-                if (!currentLead.phone) currentLead.phone = line;
+                if (!currentLead.phone || currentLead.phone === 'Phone not available') {
+                    currentLead.phone = line;
+                }
             } else if (isWebsiteLine(line) && currentLead) {
                 if (mapsUrlRegex.test(line)) {
                     currentLead.mapsUrl = line;
