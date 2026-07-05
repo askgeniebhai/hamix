@@ -34,7 +34,18 @@ const PipelineService = (() => {
             if (match) return { type: 'WEBSITE', match };
         }
 
-        // Priority 3: Name + Address (Simulation of Pincode/City match)
+        // Priority 3: Name + Pincode
+        if (newLead.businessName && newLead.pincode) {
+            const name = newLead.businessName.toLowerCase();
+            const pincode = newLead.pincode;
+            const match = existingLeads.find(l =>
+                l.businessName.toLowerCase() === name &&
+                l.pincode === pincode
+            );
+            if (match) return { type: 'NAME_PINCODE', match };
+        }
+
+        // Priority 4: Name + City (Simulation using Address parts)
         if (newLead.businessName && newLead.address) {
             const name = newLead.businessName.toLowerCase();
             const addr = newLead.address.toLowerCase();
@@ -42,7 +53,7 @@ const PipelineService = (() => {
                 l.businessName.toLowerCase() === name &&
                 l.address.toLowerCase().substring(0, 10) === addr.substring(0, 10)
             );
-            if (match) return { type: 'NAME_ADDR', match };
+            if (match) return { type: 'NAME_CITY', match };
         }
 
         return null;

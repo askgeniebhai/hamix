@@ -33,6 +33,9 @@ const LeadEngine = (() => {
             email: data.email || '',
             website: data.website || '',
             address: data.address || '',
+            locality: data.locality || '',
+            pincode: data.pincode || '',
+            whatsappStatus: data.whatsappStatus || 'Unknown',
             rating: data.rating || 0,
             reviews: data.reviews || 0,
             latitude: data.latitude || null,
@@ -112,6 +115,46 @@ const LeadEngine = (() => {
     };
 
     /**
+     * Clean category string by removing price ranges and numbers
+     */
+    const cleanCategory = (category) => {
+        if (!category) return '';
+        // Remove price ranges like $$, £££, ₹₹, etc. and numeric chars
+        // Also remove specific phrases commonly found in maps like "Open 24 hours"
+        return category
+            .replace(/[£$€₹¥\d·]/g, '')
+            .replace(/Open\s+\d+\s+hours/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+
+    /**
+     * Extract Locality and Pincode from address
+     */
+    const extractAddressParts = (address) => {
+        const result = { locality: '', pincode: '' };
+        if (!address) return result;
+
+        // Try to find a 6-digit pincode (common in India) or 5-digit zip
+        const pincodeMatch = address.match(/\b\d{5,6}\b/);
+        if (pincodeMatch) {
+            result.pincode = pincodeMatch[0];
+        }
+
+        // Locality is often the second to last or third to last part in a comma-separated address
+        const parts = address.split(',').map(p => p.trim());
+        if (parts.length > 2) {
+            // Usually: [Shop No], [Building], [Locality/Area], [City], [State] [Pincode]
+            // We take parts that aren't the last two (City/State)
+            result.locality = parts[parts.length - 3] || parts[0];
+        } else if (parts.length > 0) {
+            result.locality = parts[0];
+        }
+
+        return result;
+    };
+
+    /**
      * Parse Google Maps raw data
      * Supports multiple entries by detecting "Rating(Reviews) · Category" pattern
      */
@@ -121,7 +164,7 @@ const LeadEngine = (() => {
         let currentLead = null;
 
         const ratingRegex = /^(\d\.\d)\s*\(([\d,]+)\)\s*·\s*(.*)$/;
-        const phoneRegex = /(\+?\d[\d\s-]{7,15}\d)/;
+        const phoneRegex = /^(\+?\d[\d\s-]{5,20})$/;
         const websiteRegex = /^https?:\/\/[^\s$.?#].[^\s]*$/i;
         const mapsUrlRegex = /google\.com\/maps/;
 
@@ -129,12 +172,9 @@ const LeadEngine = (() => {
             if (!line) return;
 
             // Check if this line is a Rating/Reviews/Category line
-            // This is our primary anchor for a lead
             const ratingMatch = line.match(ratingRegex);
 
             if (ratingMatch) {
-                // If we have a rating line, the PREVIOUS line was likely the Business Name
-                // unless we already started this lead
                 if (!currentLead && index > 0) {
                     const prevLine = lines[index - 1];
                     if (prevLine && !prevLine.match(ratingRegex) && !prevLine.match(phoneRegex) && !prevLine.startsWith('http')) {
@@ -148,10 +188,10 @@ const LeadEngine = (() => {
                 if (currentLead) {
                     currentLead.rating = parseFloat(ratingMatch[1]);
                     currentLead.reviews = parseInt(ratingMatch[2].replace(/,/g, ''));
-                    currentLead.category = ratingMatch[3];
+                    currentLead.category = cleanCategory(ratingMatch[3]);
                 }
             } else if (phoneRegex.test(line) && !line.startsWith('http')) {
-                if (currentLead) {
+                if (currentLead && !currentLead.phone) {
                     currentLead.phone = line;
                 }
             } else if (websiteRegex.test(line)) {
@@ -163,21 +203,22 @@ const LeadEngine = (() => {
                     }
                 }
             } else if ((line.includes(',') && /\d/.test(line)) || (currentLead && !currentLead.address && !line.match(ratingRegex) && !line.match(phoneRegex) && !line.startsWith('http') && index > 0 && lines[index-1].match(ratingRegex))) {
-                // Likely an address if it contains a comma and numbers,
-                // OR if it's the line immediately following a rating line (common in G-Maps)
                 if (currentLead && !currentLead.address) {
                     currentLead.address = line;
+                    const parts = extractAddressParts(line);
+                    currentLead.locality = parts.locality;
+                    currentLead.pincode = parts.pincode;
                 }
             } else {
-                // If it's none of the above and we don't have a current lead, it might be a business name
-                // or if we have a current lead but all fields are filled, it might be the start of a NEW lead
                 const isPossibleBusinessName = !line.match(ratingRegex) && !line.match(phoneRegex) && !line.startsWith('http');
 
                 if (isPossibleBusinessName) {
-                    // Check if next line is a rating line - if so, this IS a business name
                     const nextLine = lines[index + 1];
                     if (nextLine && nextLine.match(ratingRegex)) {
-                        if (currentLead) leads.push(currentLead);
+                        if (currentLead) {
+                            finalizeLead(currentLead);
+                            leads.push(currentLead);
+                        }
                         currentLead = createLead({
                             businessName: line,
                             notes: 'Imported from Google Maps'
@@ -187,9 +228,12 @@ const LeadEngine = (() => {
             }
         });
 
-        if (currentLead) leads.push(currentLead);
+        if (currentLead) {
+            finalizeLead(currentLead);
+            leads.push(currentLead);
+        }
 
-        // Fallback for very simple formats (single entry, just lines)
+        // Fallback for very simple formats
         if (leads.length === 0 && lines.filter(l => l).length > 0) {
             const fallbackLead = createLead({
                 businessName: lines.find(l => l && !l.match(ratingRegex) && !l.match(phoneRegex) && !l.startsWith('http')) || 'Unknown Business',
@@ -200,20 +244,29 @@ const LeadEngine = (() => {
                     const m = l.match(ratingRegex);
                     fallbackLead.rating = parseFloat(m[1]);
                     fallbackLead.reviews = parseInt(m[2].replace(/,/g, ''));
-                    fallbackLead.category = m[3];
+                    fallbackLead.category = cleanCategory(m[3]);
                 } else if (phoneRegex.test(l) && !l.startsWith('http')) {
-                    fallbackLead.phone = l;
+                    if (!fallbackLead.phone) fallbackLead.phone = l;
                 } else if (websiteRegex.test(l)) {
                     if (mapsUrlRegex.test(l)) fallbackLead.mapsUrl = l;
                     else fallbackLead.website = l;
                 } else if (l.includes(',') && /\d/.test(l)) {
                     fallbackLead.address = l;
+                    const parts = extractAddressParts(l);
+                    fallbackLead.locality = parts.locality;
+                    fallbackLead.pincode = parts.pincode;
                 }
             });
+            finalizeLead(fallbackLead);
             leads.push(fallbackLead);
         }
 
         return leads;
+    };
+
+    const finalizeLead = (lead) => {
+        if (!lead.phone) lead.phone = 'Phone not available';
+        return lead;
     };
 
     return {

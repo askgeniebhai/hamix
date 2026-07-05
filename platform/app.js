@@ -138,6 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
             rating: parseFloat(document.getElementById('lead-rating').value) || 0,
             reviews: parseInt(document.getElementById('lead-reviews').value) || 0,
             industry: document.getElementById('lead-industry').value,
+            locality: document.getElementById('lead-locality').value,
+            pincode: document.getElementById('lead-pincode').value,
             notes: document.getElementById('lead-notes').value,
             assignedTo: document.getElementById('lead-assignedTo').value,
             status: document.getElementById('lead-status').value
@@ -207,8 +209,12 @@ document.addEventListener('DOMContentLoaded', () => {
         listContainer.innerHTML = filtered.map(lead => `
             <tr>
                 <td><strong>${lead.businessName}</strong></td>
+                <td>${lead.phone || 'Phone not available'}</td>
                 <td>${lead.category || '-'}</td>
-                <td>${lead.phone || lead.email || '-'}</td>
+                <td>${lead.locality || '-'}</td>
+                <td>${lead.pincode || '-'}</td>
+                <td>${lead.rating || '-'} ★</td>
+                <td>${lead.reviews || 0}</td>
                 <td>${lead.score || 0} ★</td>
                 <td><span class="badge badge-${lead.status.toLowerCase()}">${lead.status}</span></td>
                 <td>
@@ -237,6 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('lead-rating').value = lead.rating;
         document.getElementById('lead-reviews').value = lead.reviews;
         document.getElementById('lead-industry').value = lead.industry;
+        document.getElementById('lead-locality').value = lead.locality || '';
+        document.getElementById('lead-pincode').value = lead.pincode || '';
         document.getElementById('lead-notes').value = lead.notes;
         document.getElementById('lead-assignedTo').value = lead.assignedTo || '';
         document.getElementById('lead-status').value = lead.status;
