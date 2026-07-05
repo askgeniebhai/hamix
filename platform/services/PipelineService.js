@@ -141,7 +141,12 @@ const PipelineService = (() => {
 
         const duplicateMatch = detectDuplicate(lead, existingLeads);
         if (duplicateMatch) {
-            return { action: 'MERGE', data: mergeLeads(duplicateMatch.match, lead) };
+            const merged = mergeLeads(duplicateMatch.match, lead);
+            // Run validation on merged lead
+            if (typeof LeadEngine !== 'undefined') {
+                LeadEngine.validateLead(merged, existingLeads);
+            }
+            return { action: 'MERGE', data: merged };
         }
 
         lead = await enrich(lead);
@@ -149,6 +154,11 @@ const PipelineService = (() => {
         lead.id = lead.id || 'lead_' + Math.random().toString(36).substr(2, 9);
         lead.createdAt = lead.createdAt || new Date().toISOString();
         lead.status = lead.status || 'New';
+
+        // Run Business Rule Validation
+        if (typeof LeadEngine !== 'undefined') {
+            LeadEngine.validateLead(lead, existingLeads);
+        }
 
         return { action: 'CREATE', data: lead };
     };

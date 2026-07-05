@@ -25,12 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle landing page transition
         if (pageId !== 'landing') {
             document.body.classList.remove('landing-active');
-            document.getElementById('landing-page').style.display = 'none';
-            document.getElementById('crm-app').style.display = 'flex';
+            const landingPage = document.getElementById('landing-page');
+            if (landingPage) landingPage.style.display = 'none';
+            const crmApp = document.getElementById('crm-app');
+            if (crmApp) crmApp.style.display = 'flex';
         } else {
             document.body.classList.add('landing-active');
-            document.getElementById('landing-page').style.display = 'block';
-            document.getElementById('crm-app').style.display = 'none';
+            const landingPage = document.getElementById('landing-page');
+            if (landingPage) landingPage.style.display = 'block';
+            const crmApp = document.getElementById('crm-app');
+            if (crmApp) crmApp.style.display = 'none';
             return;
         }
 
@@ -43,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.classList.remove('active');
             if (item.dataset.page === pageId) item.classList.add('active');
         });
-        headerTitle.textContent = pageId.charAt(0).toUpperCase() + pageId.slice(1);
+        if (headerTitle) headerTitle.textContent = pageId.charAt(0).toUpperCase() + pageId.slice(1);
 
         if (pageId === 'dashboard') updateDashboard();
         if (pageId === 'leads') renderLeads();
@@ -144,13 +148,22 @@ document.addEventListener('DOMContentLoaded', () => {
             c.classList.remove('active');
         });
         document.getElementById('import-summary').style.display = 'none';
-        document.getElementById('import-preview').style.display = 'none';
-        document.getElementById('csv-upload-area').style.display = 'block';
-        document.getElementById('csv-mapping').style.display = 'none';
-        document.getElementById('import-tab-gmaps').classList.add('active');
-        document.querySelector('.import-tab[data-tab="gmaps"]').classList.add('active');
-        document.getElementById('gmaps-import-data').value = '';
-        document.getElementById('csv-file-input').value = '';
+        const importPreview = document.getElementById('import-preview');
+        if (importPreview) importPreview.style.display = 'none';
+        const csvUploadArea = document.getElementById('csv-upload-area');
+        if (csvUploadArea) csvUploadArea.style.display = 'block';
+        const csvMapping = document.getElementById('csv-mapping');
+        if (csvMapping) csvMapping.style.display = 'none';
+
+        const gmapsTab = document.getElementById('import-tab-gmaps');
+        if (gmapsTab) gmapsTab.classList.add('active');
+        const gmapsNavTab = document.querySelector('.import-tab[data-tab="gmaps"]');
+        if (gmapsNavTab) gmapsNavTab.classList.add('active');
+
+        const gmapsInput = document.getElementById('gmaps-import-data');
+        if (gmapsInput) gmapsInput.value = '';
+        const csvInput = document.getElementById('csv-file-input');
+        if (csvInput) csvInput.value = '';
     };
 
     // Form Submissions
@@ -405,7 +418,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updatePreviewFrame = () => {
         if (!activePreviewCustomer) return;
-        const theme = document.getElementById('preview-theme-select').value;
+        const themeSelect = document.getElementById('preview-theme-select');
+        const theme = themeSelect ? themeSelect.value : 'default';
         const html = WebsiteGenerator.generate(activePreviewCustomer, theme);
         const frame = document.getElementById('preview-frame');
         const doc = frame.contentWindow.document;
@@ -414,7 +428,10 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.close();
     };
 
-    document.getElementById('preview-theme-select').addEventListener('change', updatePreviewFrame);
+    const themeSelect = document.getElementById('preview-theme-select');
+    if (themeSelect) {
+        themeSelect.addEventListener('change', updatePreviewFrame);
+    }
 
     // Filter Handlers
     document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -426,45 +443,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('search-leads').addEventListener('input', (e) => {
-        state.filters.leads.search = e.target.value;
-        renderLeads();
-    });
+    const searchLeadsInput = document.getElementById('search-leads');
+    if (searchLeadsInput) {
+        searchLeadsInput.addEventListener('input', (e) => {
+            state.filters.leads.search = e.target.value;
+            renderLeads();
+        });
+    }
 
-    document.getElementById('sort-leads').addEventListener('change', (e) => {
-        state.filters.leads.sort = e.target.value;
-        renderLeads();
-    });
+    const sortLeadsSelect = document.getElementById('sort-leads');
+    if (sortLeadsSelect) {
+        sortLeadsSelect.addEventListener('change', (e) => {
+            state.filters.leads.sort = e.target.value;
+            renderLeads();
+        });
+    }
 
-    document.getElementById('search-customers').addEventListener('input', (e) => {
-        state.filters.customers.search = e.target.value;
-        renderCustomers();
-    });
+    const searchCustomersInput = document.getElementById('search-customers');
+    if (searchCustomersInput) {
+        searchCustomersInput.addEventListener('input', (e) => {
+            state.filters.customers.search = e.target.value;
+            renderCustomers();
+        });
+    }
 
     // Acquisition Handlers
-    document.getElementById('btn-process-gmaps').addEventListener('click', async () => {
-        const rawData = document.getElementById('gmaps-import-data').value;
-        if (!rawData.trim()) return;
-        const leads = await AcquisitionService.importFromSource('gmaps', rawData);
-        processImport(leads);
-    });
-
-    document.getElementById('btn-process-clipboard').addEventListener('click', async () => {
-        const rawData = document.getElementById('clipboard-import-data').value;
-        if (!rawData.trim()) return;
-        const leads = await AcquisitionService.importFromSource('clipboard', rawData);
-        processImport(leads);
-    });
-
-    document.getElementById('ocr-upload-area').addEventListener('click', () => document.getElementById('ocr-file-input').click());
-    document.getElementById('ocr-file-input').addEventListener('change', async () => {
-        document.getElementById('ocr-status').style.display = 'block';
-        const leads = await AcquisitionService.importFromSource('ocr', 'image_data');
-        setTimeout(() => {
-            document.getElementById('ocr-status').style.display = 'none';
+    const btnProcessGMaps = document.getElementById('btn-process-gmaps');
+    if (btnProcessGMaps) {
+        btnProcessGMaps.addEventListener('click', async () => {
+            const rawData = document.getElementById('gmaps-import-data').value;
+            if (!rawData.trim()) return;
+            const leads = await AcquisitionService.importFromSource('gmaps', rawData);
             processImport(leads);
-        }, 1500);
-    });
+        });
+    }
+
+    const btnProcessClipboard = document.getElementById('btn-process-clipboard');
+    if (btnProcessClipboard) {
+        btnProcessClipboard.addEventListener('click', async () => {
+            const rawData = document.getElementById('clipboard-import-data').value;
+            if (!rawData.trim()) return;
+            const leads = await AcquisitionService.importFromSource('clipboard', rawData);
+            processImport(leads);
+        });
+    }
+
+    const ocrUploadArea = document.getElementById('ocr-upload-area');
+    if (ocrUploadArea) {
+        ocrUploadArea.addEventListener('click', () => document.getElementById('ocr-file-input').click());
+    }
+    const ocrFileInput = document.getElementById('ocr-file-input');
+    if (ocrFileInput) {
+        ocrFileInput.addEventListener('change', async () => {
+            const ocrStatus = document.getElementById('ocr-status');
+            if (ocrStatus) ocrStatus.style.display = 'block';
+            const leads = await AcquisitionService.importFromSource('ocr', 'image_data');
+            setTimeout(() => {
+                if (ocrStatus) ocrStatus.style.display = 'none';
+                processImport(leads);
+            }, 1500);
+        });
+    }
 
     // CSV/File Import Logic with Mapping
     const csvFileInput = document.getElementById('csv-file-input');
@@ -475,19 +514,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let csvData = [];
     let csvHeaders = [];
 
-    csvUploadArea.addEventListener('click', () => csvFileInput.click());
+    if (csvUploadArea) {
+        csvUploadArea.addEventListener('click', () => csvFileInput.click());
+    }
 
-    csvFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const text = event.target.result;
-                processCSVText(text);
-            };
-            reader.readAsText(file);
-        }
-    });
+    if (csvFileInput) {
+        csvFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const text = event.target.result;
+                    processCSVText(text);
+                };
+                reader.readAsText(file);
+            }
+        });
+    }
 
     const processCSVText = (text) => {
         const lines = text.split('\n').filter(line => line.trim() !== '');
@@ -507,8 +550,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderMapping = () => {
-        csvUploadArea.style.display = 'none';
-        csvMapping.style.display = 'block';
+        if (csvUploadArea) csvUploadArea.style.display = 'none';
+        if (csvMapping) csvMapping.style.display = 'block';
 
         const leadFields = [
             { key: 'businessName', label: 'Business Name *' },
@@ -519,102 +562,168 @@ document.addEventListener('DOMContentLoaded', () => {
             { key: 'address', label: 'Address' }
         ];
 
-        csvFieldsList.innerHTML = leadFields.map(field => `
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label>${field.label}</label>
-                <select class="csv-field-map" data-lead-field="${field.key}">
-                    <option value="">-- Ignore --</option>
-                    ${csvHeaders.map(h => `<option value="${h}" ${h.toLowerCase().includes(field.key.toLowerCase()) ? 'selected' : ''}>${h}</option>`).join('')}
-                </select>
-            </div>
-        `).join('');
+        if (csvFieldsList) {
+            csvFieldsList.innerHTML = leadFields.map(field => `
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label>${field.label}</label>
+                    <select class="csv-field-map" data-lead-field="${field.key}">
+                        <option value="">-- Ignore --</option>
+                        ${csvHeaders.map(h => `<option value="${h}" ${h.toLowerCase().includes(field.key.toLowerCase()) ? 'selected' : ''}>${h}</option>`).join('')}
+                    </select>
+                </div>
+            `).join('');
+        }
     };
 
-    document.getElementById('btn-process-csv').addEventListener('click', async () => {
-        const mapping = {};
-        document.querySelectorAll('.csv-field-map').forEach(select => {
-            if (select.value) {
-                mapping[select.dataset.leadField] = select.value;
-            }
-        });
+    const btnProcessCsv = document.getElementById('btn-process-csv');
+    if (btnProcessCsv) {
+        btnProcessCsv.addEventListener('click', async () => {
+            const mapping = {};
+            document.querySelectorAll('.csv-field-map').forEach(select => {
+                if (select.value) {
+                    mapping[select.dataset.leadField] = select.value;
+                }
+            });
 
-        const rawLeads = await AcquisitionService.importFromSource('csv', csvData, { mapping });
-        processImport(rawLeads);
-    });
+            const rawLeads = await AcquisitionService.importFromSource('csv', csvData, { mapping });
+            processImport(rawLeads);
+        });
+    }
 
     const processImport = async (rawLeads) => {
-        let stats = { total: rawLeads.length, dupes: 0, new: 0 };
+        let stats = {
+            total: rawLeads.length,
+            imported: 0,
+            dupes: 0,
+            phones: 0,
+            websites: 0,
+            categories: 0,
+            noPhone: 0,
+            new: 0
+        };
+
         for (const raw of rawLeads) {
+            // Count metadata before processing pipeline
+            if (raw.phone && raw.phone !== 'Phone not available') stats.phones++;
+            else stats.noPhone++;
+
+            if (raw.website) stats.websites++;
+            if (raw.category) stats.categories++;
+
             const result = await PipelineService.process(raw, state.leads);
             if (result.action === 'CREATE') {
                 state.leads.push(result.data);
                 stats.new++;
+                stats.imported++;
             } else {
                 const idx = state.leads.findIndex(l => l.id === result.data.id);
                 state.leads[idx] = result.data;
                 stats.dupes++;
+                stats.imported++;
             }
         }
         StorageService.saveLeads(state.leads);
 
         importTabContents.forEach(c => c.style.display = 'none');
-        document.getElementById('import-summary').style.display = 'block';
-        document.getElementById('summary-total').textContent = stats.total;
-        document.getElementById('summary-dupes').textContent = stats.dupes;
-        document.getElementById('summary-new').textContent = stats.new;
+        const importSummary = document.getElementById('import-summary');
+        if (importSummary) importSummary.style.display = 'block';
+
+        const summaryTotal = document.getElementById('summary-total');
+        if (summaryTotal) summaryTotal.textContent = stats.total;
+
+        const summaryImported = document.getElementById('summary-imported');
+        if (summaryImported) summaryImported.textContent = stats.imported;
+
+        const summaryDupes = document.getElementById('summary-dupes');
+        if (summaryDupes) summaryDupes.textContent = stats.dupes;
+
+        const summaryNew = document.getElementById('summary-new');
+        if (summaryNew) summaryNew.textContent = stats.new;
+
+        const summaryPhones = document.getElementById('summary-phones');
+        if (summaryPhones) summaryPhones.textContent = stats.phones;
+
+        const summaryWebsites = document.getElementById('summary-websites');
+        if (summaryWebsites) summaryWebsites.textContent = stats.websites;
+
+        const summaryCategories = document.getElementById('summary-categories');
+        if (summaryCategories) summaryCategories.textContent = stats.categories;
+
+        const summaryNoPhone = document.getElementById('summary-no-phone');
+        if (summaryNoPhone) summaryNoPhone.textContent = stats.noPhone;
 
         if (state.currentPage === 'leads') renderLeads();
         updateDashboard();
     };
 
-    document.getElementById('btn-import-finish').addEventListener('click', () => {
-        closeModal('import');
-        if (state.currentPage === 'leads') renderLeads();
-    });
+    const btnImportFinish = document.getElementById('btn-import-finish');
+    if (btnImportFinish) {
+        btnImportFinish.addEventListener('click', () => {
+            closeModal('import');
+            if (state.currentPage === 'leads') renderLeads();
+        });
+    }
 
     // Campaign Handlers
-    document.getElementById('btn-new-campaign').addEventListener('click', () => {
-        const selector = document.getElementById('campaign-leads-selector');
-        selector.innerHTML = state.leads.slice(0, 10).map(l => `
-            <div style="margin-bottom: 5px;"><input type="checkbox" value="${l.id}"> ${l.businessName}</div>
-        `).join('');
-        openModal('campaign');
-    });
+    const btnNewCampaign = document.getElementById('btn-new-campaign');
+    if (btnNewCampaign) {
+        btnNewCampaign.addEventListener('click', () => {
+            const selector = document.getElementById('campaign-leads-selector');
+            selector.innerHTML = state.leads.slice(0, 10).map(l => `
+                <div style="margin-bottom: 5px;"><input type="checkbox" value="${l.id}"> ${l.businessName}</div>
+            `).join('');
+            openModal('campaign');
+        });
+    }
 
-    document.getElementById('form-campaign').addEventListener('submit', (e) => {
-        try {
-            e.preventDefault();
-            const name = document.getElementById('campaign-name').value;
-            const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
+    const formCampaign = document.getElementById('form-campaign');
+    if (formCampaign) {
+        formCampaign.addEventListener('submit', (e) => {
+            try {
+                e.preventDefault();
+                const name = document.getElementById('campaign-name').value;
+                const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
 
-            if (selectedIds.length === 0) {
-                alert('Please select at least one lead for the campaign.');
-                return;
+                if (selectedIds.length === 0) {
+                    alert('Please select at least one lead for the campaign.');
+                    return;
+                }
+
+                const leads = state.leads.filter(l => selectedIds.includes(l.id));
+                const camp = CampaignService.createCampaign(name, leads);
+
+                if (!camp || !camp.messages) {
+                    throw new Error('Failed to generate campaign messages.');
+                }
+
+                state.campaigns.push(camp);
+                StorageService.saveCampaigns(state.campaigns);
+                closeModal('campaign');
+                navigateTo('campaigns');
+                openCampaignReview(camp.id);
+            } catch (error) {
+                console.error('Campaign Generation Error:', error);
+                alert('An error occurred while generating the campaign. Please check the console for details.');
             }
-
-            const leads = state.leads.filter(l => selectedIds.includes(l.id));
-            const camp = CampaignService.createCampaign(name, leads);
-
-            if (!camp || !camp.messages) {
-                throw new Error('Failed to generate campaign messages.');
-            }
-
-            state.campaigns.push(camp);
-            StorageService.saveCampaigns(state.campaigns);
-            closeModal('campaign');
-            navigateTo('campaigns');
-            openCampaignReview(camp.id);
-        } catch (error) {
-            console.error('Campaign Generation Error:', error);
-            alert('An error occurred while generating the campaign. Please check the console for details.');
-        }
-    });
+        });
+    }
 
     // Approve Message (Demo Mode)
-    document.getElementById('btn-approve-msg').addEventListener('click', () => {
-        alert('Message approved! (Demo Mode: WhatsApp integration will be available in the next phase)');
-        closeModal('review');
-    });
+    const btnApproveMsg = document.getElementById('btn-approve-msg');
+    if (btnApproveMsg) {
+        btnApproveMsg.addEventListener('click', () => {
+            alert('Message approved! (Demo Mode: WhatsApp integration will be available in the next phase)');
+            closeModal('review');
+        });
+    }
+
+    // Attendance Portal Button
+    const btnGuardPortal = document.getElementById('btn-guard-portal');
+    if (btnGuardPortal) {
+        btnGuardPortal.addEventListener('click', () => {
+            window.open('guard-portal.html', '_blank');
+        });
+    }
 
     // Initial load
     // Check if we should show landing or dashboard
