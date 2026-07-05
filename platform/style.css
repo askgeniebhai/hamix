@@ -340,6 +340,17 @@ select {
 .badge-published { background: #ecfeff; color: #0891b2; }
 .badge-completed { background: #f8fafc; color: #475569; }
 
+/* Enhanced status badges from feature branch */
+.badge-sent { background: #e0f2fe; color: #0369a1; }
+.badge-delivered { background: #dcfce7; color: #15803d; }
+.badge-read { background: #dcfce7; color: #16a34a; }
+.badge-replied { background: #fef9c3; color: #a16207; }
+.badge-interested { background: #fef3c7; color: #d97706; }
+.badge-quotation { background: #fae8ff; color: #a21caf; }
+.badge-meeting { background: #ede9fe; color: #6d28d9; }
+.badge-customer { background: #dcfce7; color: #15803d; }
+.badge-lost { background: #f1f5f9; color: #475569; }
+
 .action-group {
     display: flex;
     gap: 8px;
@@ -410,6 +421,54 @@ select {
     border-radius: 8px;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
+
+.review-workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.review-sidebar {
+    width: 280px;
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    background: #f8fafc;
+}
+
+.review-editor {
+    flex: 1;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.review-leads-item {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.review-leads-item:hover { background: #f1f5f9; }
+.review-leads-item.active { background: white; border-left: 4px solid var(--primary-color); }
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.metric-card {
+    background: white;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.metric-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+.metric-value { font-size: 16px; font-weight: 700; display: block; }
 
 .modal-header {
     padding: 20px 24px;
@@ -746,4 +805,18 @@ form {
 .stat-value {
     font-size: 24px;
     font-weight: 700;
+}
+
+/* Alert styles */
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+.alert-info {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
 }

@@ -1,13 +1,14 @@
 /**
- * HAMIX Platform - Main Application Logic
+ * HAMIX Platform - Main Application Logic (Integrated & Refactored)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     // State management
     const state = {
         currentPage: 'dashboard',
-        leads: JSON.parse(localStorage.getItem('hamix_leads')) || [],
-        customers: JSON.parse(localStorage.getItem('hamix_customers')) || [],
+        leads: StorageService.getLeads(),
+        customers: StorageService.getCustomers(),
+        campaigns: StorageService.getCampaigns(),
         filters: {
             leads: { search: '', status: 'all', sort: 'newest' },
             customers: { search: '', sort: 'newest' }
@@ -21,40 +22,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Navigation Logic
     const navigateTo = (pageId) => {
-        // Update State
         state.currentPage = pageId;
-
-        // Update UI: Pages
         pages.forEach(page => {
             page.classList.remove('active');
-            if (page.id === `page-${pageId}`) {
-                page.classList.add('active');
-            }
+            if (page.id === `page-${pageId}`) page.classList.add('active');
         });
-
-        // Update UI: Sidebar
         navItems.forEach(item => {
             item.classList.remove('active');
-            if (item.dataset.page === pageId) {
-                item.classList.add('active');
-            }
+            if (item.dataset.page === pageId) item.classList.add('active');
         });
-
-        // Update UI: Header Title
         headerTitle.textContent = pageId.charAt(0).toUpperCase() + pageId.slice(1);
 
-        // Refresh page content
         if (pageId === 'dashboard') updateDashboard();
         if (pageId === 'leads') renderLeads();
+        if (pageId === 'campaigns') renderCampaigns();
         if (pageId === 'customers') renderCustomers();
 
-        // Re-initialize icons for new content if necessary
-        if (window.lucide) {
-            window.lucide.createIcons();
-        }
+        if (window.lucide) window.lucide.createIcons();
     };
 
-    // Sidebar Navigation Click Handlers
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -67,25 +53,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const modals = {
         lead: document.getElementById('modal-lead'),
         import: document.getElementById('modal-import'),
-        preview: document.getElementById('modal-preview')
+        preview: document.getElementById('modal-preview'),
+        campaign: document.getElementById('modal-campaign'),
+        review: document.getElementById('modal-review-messages')
     };
 
     const openModal = (modalId) => {
-        if (modals[modalId]) {
-            modals[modalId].classList.add('active');
-        }
+        if (modals[modalId]) modals[modalId].classList.add('active');
     };
 
     const closeModal = (modalId) => {
-        if (modals[modalId]) {
+        if (modalId && modals[modalId]) {
             modals[modalId].classList.remove('active');
         } else {
-            // Close any active modal if modalId not specified
             document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
         }
     };
 
-    // Modal Event Listeners
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', () => closeModal());
     });
@@ -96,13 +80,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Button Handlers
+    const btnAddLead = document.getElementById('btn-add-lead');
+    const btnImportLeads = document.getElementById('btn-import-leads');
+    const topNewLeadBtn = document.querySelector('.header-right .btn-primary');
+
+    if (btnAddLead) btnAddLead.addEventListener('click', () => {
+        document.getElementById('modal-lead-title').textContent = 'Add New Lead';
+        leadForm.reset();
+        delete leadForm.dataset.editId;
+        openModal('lead');
+    });
+
+    if (btnImportLeads) btnImportLeads.addEventListener('click', () => {
+        resetImportUI();
+        openModal('import');
+    });
+
+    if (topNewLeadBtn) topNewLeadBtn.addEventListener('click', () => {
+        navigateTo('leads');
+        document.getElementById('modal-lead-title').textContent = 'Add New Lead';
+        leadForm.reset();
+        delete leadForm.dataset.editId;
+        openModal('lead');
+    });
+
+    // Import Tab Logic
+    const importTabs = document.querySelectorAll('.import-tab');
+    const importTabContents = document.querySelectorAll('.import-tab-content');
+
+    importTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.tab;
+            importTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            importTabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === `import-tab-${targetTab}`) content.classList.add('active');
+            });
+        });
+    });
+
+    const resetImportUI = () => {
+        importTabContents.forEach(c => {
+            c.style.display = '';
+            c.classList.remove('active');
+        });
+        document.getElementById('import-summary').style.display = 'none';
+        document.getElementById('import-preview').style.display = 'none';
+        document.getElementById('csv-upload-area').style.display = 'block';
+        document.getElementById('csv-mapping').style.display = 'none';
+        document.getElementById('import-tab-gmaps').classList.add('active');
+        document.querySelector('.import-tab[data-tab="gmaps"]').classList.add('active');
+        document.getElementById('gmaps-import-data').value = '';
+        document.getElementById('csv-file-input').value = '';
+    };
+
     // Form Submissions
     const leadForm = document.getElementById('form-lead');
-    leadForm.addEventListener('submit', (e) => {
+    leadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-
         const leadId = leadForm.dataset.editId;
-
         const formData = {
             businessName: document.getElementById('lead-businessName').value,
             category: document.getElementById('lead-category').value,
@@ -111,6 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
             email: document.getElementById('lead-email').value,
             website: document.getElementById('lead-website').value,
             address: document.getElementById('lead-address').value,
+            locality: document.getElementById('lead-locality').value,
+            pincode: document.getElementById('lead-pincode').value,
             rating: parseFloat(document.getElementById('lead-rating').value) || 0,
             reviews: parseInt(document.getElementById('lead-reviews').value) || 0,
             industry: document.getElementById('lead-industry').value,
@@ -120,51 +160,37 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (leadId) {
-            // Update Existing
             const index = state.leads.findIndex(l => l.id === leadId);
             if (index !== -1) {
                 const oldStatus = state.leads[index].status;
                 state.leads[index] = { ...state.leads[index], ...formData, updatedAt: new Date().toISOString() };
-                LeadEngine.validateLead(state.leads[index], state.leads);
 
-                // Handle conversion to customer if status becomes Approved
-                if (oldStatus !== 'Approved' && formData.status === 'Approved') {
+                // Handle conversion to customer if status becomes Approved or Customer
+                if (oldStatus !== 'Approved' && oldStatus !== 'Customer' && (formData.status === 'Approved' || formData.status === 'Customer')) {
                     const customer = LeadEngine.createCustomer(state.leads[index]);
                     state.customers.push(customer);
-                    saveCustomers();
+                    StorageService.saveCustomers(state.customers);
                 }
             }
         } else {
-            // Create New
-            const newLead = LeadEngine.createLead(formData);
-            LeadEngine.validateLead(newLead, state.leads);
-            state.leads.push(newLead);
+            const result = await PipelineService.process(formData, state.leads);
+            if (result.action === 'CREATE') state.leads.push(result.data);
+            else {
+                const index = state.leads.findIndex(l => l.id === result.data.id);
+                state.leads[index] = result.data;
+            }
         }
 
-        saveLeads();
+        StorageService.saveLeads(state.leads);
         closeModal('lead');
-        leadForm.reset();
-        delete leadForm.dataset.editId;
-
-        if (state.currentPage === 'leads') renderLeads();
-        if (state.currentPage === 'customers') renderCustomers();
-        updateDashboard();
+        navigateTo(state.currentPage);
     });
 
-    // Helper: Save Leads to LocalStorage
-    const saveLeads = () => {
-        localStorage.setItem('hamix_leads', JSON.stringify(state.leads));
-    };
-
-    const saveCustomers = () => {
-        localStorage.setItem('hamix_customers', JSON.stringify(state.customers));
-    };
-
-    // Helper: Update Dashboard Stats
+    // Dashboard
     const updateDashboard = () => {
         const totalLeads = state.leads.length;
         const totalCustomers = state.customers.length;
-        const approvedLeads = state.leads.filter(l => l.status === 'Approved').length;
+        const approvedLeads = state.leads.filter(l => ['Approved', 'Customer'].includes(l.status)).length;
         const pendingLeads = state.leads.filter(l => ['New', 'Validated', 'Follow-up'].includes(l.status)).length;
 
         document.getElementById('stat-total-leads').textContent = totalLeads;
@@ -172,45 +198,33 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stat-approved-leads').textContent = approvedLeads;
         document.getElementById('stat-pending-leads').textContent = pendingLeads;
 
-        // Render Pipeline Breakdown
         const pipelineContainer = document.getElementById('pipeline-stats');
         const statuses = Object.values(LeadEngine.STATUS);
-
-        pipelineContainer.innerHTML = statuses.map(status => {
+        pipelineContainer.innerHTML = statuses.slice(0, 10).map(status => {
             const count = state.leads.filter(l => l.status === status).length;
-            return `
-                <div class="pipeline-card">
-                    <span class="pipeline-label">${status}</span>
-                    <span class="pipeline-value">${count}</span>
-                </div>
-            `;
+            return `<div class="pipeline-card"><span class="pipeline-label">${status}</span><span class="pipeline-value">${count}</span></div>`;
         }).join('');
     };
 
-    // Helper: Render Leads Table
+    // Leads
     const renderLeads = () => {
         const listContainer = document.getElementById('leads-list');
         const filter = state.filters.leads;
+        let filtered = state.leads;
 
-        let filteredLeads = state.leads;
-
-        // Apply Status Filter
-        if (filter.status !== 'all') {
-            filteredLeads = filteredLeads.filter(l => l.status === filter.status);
-        }
-
-        // Apply Search
+        if (filter.status !== 'all') filtered = filtered.filter(l => l.status === filter.status);
         if (filter.search) {
-            const query = filter.search.toLowerCase();
-            filteredLeads = filteredLeads.filter(l =>
-                l.businessName.toLowerCase().includes(query) ||
-                l.category.toLowerCase().includes(query) ||
-                l.email.toLowerCase().includes(query)
+            const q = filter.search.toLowerCase();
+            filtered = filtered.filter(l =>
+                l.businessName.toLowerCase().includes(q) ||
+                l.phone.includes(q) ||
+                (l.category && l.category.toLowerCase().includes(q)) ||
+                (l.email && l.email.toLowerCase().includes(q))
             );
         }
 
         // Apply Sort
-        filteredLeads.sort((a, b) => {
+        filtered.sort((a, b) => {
             if (filter.sort === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
             if (filter.sort === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
             if (filter.sort === 'rating') return b.rating - a.rating;
@@ -218,22 +232,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return 0;
         });
 
-        if (filteredLeads.length === 0) {
-            listContainer.innerHTML = `<tr><td colspan="6" class="empty-state">No leads found.</td></tr>`;
+        if (filtered.length === 0) {
+            listContainer.innerHTML = `<tr><td colspan="10" class="empty-state">No leads found.</td></tr>`;
             return;
         }
 
-        listContainer.innerHTML = filteredLeads.map(lead => `
-            <tr class="clickable-row" data-id="${lead.id}">
+        listContainer.innerHTML = filtered.map(lead => `
+            <tr>
                 <td><strong>${lead.businessName}</strong></td>
+                <td>${lead.phone || '-'}</td>
                 <td>${lead.category || '-'}</td>
-                <td>
-                    <div class="contact-info">
-                        ${lead.phone ? `<div><i data-lucide="phone" style="width:12px;height:12px"></i> ${lead.phone}</div>` : ''}
-                        ${lead.email ? `<div><i data-lucide="mail" style="width:12px;height:12px"></i> ${lead.email}</div>` : ''}
-                    </div>
-                </td>
-                <td>${lead.rating ? `${lead.rating} ★ (${lead.reviews})` : '-'}</td>
+                <td>${lead.locality || '-'}</td>
+                <td>${lead.pincode || '-'}</td>
+                <td>${lead.rating || 0} ★</td>
+                <td>${lead.reviews || 0}</td>
+                <td>${lead.score || 0}</td>
                 <td><span class="badge badge-${lead.status.toLowerCase().replace(/ /g, '-')}">${lead.status}</span></td>
                 <td>
                     <div class="action-group">
@@ -243,25 +256,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
             </tr>
         `).join('');
-
         if (window.lucide) lucide.createIcons();
 
-        // Add Handlers
+        document.querySelectorAll('.edit-lead').forEach(btn => {
+            btn.addEventListener('click', () => openLeadEditor(btn.dataset.id));
+        });
+
         document.querySelectorAll('.delete-lead').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
                 state.leads = state.leads.filter(l => l.id !== id);
-                saveLeads();
+                StorageService.saveLeads(state.leads);
                 renderLeads();
                 updateDashboard();
-            });
-        });
-
-        document.querySelectorAll('.edit-lead').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openLeadEditor(btn.dataset.id);
             });
         });
     };
@@ -269,11 +277,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const openLeadEditor = (id) => {
         const lead = state.leads.find(l => l.id === id);
         if (!lead) return;
-
         document.getElementById('modal-lead-title').textContent = 'Edit Lead';
         leadForm.dataset.editId = id;
-
-        // Fill form
         document.getElementById('lead-businessName').value = lead.businessName;
         document.getElementById('lead-category').value = lead.category;
         document.getElementById('lead-phone').value = lead.phone;
@@ -281,65 +286,93 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('lead-email').value = lead.email;
         document.getElementById('lead-website').value = lead.website;
         document.getElementById('lead-address').value = lead.address;
+        document.getElementById('lead-locality').value = lead.locality || '';
+        document.getElementById('lead-pincode').value = lead.pincode || '';
         document.getElementById('lead-rating').value = lead.rating;
         document.getElementById('lead-reviews').value = lead.reviews;
         document.getElementById('lead-industry').value = lead.industry;
         document.getElementById('lead-notes').value = lead.notes;
         document.getElementById('lead-assignedTo').value = lead.assignedTo || '';
         document.getElementById('lead-status').value = lead.status;
-
         openModal('lead');
     };
 
-    // Render Customers Table
-    const renderCustomers = () => {
-        const listContainer = document.getElementById('customers-list');
-        const filter = state.filters.customers;
-
-        let filteredCustomers = state.customers;
-
-        // Apply Search
-        if (filter.search) {
-            const query = filter.search.toLowerCase();
-            filteredCustomers = filteredCustomers.filter(c =>
-                c.businessName.toLowerCase().includes(query) ||
-                c.email.toLowerCase().includes(query)
-            );
-        }
-
-        if (filteredCustomers.length === 0) {
-            listContainer.innerHTML = `<tr><td colspan="6" class="empty-state">No customers found.</td></tr>`;
+    // Campaigns
+    const renderCampaigns = () => {
+        const listContainer = document.getElementById('campaigns-list');
+        if (state.campaigns.length === 0) {
+            listContainer.innerHTML = `<tr><td colspan="5" class="empty-state">No campaigns yet.</td></tr>`;
             return;
         }
-
-        listContainer.innerHTML = filteredCustomers.map(cust => `
+        listContainer.innerHTML = state.campaigns.map(c => `
             <tr>
-                <td><strong>${cust.businessName}</strong></td>
-                <td>${cust.category || '-'}</td>
+                <td><strong>${c.name}</strong></td>
+                <td>${c.leadsCount}</td>
+                <td><span class="badge">${c.status}</span></td>
+                <td>${new Date(c.createdAt).toLocaleDateString()}</td>
+                <td><button class="btn btn-secondary btn-sm review-camp" data-id="${c.id}">Review</button></td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.review-camp').forEach(btn => {
+            btn.addEventListener('click', () => openCampaignReview(btn.dataset.id));
+        });
+    };
+
+    const openCampaignReview = (id) => {
+        const camp = state.campaigns.find(c => c.id === id);
+        if (!camp) return;
+
+        const list = document.getElementById('review-leads-list');
+        list.innerHTML = camp.messages.map((m, i) => `
+            <li class="review-leads-item ${i === 0 ? 'active' : ''}" data-index="${i}">
+                ${m.leadName}
+            </li>
+        `).join('');
+
+        const updateEditor = (index) => {
+            const msg = camp.messages[index];
+            document.getElementById('message-editor-text').value = msg.message;
+            document.getElementById('message-metrics').innerHTML = `
+                <div class="metric-card"><span class="metric-label">AI Score</span><span class="metric-value">${msg.personalizationScore}%</span></div>
+                <div class="metric-card"><span class="metric-label">Spam Risk</span><span class="metric-value">${msg.spamRisk}%</span></div>
+                <div class="metric-card"><span class="metric-label">Relevance</span><span class="metric-value">${msg.relevance}</span></div>
+            `;
+        };
+
+        updateEditor(0);
+        openModal('review');
+    };
+
+    // Customers
+    const renderCustomers = () => {
+        const listContainer = document.getElementById('customers-list');
+        if (state.customers.length === 0) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No customers yet.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.customers.map(c => `
+            <tr>
+                <td><strong>${c.businessName}</strong></td>
+                <td>${c.category || '-'}</td>
                 <td>
                     <div class="contact-info">
-                        ${cust.phone ? `<div><i data-lucide="phone" style="width:12px;height:12px"></i> ${cust.phone}</div>` : ''}
-                        ${cust.email ? `<div><i data-lucide="mail" style="width:12px;height:12px"></i> ${cust.email}</div>` : ''}
+                        ${c.phone ? `<div><i data-lucide="phone" style="width:12px;height:12px"></i> ${c.phone}</div>` : ''}
+                        ${c.email ? `<div><i data-lucide="mail" style="width:12px;height:12px"></i> ${c.email}</div>` : ''}
                     </div>
                 </td>
-                <td><a href="${cust.website}" target="_blank" class="link-text">${cust.website || '-'}</a></td>
-                <td><span class="badge badge-validated">${cust.status}</span></td>
-                <td>${new Date(cust.joinedAt).toLocaleDateString()}</td>
+                <td><a href="${c.website}" target="_blank" class="link-text">${c.website || '-'}</a></td>
+                <td><span class="badge badge-validated">Active</span></td>
+                <td>${new Date(c.joinedAt).toLocaleDateString()}</td>
                 <td>
-                    <button class="btn btn-secondary btn-sm preview-website" data-id="${cust.id}">
+                    <button class="btn btn-secondary btn-sm preview-website" data-id="${c.id}">
                         <i data-lucide="eye"></i> Preview
                     </button>
                 </td>
             </tr>
         `).join('');
-
         if (window.lucide) lucide.createIcons();
-
-        // Preview Handlers
         document.querySelectorAll('.preview-website').forEach(btn => {
-            btn.addEventListener('click', () => {
-                openWebsitePreview(btn.dataset.id);
-            });
+            btn.addEventListener('click', () => openWebsitePreview(btn.dataset.id));
         });
     };
 
@@ -348,7 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const openWebsitePreview = (customerId) => {
         const customer = state.customers.find(c => c.id === customerId);
         if (!customer) return;
-
         activePreviewCustomer = customer;
         updatePreviewFrame();
         openModal('preview');
@@ -356,10 +388,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updatePreviewFrame = () => {
         if (!activePreviewCustomer) return;
-
         const theme = document.getElementById('preview-theme-select').value;
         const html = WebsiteGenerator.generate(activePreviewCustomer, theme);
-
         const frame = document.getElementById('preview-frame');
         const doc = frame.contentWindow.document;
         doc.open();
@@ -369,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('preview-theme-select').addEventListener('change', updatePreviewFrame);
 
-    // Filter Click Handlers
+    // Filter Handlers
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -379,7 +409,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Search and Sort Handlers
     document.getElementById('search-leads').addEventListener('input', (e) => {
         state.filters.leads.search = e.target.value;
         renderLeads();
@@ -395,21 +424,39 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCustomers();
     });
 
-    // Button Handlers
-    // CSV Import Logic
+    // Acquisition Handlers
+    document.getElementById('btn-process-gmaps').addEventListener('click', async () => {
+        const rawData = document.getElementById('gmaps-import-data').value;
+        if (!rawData.trim()) return;
+        const leads = await AcquisitionService.importFromSource('gmaps', rawData);
+        processImport(leads);
+    });
+
+    document.getElementById('btn-process-clipboard').addEventListener('click', async () => {
+        const rawData = document.getElementById('clipboard-import-data').value;
+        if (!rawData.trim()) return;
+        const leads = await AcquisitionService.importFromSource('clipboard', rawData);
+        processImport(leads);
+    });
+
+    document.getElementById('ocr-upload-area').addEventListener('click', () => document.getElementById('ocr-file-input').click());
+    document.getElementById('ocr-file-input').addEventListener('change', async () => {
+        document.getElementById('ocr-status').style.display = 'block';
+        const leads = await AcquisitionService.importFromSource('ocr', 'image_data');
+        setTimeout(() => {
+            document.getElementById('ocr-status').style.display = 'none';
+            processImport(leads);
+        }, 1500);
+    });
+
+    // CSV/File Import Logic with Mapping
     const csvFileInput = document.getElementById('csv-file-input');
     const csvUploadArea = document.getElementById('csv-upload-area');
     const csvMapping = document.getElementById('csv-mapping');
     const csvFieldsList = document.getElementById('csv-fields-list');
-    const importTabCSV = document.getElementById('import-tab-csv');
-    const importPreview = document.getElementById('import-preview');
-    const previewHeader = document.getElementById('preview-header');
-    const previewBody = document.getElementById('preview-body');
-    const previewCount = document.getElementById('preview-count');
 
     let csvData = [];
     let csvHeaders = [];
-    let pendingLeads = [];
 
     csvUploadArea.addEventListener('click', () => csvFileInput.click());
 
@@ -466,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('');
     };
 
-    document.getElementById('btn-process-csv').addEventListener('click', () => {
+    document.getElementById('btn-process-csv').addEventListener('click', async () => {
         const mapping = {};
         document.querySelectorAll('.csv-field-map').forEach(select => {
             if (select.value) {
@@ -474,104 +521,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        pendingLeads = csvData.map(row => {
-            const leadData = {};
-            for (const [leadField, csvField] of Object.entries(mapping)) {
-                leadData[leadField] = row[csvField];
-            }
-            const lead = LeadEngine.createLead(leadData);
-            return LeadEngine.validateLead(lead, state.leads);
-        });
-
-        showPreview();
+        const rawLeads = await AcquisitionService.importFromSource('csv', csvData, { mapping });
+        processImport(rawLeads);
     });
 
-    const showPreview = () => {
-        document.querySelectorAll('.import-tab-content').forEach(c => c.classList.remove('active'));
-        importPreview.style.display = 'block';
-        previewCount.textContent = pendingLeads.length;
+    const processImport = async (rawLeads) => {
+        let stats = { total: rawLeads.length, dupes: 0, new: 0 };
+        for (const raw of rawLeads) {
+            const result = await PipelineService.process(raw, state.leads);
+            if (result.action === 'CREATE') {
+                state.leads.push(result.data);
+                stats.new++;
+            } else {
+                const idx = state.leads.findIndex(l => l.id === result.data.id);
+                state.leads[idx] = result.data;
+                stats.dupes++;
+            }
+        }
+        StorageService.saveLeads(state.leads);
 
-        const displayFields = ['businessName', 'category', 'phone', 'status'];
-        previewHeader.innerHTML = displayFields.map(f => `<th>${f}</th>`).join('');
-        previewBody.innerHTML = pendingLeads.slice(0, 10).map(lead => `
-            <tr>
-                ${displayFields.map(f => `<td>${lead[f]}</td>`).join('')}
-            </tr>
-        `).join('') + (pendingLeads.length > 10 ? `<tr><td colspan="4" style="text-align:center">... and ${pendingLeads.length - 10} more</td></tr>` : '');
-    };
+        importTabContents.forEach(c => c.style.display = 'none');
+        document.getElementById('import-summary').style.display = 'block';
+        document.getElementById('summary-total').textContent = stats.total;
+        document.getElementById('summary-dupes').textContent = stats.dupes;
+        document.getElementById('summary-new').textContent = stats.new;
 
-    document.getElementById('btn-confirm-import').addEventListener('click', () => {
-        state.leads = [...state.leads, ...pendingLeads];
-        saveLeads();
-        closeModal('import');
-        resetImport();
         if (state.currentPage === 'leads') renderLeads();
         updateDashboard();
-    });
-
-    document.getElementById('btn-back-to-import').addEventListener('click', () => {
-        importPreview.style.display = 'none';
-        const activeTab = document.querySelector('.import-tab.active').dataset.tab;
-        document.getElementById(`import-tab-${activeTab}`).classList.add('active');
-    });
-
-    const resetImport = () => {
-        csvUploadArea.style.display = 'block';
-        csvMapping.style.display = 'none';
-        importPreview.style.display = 'none';
-        csvFileInput.value = '';
-        document.getElementById('gmaps-import-data').value = '';
     };
 
-    // Google Maps Import Logic
-    document.getElementById('btn-process-gmaps').addEventListener('click', () => {
-        const rawData = document.getElementById('gmaps-import-data').value;
-        if (!rawData.trim()) return;
-
-        pendingLeads = LeadEngine.parseGMapsData(rawData).map(lead => {
-            return LeadEngine.validateLead(lead, state.leads);
-        });
-
-        showPreview();
+    // Campaign Handlers
+    document.getElementById('btn-new-campaign').addEventListener('click', () => {
+        const selector = document.getElementById('campaign-leads-selector');
+        selector.innerHTML = state.leads.slice(0, 10).map(l => `
+            <div style="margin-bottom: 5px;"><input type="checkbox" value="${l.id}"> ${l.businessName}</div>
+        `).join('');
+        openModal('campaign');
     });
 
-    const btnAddLead = document.getElementById('btn-add-lead');
-    const btnImportLeads = document.getElementById('btn-import-leads');
-    const topNewLeadBtn = document.querySelector('.header-right .btn-primary');
-
-    if (btnAddLead) btnAddLead.addEventListener('click', () => {
-        document.getElementById('modal-lead-title').textContent = 'Add New Lead';
-        leadForm.reset();
-        delete leadForm.dataset.editId;
-        openModal('lead');
-    });
-    if (btnImportLeads) btnImportLeads.addEventListener('click', () => openModal('import'));
-    if (topNewLeadBtn) topNewLeadBtn.addEventListener('click', () => {
-        navigateTo('leads');
-        openModal('lead');
-    });
-
-    // Import Tab Logic
-    const importTabs = document.querySelectorAll('.import-tab');
-    const importTabContents = document.querySelectorAll('.import-tab-content');
-
-    importTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const targetTab = tab.dataset.tab;
-
-            importTabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-
-            importTabContents.forEach(content => {
-                content.classList.remove('active');
-                if (content.id === `import-tab-${targetTab}`) {
-                    content.classList.add('active');
-                }
-            });
-        });
+    document.getElementById('form-campaign').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('campaign-name').value;
+        const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
+        const leads = state.leads.filter(l => selectedIds.includes(l.id));
+        const camp = CampaignService.createCampaign(name, leads);
+        state.campaigns.push(camp);
+        StorageService.saveCampaigns(state.campaigns);
+        closeModal('campaign');
+        navigateTo('campaigns');
     });
 
     // Initial load
     navigateTo('dashboard');
-    updateDashboard();
 });
