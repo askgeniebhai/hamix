@@ -1,0 +1,7 @@
+127.0.0.1 - - [05/Jul/2026 06:26:58] "GET /platform/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 06:26:58] "GET /platform/leadEngine.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 06:26:58] "GET /platform/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 06:26:58] "GET /platform/generator/engine.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 06:26:58] "GET /platform/generator/components.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 06:26:58] "GET /platform/generator/themes.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 06:26:58] "GET /platform/app.js HTTP/1.1" 200 -
