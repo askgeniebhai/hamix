@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guard Dashboard | NSF</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f1f5f9; min-height: 100vh; padding-bottom: 80px; }
+        .g-header { background: #0B1F3A; color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .g-header h1 { font-size: 18px; margin: 0; color: white; }
+        .g-container { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .g-card { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .profile-section { display: flex; align-items: center; gap: 20px; }
+        .avatar { width: 60px; height: 60px; background: #D4AF37; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0B1F3A; font-weight: 700; font-size: 24px; }
+        .info h2 { font-size: 18px; margin: 0; }
+        .info p { font-size: 14px; color: #64748b; margin: 0; }
+        .assignment-badge { display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0369a1; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 5px; }
+        .g-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .menu-item { background: white; border-radius: 16px; padding: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s; text-decoration: none; color: inherit; }
+        .menu-item:active { transform: scale(0.95); }
+        .menu-item i { width: 32px; height: 32px; color: #0B1F3A; margin-bottom: 10px; }
+        .menu-item span { display: block; font-size: 14px; font-weight: 600; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid #e2e8f0; }
+        .nav-link { text-align: center; color: #64748b; text-decoration: none; font-size: 11px; }
+        .nav-link.active { color: #0B1F3A; }
+        .nav-link i { width: 20px; height: 20px; display: block; margin: 0 auto 4px; }
+    </style>
+</head>
+<body>
+
+<div class="g-header">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <i data-lucide="shield"></i>
+        <h1>Guard Portal</h1>
+    </div>
+    <button onclick="AuthService.logout()" style="background:none; border:none; color:white; cursor:pointer;"><i data-lucide="log-out"></i></button>
+</div>
+
+<div class="g-container">
+    <div class="g-card">
+        <div class="profile-section">
+            <div class="avatar" id="g-initials">JS</div>
+            <div class="info">
+                <h2 id="g-name">John Smith</h2>
+                <p id="g-id">ID: NFS-9921</p>
+                <div class="assignment-badge">Tech Park Alpha • Day Shift</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="g-menu">
+        <a href="attendance.html" class="menu-item">
+            <i data-lucide="map-pin"></i>
+            <span>Mark Attendance</span>
+        </a>
+        <a href="history.html" class="menu-item">
+            <i data-lucide="calendar"></i>
+            <span>My History</span>
+        </a>
+        <a href="patrol.html" class="menu-item">
+            <i data-lucide="route"></i>
+            <span>Patrol Log</span>
+        </a>
+        <a href="incidents.html" class="menu-item">
+            <i data-lucide="alert-triangle"></i>
+            <span>Report Incident</span>
+        </a>
+    </div>
+
+    <div class="g-card" style="margin-top: 20px;">
+        <h3 style="font-size: 16px; margin-bottom: 15px;">Today's Schedule</h3>
+        <p style="font-size: 14px; margin-bottom: 8px;"><i data-lucide="clock" class="icon-sm"></i> 08:00 AM - 08:00 PM</p>
+        <p style="font-size: 14px;"><i data-lucide="map-pin" class="icon-sm"></i> Gate 4, Tech Park Alpha</p>
+    </div>
+</div>
+
+<div class="bottom-nav">
+    <a href="dashboard.html" class="nav-link active"><i data-lucide="layout-dashboard"></i>Dashboard</a>
+    <a href="attendance.html" class="nav-link"><i data-lucide="map-pin"></i>Attendance</a>
+    <a href="profile.html" class="nav-link"><i data-lucide="user"></i>Profile</a>
+</div>
+
+<script src="../js/auth.js"></script>
+<script>
+    const user = AuthService.checkAuth('guard');
+    if (user) {
+        document.getElementById('g-name').textContent = user.name;
+        document.getElementById('g-id').textContent = 'ID: ' + user.id;
+        document.getElementById('g-initials').textContent = user.name.split(' ').map(n => n[0]).join('');
+    }
+    lucide.createIcons();
+</script>
+</body>
+</html>

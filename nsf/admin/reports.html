@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports | NSF Admin</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f8fafc; font-family: 'Poppins', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 260px; background: #0B1F3A; color: white; display: flex; flex-direction: column; }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .top-nav { height: 70px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; }
+        .content-body { padding: 40px; }
+        .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
+        .report-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .btn-gen { width: 100%; margin-top: 20px; padding: 12px; background: #0B1F3A; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="sidebar"></div>
+    <div class="main-content">
+        <div class="top-nav"></div>
+        <div class="content-body">
+            <div class="report-grid">
+                <div class="report-card">
+                    <i data-lucide="calendar"></i>
+                    <h3>Monthly Attendance Summary</h3>
+                    <p style="font-size: 13px; color: #64748b;">Consolidated present/absent data for all employees.</p>
+                    <input type="month" id="rep-month" style="width:100%; margin-top:15px; padding:8px;">
+                    <button class="btn-gen" onclick="alert('Generating PDF...')">Download PDF</button>
+                    <button class="btn-gen" style="background:#10b981;" onclick="alert('Exporting CSV...')">Export CSV</button>
+                </div>
+                <div class="report-card">
+                    <i data-lucide="map-pin"></i>
+                    <h3>Site-wise Attendance</h3>
+                    <p style="font-size: 13px; color: #64748b;">Attendance metrics broken down by site/client.</p>
+                    <select style="width:100%; margin-top:15px; padding:8px;">
+                        <option>Tech Park Alpha</option>
+                    </select>
+                    <button class="btn-gen" onclick="alert('Generating Site Report...')">Download Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../../platform/services/StorageService.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/ui-components.js"></script>
+    <script>
+        AuthService.checkAuth('admin');
+        UI.renderSidebar('reports');
+        UI.renderTopNav('System Reports');
+    </script>
+</body>
+</html>
