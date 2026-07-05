@@ -66,19 +66,9 @@ const AcquisitionService = (() => {
         }));
     });
 
-    // Google Maps Connector (Refactored from old leadEngine)
+    // Google Maps Connector (Uses improved parser from LeadEngine)
     registerConnector('gmaps', (rawData) => {
-        const lines = rawData.split('\n').map(l => l.trim()).filter(l => l !== '');
-        if (lines.length === 0) return [];
-
-        const lead = { businessName: lines[0] };
-        lines.forEach(line => {
-            if (line.includes('stars')) lead.rating = parseFloat(line);
-            if (/\d{3}-\d{3}-\d{4}/.test(line)) lead.phone = line;
-            if (line.startsWith('http')) lead.website = line;
-            if (line.includes(',') && /\d{5}/.test(line)) lead.address = line;
-        });
-        return [lead];
+        return LeadEngine.parseGMapsData(rawData);
     });
 
     // OCR Connector Simulation

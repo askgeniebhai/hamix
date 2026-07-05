@@ -1,5 +1,5 @@
 /**
- * HAMIX Platform - Main Application Logic (Refactored for Modular Services)
+ * HAMIX Platform - Main Application Logic (Integrated & Refactored)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -73,6 +73,54 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', () => closeModal());
     });
+
+    // Button Handlers
+    const btnAddLead = document.getElementById('btn-add-lead');
+    const btnImportLeads = document.getElementById('btn-import-leads');
+    const topNewLeadBtn = document.querySelector('.header-right .btn-primary');
+
+    if (btnAddLead) btnAddLead.addEventListener('click', () => {
+        document.getElementById('modal-lead-title').textContent = 'Add New Lead';
+        leadForm.reset();
+        delete leadForm.dataset.editId;
+        openModal('lead');
+    });
+
+    if (btnImportLeads) btnImportLeads.addEventListener('click', () => {
+        resetImportUI();
+        openModal('import');
+    });
+
+    if (topNewLeadBtn) topNewLeadBtn.addEventListener('click', () => {
+        navigateTo('leads');
+        document.getElementById('modal-lead-title').textContent = 'Add New Lead';
+        leadForm.reset();
+        delete leadForm.dataset.editId;
+        openModal('lead');
+    });
+
+    // Import Tab Logic
+    const importTabs = document.querySelectorAll('.import-tab');
+    const importTabContents = document.querySelectorAll('.import-tab-content');
+
+    importTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.tab;
+            importTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            importTabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === `import-tab-${targetTab}`) content.classList.add('active');
+            });
+        });
+    });
+
+    const resetImportUI = () => {
+        importTabContents.forEach(c => c.style.display = '');
+        document.getElementById('import-summary').style.display = 'none';
+        document.getElementById('import-tab-gmaps').classList.add('active');
+        document.querySelector('.import-tab[data-tab="gmaps"]').classList.add('active');
+    };
 
     // Form Submissions
     const leadForm = document.getElementById('form-lead');
@@ -180,6 +228,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('modal-lead-title').textContent = 'Edit Lead';
         leadForm.dataset.editId = id;
         document.getElementById('lead-businessName').value = lead.businessName;
+        document.getElementById('lead-category').value = lead.category;
+        document.getElementById('lead-phone').value = lead.phone;
+        document.getElementById('lead-whatsapp').value = lead.whatsapp;
+        document.getElementById('lead-email').value = lead.email;
+        document.getElementById('lead-website').value = lead.website;
+        document.getElementById('lead-address').value = lead.address;
+        document.getElementById('lead-rating').value = lead.rating;
+        document.getElementById('lead-reviews').value = lead.reviews;
+        document.getElementById('lead-industry').value = lead.industry;
+        document.getElementById('lead-notes').value = lead.notes;
+        document.getElementById('lead-assignedTo').value = lead.assignedTo || '';
         document.getElementById('lead-status').value = lead.status;
         openModal('lead');
     };
@@ -234,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderCustomers = () => {
         const listContainer = document.getElementById('customers-list');
         if (state.customers.length === 0) {
-            listContainer.innerHTML = `<tr><td colspan="6" class="empty-state">No customers yet.</td></tr>`;
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No customers yet.</td></tr>`;
             return;
         }
         listContainer.innerHTML = state.customers.map(c => `
@@ -281,13 +340,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('preview-theme-select').addEventListener('change', updatePreviewFrame);
 
+    // Filter Handlers
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.filters.leads.status = btn.dataset.filter;
+            renderLeads();
+        });
+    });
+
+    document.getElementById('search-leads').addEventListener('input', (e) => {
+        state.filters.leads.search = e.target.value;
+        renderLeads();
+    });
+
     // Acquisition Handlers
+    document.getElementById('btn-process-gmaps').addEventListener('click', async () => {
+        const rawData = document.getElementById('gmaps-import-data').value;
+        const leads = await AcquisitionService.importFromSource('gmaps', rawData);
+        processImport(leads);
+    });
+
     document.getElementById('btn-process-clipboard').addEventListener('click', async () => {
         const rawData = document.getElementById('clipboard-import-data').value;
         const leads = await AcquisitionService.importFromSource('clipboard', rawData);
         processImport(leads);
     });
 
+    document.getElementById('ocr-upload-area').addEventListener('click', () => document.getElementById('ocr-file-input').click());
     document.getElementById('ocr-file-input').addEventListener('change', async () => {
         document.getElementById('ocr-status').style.display = 'block';
         const leads = await AcquisitionService.importFromSource('ocr', 'image_data');
@@ -311,10 +392,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         StorageService.saveLeads(state.leads);
-        document.getElementById('import-tab-gmaps').style.display = 'none';
-        document.getElementById('import-tab-csv').style.display = 'none';
-        document.getElementById('import-tab-ocr').style.display = 'none';
-        document.getElementById('import-tab-clipboard').style.display = 'none';
+
+        importTabContents.forEach(c => c.style.display = 'none');
         document.getElementById('import-summary').style.display = 'block';
         document.getElementById('summary-total').textContent = stats.total;
         document.getElementById('summary-dupes').textContent = stats.dupes;
