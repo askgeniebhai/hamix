@@ -9,7 +9,7 @@ async def test_attendance():
         page = await context.new_page()
 
         print("--- STARTING ATTENDANCE E2E TEST ---")
-        await page.goto("http://localhost:3000/index.html")
+        await page.goto("http://localhost:3000/nsf/index.html")
         await page.wait_for_selector("#openGuardPortal")
 
         # 1. Open Portal

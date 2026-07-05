@@ -721,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnGuardPortal = document.getElementById('btn-guard-portal');
     if (btnGuardPortal) {
         btnGuardPortal.addEventListener('click', () => {
-            window.open('guard-portal.html', '_blank');
+            window.open('../nsf/guard-portal.html', '_blank');
         });
     }
 
