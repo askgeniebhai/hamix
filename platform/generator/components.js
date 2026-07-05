@@ -162,9 +162,9 @@ const GeneratorComponents = (() => {
                 <div class="footer-social">
                     <h4>Connect</h4>
                     <div class="social-icons">
-                        <i data-lucide="facebook"></i>
-                        <i data-lucide="instagram"></i>
-                        <i data-lucide="twitter"></i>
+                        <i data-lucide="mail"></i>
+                        <i data-lucide="message-square"></i>
+                        <i data-lucide="phone"></i>
                     </div>
                 </div>
             </div>
