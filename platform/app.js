@@ -22,6 +22,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Navigation Logic
     const navigateTo = (pageId) => {
+        // Handle landing page transition
+        if (pageId !== 'landing') {
+            document.body.classList.remove('landing-active');
+            document.getElementById('landing-page').style.display = 'none';
+            document.getElementById('crm-app').style.display = 'flex';
+        } else {
+            document.body.classList.add('landing-active');
+            document.getElementById('landing-page').style.display = 'block';
+            document.getElementById('crm-app').style.display = 'none';
+            return;
+        }
+
         state.currentPage = pageId;
         pages.forEach(page => {
             page.classList.remove('active');
@@ -40,6 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (window.lucide) window.lucide.createIcons();
     };
+
+    // Landing Page Buttons
+    document.querySelectorAll('.btn-launch-crm').forEach(btn => {
+        btn.addEventListener('click', () => navigateTo('dashboard'));
+    });
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
@@ -279,21 +296,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!lead) return;
         document.getElementById('modal-lead-title').textContent = 'Edit Lead';
         leadForm.dataset.editId = id;
-        document.getElementById('lead-businessName').value = lead.businessName;
-        document.getElementById('lead-category').value = lead.category;
-        document.getElementById('lead-phone').value = lead.phone;
-        document.getElementById('lead-whatsapp').value = lead.whatsapp;
-        document.getElementById('lead-email').value = lead.email;
-        document.getElementById('lead-website').value = lead.website;
-        document.getElementById('lead-address').value = lead.address;
+        document.getElementById('lead-businessName').value = lead.businessName || '';
+        document.getElementById('lead-category').value = lead.category || '';
+        document.getElementById('lead-phone').value = lead.phone || '';
+        document.getElementById('lead-whatsapp').value = lead.whatsapp || '';
+        document.getElementById('lead-email').value = lead.email || '';
+        document.getElementById('lead-website').value = lead.website || '';
+        document.getElementById('lead-address').value = lead.address || '';
         document.getElementById('lead-locality').value = lead.locality || '';
         document.getElementById('lead-pincode').value = lead.pincode || '';
-        document.getElementById('lead-rating').value = lead.rating;
-        document.getElementById('lead-reviews').value = lead.reviews;
-        document.getElementById('lead-industry').value = lead.industry;
-        document.getElementById('lead-notes').value = lead.notes;
+        document.getElementById('lead-rating').value = lead.rating || 0;
+        document.getElementById('lead-reviews').value = lead.reviews || 0;
+        document.getElementById('lead-industry').value = lead.industry || '';
+        document.getElementById('lead-notes').value = lead.notes || '';
         document.getElementById('lead-assignedTo').value = lead.assignedTo || '';
-        document.getElementById('lead-status').value = lead.status;
+        document.getElementById('lead-status').value = lead.status || 'New';
         openModal('lead');
     };
 
@@ -550,6 +567,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDashboard();
     };
 
+    document.getElementById('btn-import-finish').addEventListener('click', () => {
+        closeModal('import');
+        if (state.currentPage === 'leads') renderLeads();
+    });
+
     // Campaign Handlers
     document.getElementById('btn-new-campaign').addEventListener('click', () => {
         const selector = document.getElementById('campaign-leads-selector');
@@ -560,17 +582,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('form-campaign').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = document.getElementById('campaign-name').value;
-        const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
-        const leads = state.leads.filter(l => selectedIds.includes(l.id));
-        const camp = CampaignService.createCampaign(name, leads);
-        state.campaigns.push(camp);
-        StorageService.saveCampaigns(state.campaigns);
-        closeModal('campaign');
-        navigateTo('campaigns');
+        try {
+            e.preventDefault();
+            const name = document.getElementById('campaign-name').value;
+            const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
+
+            if (selectedIds.length === 0) {
+                alert('Please select at least one lead for the campaign.');
+                return;
+            }
+
+            const leads = state.leads.filter(l => selectedIds.includes(l.id));
+            const camp = CampaignService.createCampaign(name, leads);
+
+            if (!camp || !camp.messages) {
+                throw new Error('Failed to generate campaign messages.');
+            }
+
+            state.campaigns.push(camp);
+            StorageService.saveCampaigns(state.campaigns);
+            closeModal('campaign');
+            navigateTo('campaigns');
+            openCampaignReview(camp.id);
+        } catch (error) {
+            console.error('Campaign Generation Error:', error);
+            alert('An error occurred while generating the campaign. Please check the console for details.');
+        }
+    });
+
+    // Approve Message (Demo Mode)
+    document.getElementById('btn-approve-msg').addEventListener('click', () => {
+        alert('Message approved! (Demo Mode: WhatsApp integration will be available in the next phase)');
+        closeModal('review');
     });
 
     // Initial load
-    navigateTo('dashboard');
+    // Check if we should show landing or dashboard
+    const hasSeenLanding = localStorage.getItem('hamix_landing_seen');
+    if (hasSeenLanding) {
+        navigateTo('dashboard');
+    } else {
+        navigateTo('landing');
+        localStorage.setItem('hamix_landing_seen', 'true');
+    }
 });

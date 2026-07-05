@@ -1,0 +1,11 @@
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/services/StorageService.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/services/AcquisitionService.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/services/PipelineService.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/services/CampaignService.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/leadEngine.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/generator/themes.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/generator/components.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/generator/engine.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jul/2026 09:28:01] "GET /platform/app.js HTTP/1.1" 200 -
