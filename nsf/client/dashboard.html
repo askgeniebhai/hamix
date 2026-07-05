@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Portal | NSF</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f8fafc; font-family: 'Poppins', sans-serif; margin: 0; }
+        .c-header { background: #0B1F3A; color: white; padding: 25px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .c-container { padding: 40px; max-width: 1000px; margin: 0 auto; }
+        .client-welcome { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .table th { text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b; padding: 10px 0; border-bottom: 2px solid #f1f5f9; }
+        .table td { padding: 12px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<div class="c-header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <i data-lucide="building-2" style="color: #D4AF37;"></i>
+        <h2 style="font-size: 20px; color: white; margin: 0;">Client Access Portal</h2>
+    </div>
+    <button onclick="AuthService.logout()" style="background: none; border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 15px; border-radius: 6px; cursor: pointer;">Logout</button>
+</div>
+
+<div class="c-container">
+    <div class="client-welcome">
+        <h1 style="margin-top: 0; font-size: 24px;">Welcome, Tech Park Alpha</h1>
+        <p style="color: #64748b; font-size: 16px;">Overview of security operations at your site.</p>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>Current Guard Deployment</h3>
+            <table class="table">
+                <thead>
+                    <tr><th>Name</th><th>Shift</th><th>Status</th></tr>
+                </thead>
+                <tbody id="deployment-list">
+                    <tr><td>John Smith</td><td>Day</td><td><span style="color:#059669; font-weight:600;">On Duty</span></td></tr>
+                    <tr><td>Suresh Raina</td><td>Day</td><td><span style="color:#dc2626; font-weight:600;">Absent</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h3>Recent Reports</h3>
+            <ul style="list-style: none; padding: 0;">
+                <li style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between;">
+                    <span>Daily Attendance - July 05</span>
+                    <a href="#" style="color: #D4AF37; font-size: 12px; font-weight: 600;">Download PDF</a>
+                </li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between;">
+                    <span>Monthly Summary - June</span>
+                    <a href="#" style="color: #D4AF37; font-size: 12px; font-weight: 600;">Download PDF</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script src="../../platform/services/StorageService.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+    AuthService.checkAuth('client');
+    lucide.createIcons();
+</script>
+</body>
+</html>

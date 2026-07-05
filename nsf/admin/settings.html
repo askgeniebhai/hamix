@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | NSF Admin</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f8fafc; font-family: 'Poppins', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 260px; background: #0B1F3A; color: white; display: flex; flex-direction: column; }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .top-nav { height: 70px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; }
+        .content-body { padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); max-width: 600px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar"></div>
+    <div class="main-content">
+        <div class="top-nav"></div>
+        <div class="content-body">
+            <div class="card">
+                <h3>General Settings</h3>
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" value="Neela Security Force">
+                </div>
+                <div class="form-group">
+                    <label>Attendance Radius (meters)</label>
+                    <input type="number" value="500">
+                </div>
+                <div class="form-group">
+                    <label>Admin Notification Email</label>
+                    <input type="email" value="admin@neelasecurity.com">
+                </div>
+                <button class="btn btn-gold" onclick="alert('Settings Saved!')">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    <script src="../../platform/services/StorageService.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/ui-components.js"></script>
+    <script>
+        AuthService.checkAuth('admin');
+        UI.renderSidebar('settings');
+        UI.renderTopNav('System Settings');
+    </script>
+</body>
+</html>

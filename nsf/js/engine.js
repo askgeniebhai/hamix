@@ -12,7 +12,7 @@ const customerId = params.get("id") || "neela-security-force";
 
 async function loadCustomer() {
     try {
-        const response = await fetch(`customers/${customerId}.json`);
+        const response = await fetch(`data/config.json`);
         if (!response.ok) throw new Error("Customer JSON not found.");
         customer = await response.json();
         initializeWebsite();
