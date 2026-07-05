@@ -57,6 +57,7 @@
                     <li><a href="#industries">Industries</a></li>
                     <li><a href="#why">Why Choose Us</a></li>
                     <li><a href="#contact">Contact Us</a></li>
+                    <li><a href="#" id="openGuardPortal" class="nav-portal-link"><i data-lucide="shield-alert" class="icon-sm"></i> Guard Portal</a></li>
                 </ul>
             </nav>
             <div class="nav-cta">
@@ -313,6 +314,172 @@
             </div>
         </div>
     </section>
+
+    <!-- GUARD PORTAL MODAL -->
+    <div id="guardPortal" class="portal-modal">
+        <div class="portal-container">
+            <header class="portal-header">
+                <div class="portal-logo">
+                    <i data-lucide="shield" class="icon-md"></i>
+                    <div>
+                        <h2>Guard Management Portal</h2>
+                        <p>Neela Security Force • Operations Control</p>
+                    </div>
+                </div>
+                <div class="portal-nav">
+                    <button class="p-nav-btn active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i> Dashboard</button>
+                    <button class="p-nav-btn" data-tab="attendance"><i data-lucide="users"></i> Attendance</button>
+                    <button class="p-nav-btn" data-tab="history"><i data-lucide="history"></i> History</button>
+                    <button class="p-nav-btn" data-tab="reports"><i data-lucide="file-text"></i> Reports</button>
+                </div>
+                <button class="portal-close" id="closePortal">&times;</button>
+            </header>
+
+            <main class="portal-content">
+                <!-- Dashboard Tab -->
+                <div id="p-tab-dashboard" class="p-tab active">
+                    <div class="p-stats-grid">
+                        <div class="p-stat-card">
+                            <i data-lucide="users"></i>
+                            <div class="p-stat-info">
+                                <h4>Total Employees</h4>
+                                <p id="p-stat-total">0</p>
+                            </div>
+                        </div>
+                        <div class="p-stat-card success">
+                            <i data-lucide="user-check"></i>
+                            <div class="p-stat-info">
+                                <h4>Present Today</h4>
+                                <p id="p-stat-present">0</p>
+                            </div>
+                        </div>
+                        <div class="p-stat-card danger">
+                            <i data-lucide="user-x"></i>
+                            <div class="p-stat-info">
+                                <h4>Absent Today</h4>
+                                <p id="p-stat-absent">0</p>
+                            </div>
+                        </div>
+                        <div class="p-stat-card warning">
+                            <i data-lucide="clock"></i>
+                            <div class="p-stat-info">
+                                <h4>Late Arrivals</h4>
+                                <p id="p-stat-late">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-recent-activity">
+                        <h3>Recent Check-ins</h3>
+                        <div class="p-table-wrap">
+                            <table class="p-table">
+                                <thead>
+                                    <tr>
+                                        <th>Guard Name</th>
+                                        <th>Time</th>
+                                        <th>Location</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="p-recent-list">
+                                    <!-- Dynamic -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attendance Tab -->
+                <div id="p-tab-attendance" class="p-tab">
+                    <div class="p-controls">
+                        <div class="p-search">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="p-guard-search" placeholder="Search by name or ID...">
+                        </div>
+                        <div class="p-date-display" id="p-current-date"></div>
+                    </div>
+                    <div class="p-table-wrap">
+                        <table class="p-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee ID</th>
+                                    <th>Guard Name</th>
+                                    <th>Rank</th>
+                                    <th>Shift</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="p-guard-list">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="p-tab-history" class="p-tab">
+                    <div class="p-controls">
+                        <h3>Attendance Log</h3>
+                        <div class="p-filters">
+                            <input type="date" id="p-history-date">
+                            <select id="p-history-filter">
+                                <option value="all">All Status</option>
+                                <option value="Present">Present</option>
+                                <option value="Absent">Absent</option>
+                                <option value="Leave">Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="p-table-wrap">
+                        <table class="p-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Guard Name</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="p-history-list">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Reports Tab -->
+                <div id="p-tab-reports" class="p-tab">
+                    <div class="p-report-config">
+                        <div class="p-report-card">
+                            <h3>Generate Attendance Report</h3>
+                            <div class="p-form-grid">
+                                <div class="p-form-group">
+                                    <label>Select Month</label>
+                                    <input type="month" id="p-report-month">
+                                </div>
+                                <div class="p-form-group">
+                                    <label>Report Type</label>
+                                    <select id="p-report-type">
+                                        <option value="summary">Monthly Summary</option>
+                                        <option value="detailed">Detailed Log</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="p-report-actions">
+                                <button class="btn btn-gold" id="btn-gen-report"><i data-lucide="refresh-cw"></i> Generate Report</button>
+                                <button class="btn btn-outline" id="btn-export-csv" style="border-color: var(--primary); color: var(--primary);"><i data-lucide="download"></i> Export CSV</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="p-report-result" class="p-report-view">
+                        <!-- Dynamic Report Table -->
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
 
 </body>
 </html>
