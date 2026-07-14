@@ -84,14 +84,20 @@ const PipelineService = (() => {
      * AI Enrichment Engine
      */
     const enrich = async (lead) => {
-        // Simulated Enrichment logic
-        // In a real app, this would call various providers (GST, MCA, Truecaller)
-        const confidenceScore = Math.random() * 100;
+        // Deterministic Enrichment logic
+        // In a real app, this would call various providers
+        // For stabilization, we base confidence on data completeness
+        let completeness = 0;
+        if (lead.businessName) completeness += 20;
+        if (lead.phone && lead.phone !== 'Phone not available') completeness += 20;
+        if (lead.website) completeness += 20;
+        if (lead.address) completeness += 20;
+        if (lead.category) completeness += 20;
 
         return {
             ...lead,
             isEnriched: true,
-            enrichmentConfidence: confidenceScore.toFixed(2),
+            enrichmentConfidence: completeness.toFixed(2),
             enrichedAt: new Date().toISOString()
         };
     };
@@ -101,15 +107,25 @@ const PipelineService = (() => {
      */
     const calculateScore = (lead) => {
         let score = 0;
-        if (lead.phone) score += 20;
+        const hasPhone = lead.phone && lead.phone !== 'Phone not available';
+        const hasWebsite = lead.website && lead.website !== '';
+
+        if (hasPhone) score += 20;
         if (lead.email) score += 10;
-        if (lead.website) score += 15;
+        if (hasWebsite) score += 15;
         if (lead.address) score += 10;
-        if (lead.rating > 4) score += 15;
-        if (lead.reviews > 20) score += 10;
+
+        // Use actual rating and reviews for scoring
+        if (lead.rating >= 4.5) score += 15;
+        else if (lead.rating >= 4.0) score += 10;
+        else if (lead.rating > 0) score += 5;
+
+        if (lead.reviews >= 100) score += 10;
+        else if (lead.reviews >= 50) score += 5;
+
         if (lead.isEnriched) score += 20;
 
-        // Map score to stars
+        // Map score to stars (1-5)
         if (score >= 80) return 5;
         if (score >= 60) return 4;
         if (score >= 40) return 3;

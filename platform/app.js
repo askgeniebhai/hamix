@@ -22,6 +22,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Navigation Logic
     const navigateTo = (pageId) => {
+        // Handle landing page transition
+        if (pageId !== 'landing') {
+            document.body.classList.remove('landing-active');
+            const landingPage = document.getElementById('landing-page');
+            if (landingPage) landingPage.style.display = 'none';
+            const crmApp = document.getElementById('crm-app');
+            if (crmApp) crmApp.style.display = 'flex';
+        } else {
+            document.body.classList.add('landing-active');
+            const landingPage = document.getElementById('landing-page');
+            if (landingPage) landingPage.style.display = 'block';
+            const crmApp = document.getElementById('crm-app');
+            if (crmApp) crmApp.style.display = 'none';
+            return;
+        }
+
         state.currentPage = pageId;
         pages.forEach(page => {
             page.classList.remove('active');
@@ -31,17 +47,20 @@ document.addEventListener('DOMContentLoaded', () => {
             item.classList.remove('active');
             if (item.dataset.page === pageId) item.classList.add('active');
         });
-        headerTitle.textContent = pageId.charAt(0).toUpperCase() + pageId.slice(1);
+        if (headerTitle) headerTitle.textContent = pageId.charAt(0).toUpperCase() + pageId.slice(1);
 
         if (pageId === 'dashboard') updateDashboard();
         if (pageId === 'leads') renderLeads();
         if (pageId === 'campaigns') renderCampaigns();
         if (pageId === 'customers') renderCustomers();
-        if (pageId === 'attendance') renderAttendanceRecords();
-        if (pageId === 'payroll') renderPayroll();
 
         if (window.lucide) window.lucide.createIcons();
     };
+
+    // Landing Page Buttons
+    document.querySelectorAll('.btn-launch-crm').forEach(btn => {
+        btn.addEventListener('click', () => navigateTo('dashboard'));
+    });
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
@@ -74,6 +93,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', () => closeModal());
+    });
+
+    window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) {
+            closeModal();
+        }
     });
 
     // Button Handlers
@@ -118,10 +143,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const resetImportUI = () => {
-        importTabContents.forEach(c => c.style.display = '');
+        importTabContents.forEach(c => {
+            c.style.display = '';
+            c.classList.remove('active');
+        });
         document.getElementById('import-summary').style.display = 'none';
-        document.getElementById('import-tab-gmaps').classList.add('active');
-        document.querySelector('.import-tab[data-tab="gmaps"]').classList.add('active');
+        const importPreview = document.getElementById('import-preview');
+        if (importPreview) importPreview.style.display = 'none';
+        const csvUploadArea = document.getElementById('csv-upload-area');
+        if (csvUploadArea) csvUploadArea.style.display = 'block';
+        const csvMapping = document.getElementById('csv-mapping');
+        if (csvMapping) csvMapping.style.display = 'none';
+
+        const gmapsTab = document.getElementById('import-tab-gmaps');
+        if (gmapsTab) gmapsTab.classList.add('active');
+        const gmapsNavTab = document.querySelector('.import-tab[data-tab="gmaps"]');
+        if (gmapsNavTab) gmapsNavTab.classList.add('active');
+
+        const gmapsInput = document.getElementById('gmaps-import-data');
+        if (gmapsInput) gmapsInput.value = '';
+        const csvInput = document.getElementById('csv-file-input');
+        if (csvInput) csvInput.value = '';
     };
 
     // Form Submissions
@@ -137,11 +179,11 @@ document.addEventListener('DOMContentLoaded', () => {
             email: document.getElementById('lead-email').value,
             website: document.getElementById('lead-website').value,
             address: document.getElementById('lead-address').value,
+            locality: document.getElementById('lead-locality').value,
+            pincode: document.getElementById('lead-pincode').value,
             rating: parseFloat(document.getElementById('lead-rating').value) || 0,
             reviews: parseInt(document.getElementById('lead-reviews').value) || 0,
             industry: document.getElementById('lead-industry').value,
-            locality: document.getElementById('lead-locality').value,
-            pincode: document.getElementById('lead-pincode').value,
             notes: document.getElementById('lead-notes').value,
             assignedTo: document.getElementById('lead-assignedTo').value,
             status: document.getElementById('lead-status').value
@@ -150,8 +192,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (leadId) {
             const index = state.leads.findIndex(l => l.id === leadId);
             if (index !== -1) {
+                const oldStatus = state.leads[index].status;
                 state.leads[index] = { ...state.leads[index], ...formData, updatedAt: new Date().toISOString() };
-                if (formData.status === 'Customer') {
+
+                // Handle conversion to customer if status becomes Approved or Customer
+                if (oldStatus !== 'Approved' && oldStatus !== 'Customer' && (formData.status === 'Approved' || formData.status === 'Customer')) {
                     const customer = LeadEngine.createCustomer(state.leads[index]);
                     state.customers.push(customer);
                     StorageService.saveCustomers(state.customers);
@@ -175,8 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateDashboard = () => {
         const totalLeads = state.leads.length;
         const totalCustomers = state.customers.length;
-        const approvedLeads = state.leads.filter(l => l.status === 'Customer').length;
-        const pendingLeads = state.leads.filter(l => ['New', 'Validated'].includes(l.status)).length;
+        const approvedLeads = state.leads.filter(l => ['Approved', 'Customer'].includes(l.status)).length;
+        const pendingLeads = state.leads.filter(l => ['New', 'Validated', 'Follow-up'].includes(l.status)).length;
 
         document.getElementById('stat-total-leads').textContent = totalLeads;
         document.getElementById('stat-total-customers').textContent = totalCustomers;
@@ -185,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const pipelineContainer = document.getElementById('pipeline-stats');
         const statuses = Object.values(LeadEngine.STATUS);
-        pipelineContainer.innerHTML = statuses.slice(0, 7).map(status => {
+        pipelineContainer.innerHTML = statuses.slice(0, 10).map(status => {
             const count = state.leads.filter(l => l.status === status).length;
             return `<div class="pipeline-card"><span class="pipeline-label">${status}</span><span class="pipeline-value">${count}</span></div>`;
         }).join('');
@@ -200,32 +245,62 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filter.status !== 'all') filtered = filtered.filter(l => l.status === filter.status);
         if (filter.search) {
             const q = filter.search.toLowerCase();
-            filtered = filtered.filter(l => l.businessName.toLowerCase().includes(q) || l.phone.includes(q));
+            filtered = filtered.filter(l =>
+                l.businessName.toLowerCase().includes(q) ||
+                l.phone.includes(q) ||
+                (l.category && l.category.toLowerCase().includes(q)) ||
+                (l.email && l.email.toLowerCase().includes(q))
+            );
         }
 
+        // Apply Sort
+        filtered.sort((a, b) => {
+            if (filter.sort === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
+            if (filter.sort === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
+            if (filter.sort === 'rating') return b.rating - a.rating;
+            if (filter.sort === 'name') return a.businessName.localeCompare(b.businessName);
+            return 0;
+        });
+
         if (filtered.length === 0) {
-            listContainer.innerHTML = `<tr><td colspan="6" class="empty-state">No leads found.</td></tr>`;
+            listContainer.innerHTML = `<tr><td colspan="10" class="empty-state">No leads found.</td></tr>`;
             return;
         }
 
         listContainer.innerHTML = filtered.map(lead => `
             <tr>
                 <td><strong>${lead.businessName}</strong></td>
-                <td>${lead.phone || 'Phone not available'}</td>
+                <td>${lead.phone || '-'}</td>
                 <td>${lead.category || '-'}</td>
                 <td>${lead.locality || '-'}</td>
                 <td>${lead.pincode || '-'}</td>
-                <td>${lead.rating || '-'} ★</td>
+                <td>${lead.rating || 0} ★</td>
                 <td>${lead.reviews || 0}</td>
-                <td><span class="badge badge-${lead.status.toLowerCase()}">${lead.status}</span></td>
+                <td>${lead.score || 0}</td>
+                <td><span class="badge badge-${lead.status.toLowerCase().replace(/ /g, '-')}">${lead.status}</span></td>
                 <td>
-                    <button class="btn-icon edit-lead" data-id="${lead.id}"><i data-lucide="edit-2"></i></button>
+                    <div class="action-group">
+                        <button class="btn-icon edit-lead" data-id="${lead.id}"><i data-lucide="edit-2"></i></button>
+                        <button class="btn-icon delete-lead" data-id="${lead.id}"><i data-lucide="trash-2"></i></button>
+                    </div>
                 </td>
             </tr>
         `).join('');
         if (window.lucide) lucide.createIcons();
+
         document.querySelectorAll('.edit-lead').forEach(btn => {
             btn.addEventListener('click', () => openLeadEditor(btn.dataset.id));
+        });
+
+        document.querySelectorAll('.delete-lead').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                state.leads = state.leads.filter(l => l.id !== id);
+                StorageService.saveLeads(state.leads);
+                renderLeads();
+                updateDashboard();
+            });
         });
     };
 
@@ -234,21 +309,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!lead) return;
         document.getElementById('modal-lead-title').textContent = 'Edit Lead';
         leadForm.dataset.editId = id;
-        document.getElementById('lead-businessName').value = lead.businessName;
-        document.getElementById('lead-category').value = lead.category;
-        document.getElementById('lead-phone').value = lead.phone;
-        document.getElementById('lead-whatsapp').value = lead.whatsapp;
-        document.getElementById('lead-email').value = lead.email;
-        document.getElementById('lead-website').value = lead.website;
-        document.getElementById('lead-address').value = lead.address;
-        document.getElementById('lead-rating').value = lead.rating;
-        document.getElementById('lead-reviews').value = lead.reviews;
-        document.getElementById('lead-industry').value = lead.industry;
+        document.getElementById('lead-businessName').value = lead.businessName || '';
+        document.getElementById('lead-category').value = lead.category || '';
+        document.getElementById('lead-phone').value = lead.phone || '';
+        document.getElementById('lead-whatsapp').value = lead.whatsapp || '';
+        document.getElementById('lead-email').value = lead.email || '';
+        document.getElementById('lead-website').value = lead.website || '';
+        document.getElementById('lead-address').value = lead.address || '';
         document.getElementById('lead-locality').value = lead.locality || '';
         document.getElementById('lead-pincode').value = lead.pincode || '';
-        document.getElementById('lead-notes').value = lead.notes;
+        document.getElementById('lead-rating').value = lead.rating || 0;
+        document.getElementById('lead-reviews').value = lead.reviews || 0;
+        document.getElementById('lead-industry').value = lead.industry || '';
+        document.getElementById('lead-notes').value = lead.notes || '';
         document.getElementById('lead-assignedTo').value = lead.assignedTo || '';
-        document.getElementById('lead-status').value = lead.status;
+        document.getElementById('lead-status').value = lead.status || 'New';
         openModal('lead');
     };
 
@@ -309,9 +384,14 @@ document.addEventListener('DOMContentLoaded', () => {
             <tr>
                 <td><strong>${c.businessName}</strong></td>
                 <td>${c.category || '-'}</td>
-                <td>${c.phone || '-'}</td>
-                <td>${c.website || '-'}</td>
-                <td><span class="badge">Active</span></td>
+                <td>
+                    <div class="contact-info">
+                        ${c.phone ? `<div><i data-lucide="phone" style="width:12px;height:12px"></i> ${c.phone}</div>` : ''}
+                        ${c.email ? `<div><i data-lucide="mail" style="width:12px;height:12px"></i> ${c.email}</div>` : ''}
+                    </div>
+                </td>
+                <td><a href="${c.website}" target="_blank" class="link-text">${c.website || '-'}</a></td>
+                <td><span class="badge badge-validated">Active</span></td>
                 <td>${new Date(c.joinedAt).toLocaleDateString()}</td>
                 <td>
                     <button class="btn btn-secondary btn-sm preview-website" data-id="${c.id}">
@@ -338,7 +418,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updatePreviewFrame = () => {
         if (!activePreviewCustomer) return;
-        const theme = document.getElementById('preview-theme-select').value;
+        const themeSelect = document.getElementById('preview-theme-select');
+        const theme = themeSelect ? themeSelect.value : 'default';
         const html = WebsiteGenerator.generate(activePreviewCustomer, theme);
         const frame = document.getElementById('preview-frame');
         const doc = frame.contentWindow.document;
@@ -347,7 +428,10 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.close();
     };
 
-    document.getElementById('preview-theme-select').addEventListener('change', updatePreviewFrame);
+    const themeSelect = document.getElementById('preview-theme-select');
+    if (themeSelect) {
+        themeSelect.addEventListener('change', updatePreviewFrame);
+    }
 
     // Filter Handlers
     document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -359,17 +443,76 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('search-leads').addEventListener('input', (e) => {
-        state.filters.leads.search = e.target.value;
-        renderLeads();
-    });
+    const searchLeadsInput = document.getElementById('search-leads');
+    if (searchLeadsInput) {
+        searchLeadsInput.addEventListener('input', (e) => {
+            state.filters.leads.search = e.target.value;
+            renderLeads();
+        });
+    }
+
+    const sortLeadsSelect = document.getElementById('sort-leads');
+    if (sortLeadsSelect) {
+        sortLeadsSelect.addEventListener('change', (e) => {
+            state.filters.leads.sort = e.target.value;
+            renderLeads();
+        });
+    }
+
+    const searchCustomersInput = document.getElementById('search-customers');
+    if (searchCustomersInput) {
+        searchCustomersInput.addEventListener('input', (e) => {
+            state.filters.customers.search = e.target.value;
+            renderCustomers();
+        });
+    }
 
     // Acquisition Handlers
+    const btnProcessGMaps = document.getElementById('btn-process-gmaps');
+    if (btnProcessGMaps) {
+        btnProcessGMaps.addEventListener('click', async () => {
+            const rawData = document.getElementById('gmaps-import-data').value;
+            if (!rawData.trim()) return;
+            const leads = await AcquisitionService.importFromSource('gmaps', rawData);
+            processImport(leads);
+        });
+    }
+
+    const btnProcessClipboard = document.getElementById('btn-process-clipboard');
+    if (btnProcessClipboard) {
+        btnProcessClipboard.addEventListener('click', async () => {
+            const rawData = document.getElementById('clipboard-import-data').value;
+            if (!rawData.trim()) return;
+            const leads = await AcquisitionService.importFromSource('clipboard', rawData);
+            processImport(leads);
+        });
+    }
+
+    const ocrUploadArea = document.getElementById('ocr-upload-area');
+    if (ocrUploadArea) {
+        ocrUploadArea.addEventListener('click', () => document.getElementById('ocr-file-input').click());
+    }
+    const ocrFileInput = document.getElementById('ocr-file-input');
+    if (ocrFileInput) {
+        ocrFileInput.addEventListener('change', async () => {
+            const ocrStatus = document.getElementById('ocr-status');
+            if (ocrStatus) ocrStatus.style.display = 'block';
+            const leads = await AcquisitionService.importFromSource('ocr', 'image_data');
+            setTimeout(() => {
+                if (ocrStatus) ocrStatus.style.display = 'none';
+                processImport(leads);
+            }, 1500);
+        });
+    }
+
+    // CSV/File Import Logic with Mapping
     const csvFileInput = document.getElementById('csv-file-input');
     const csvUploadArea = document.getElementById('csv-upload-area');
-    const csvMappingDiv = document.getElementById('csv-mapping');
+    const csvMapping = document.getElementById('csv-mapping');
     const csvFieldsList = document.getElementById('csv-fields-list');
-    let currentCsvData = null;
+
+    let csvData = [];
+    let csvHeaders = [];
 
     if (csvUploadArea) {
         csvUploadArea.addEventListener('click', () => csvFileInput.click());
@@ -378,83 +521,74 @@ document.addEventListener('DOMContentLoaded', () => {
     if (csvFileInput) {
         csvFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const text = event.target.result;
-                const rows = text.split('\n').map(r => r.split(',').map(cell => cell.trim()));
-                const headers = rows[0];
-                const data = rows.slice(1).filter(r => r.length === headers.length).map(row => {
-                    const obj = {};
-                    headers.forEach((h, i) => obj[h] = row[i]);
-                    return obj;
-                });
-
-                currentCsvData = data;
-                renderCsvMapping(headers);
-            };
-            reader.readAsText(file);
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const text = event.target.result;
+                    processCSVText(text);
+                };
+                reader.readAsText(file);
+            }
         });
     }
 
-    const renderCsvMapping = (headers) => {
-        csvUploadArea.style.display = 'none';
-        csvMappingDiv.style.display = 'block';
+    const processCSVText = (text) => {
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+        if (lines.length < 2) return;
 
-        const leadFields = [
-            { id: 'businessName', label: 'Business Name' },
-            { id: 'phone', label: 'Phone' },
-            { id: 'category', label: 'Category' },
-            { id: 'email', label: 'Email' },
-            { id: 'website', label: 'Website' },
-            { id: 'address', label: 'Address' }
-        ];
-
-        csvFieldsList.innerHTML = leadFields.map(field => `
-            <div class="form-group" style="margin-bottom: 10px;">
-                <label style="font-size: 13px; font-weight: 500;">${field.label}</label>
-                <select class="csv-map-select" data-field="${field.id}" style="width: 100%;">
-                    <option value="">-- Skip --</option>
-                    ${headers.map(h => `<option value="${h}" ${h.toLowerCase().includes(field.id.toLowerCase()) ? 'selected' : ''}>${h}</option>`).join('')}
-                </select>
-            </div>
-        `).join('');
-    };
-
-    document.getElementById('btn-process-csv').addEventListener('click', async () => {
-        if (!currentCsvData) return;
-
-        const mapping = {};
-        document.querySelectorAll('.csv-map-select').forEach(select => {
-            if (select.value) mapping[select.dataset.field] = select.value;
+        csvHeaders = lines[0].split(',').map(h => h.trim());
+        csvData = lines.slice(1).map(line => {
+            const values = line.split(',').map(v => v.trim());
+            const obj = {};
+            csvHeaders.forEach((header, i) => {
+                obj[header] = values[i];
+            });
+            return obj;
         });
 
-        const leads = await AcquisitionService.importFromSource('csv', currentCsvData, { mapping });
-        processImport(leads);
-    });
+        renderMapping();
+    };
 
-    document.getElementById('btn-process-gmaps').addEventListener('click', async () => {
-        const rawData = document.getElementById('gmaps-import-data').value;
-        const leads = await AcquisitionService.importFromSource('gmaps', rawData);
-        processImport(leads);
-    });
+    const renderMapping = () => {
+        if (csvUploadArea) csvUploadArea.style.display = 'none';
+        if (csvMapping) csvMapping.style.display = 'block';
 
-    document.getElementById('btn-process-clipboard').addEventListener('click', async () => {
-        const rawData = document.getElementById('clipboard-import-data').value;
-        const leads = await AcquisitionService.importFromSource('clipboard', rawData);
-        processImport(leads);
-    });
+        const leadFields = [
+            { key: 'businessName', label: 'Business Name *' },
+            { key: 'category', label: 'Category' },
+            { key: 'phone', label: 'Phone' },
+            { key: 'email', label: 'Email' },
+            { key: 'website', label: 'Website' },
+            { key: 'address', label: 'Address' }
+        ];
 
-    document.getElementById('ocr-upload-area').addEventListener('click', () => document.getElementById('ocr-file-input').click());
-    document.getElementById('ocr-file-input').addEventListener('change', async () => {
-        document.getElementById('ocr-status').style.display = 'block';
-        const leads = await AcquisitionService.importFromSource('ocr', 'image_data');
-        setTimeout(() => {
-            document.getElementById('ocr-status').style.display = 'none';
-            processImport(leads);
-        }, 1500);
-    });
+        if (csvFieldsList) {
+            csvFieldsList.innerHTML = leadFields.map(field => `
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label>${field.label}</label>
+                    <select class="csv-field-map" data-lead-field="${field.key}">
+                        <option value="">-- Ignore --</option>
+                        ${csvHeaders.map(h => `<option value="${h}" ${h.toLowerCase().includes(field.key.toLowerCase()) ? 'selected' : ''}>${h}</option>`).join('')}
+                    </select>
+                </div>
+            `).join('');
+        }
+    };
+
+    const btnProcessCsv = document.getElementById('btn-process-csv');
+    if (btnProcessCsv) {
+        btnProcessCsv.addEventListener('click', async () => {
+            const mapping = {};
+            document.querySelectorAll('.csv-field-map').forEach(select => {
+                if (select.value) {
+                    mapping[select.dataset.leadField] = select.value;
+                }
+            });
+
+            const rawLeads = await AcquisitionService.importFromSource('csv', csvData, { mapping });
+            processImport(rawLeads);
+        });
+    }
 
     const processImport = async (rawLeads) => {
         let stats = {
@@ -464,7 +598,8 @@ document.addEventListener('DOMContentLoaded', () => {
             phones: 0,
             websites: 0,
             categories: 0,
-            noPhone: 0
+            noPhone: 0,
+            new: 0
         };
 
         for (const raw of rawLeads) {
@@ -478,6 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await PipelineService.process(raw, state.leads);
             if (result.action === 'CREATE') {
                 state.leads.push(result.data);
+                stats.new++;
                 stats.imported++;
             } else {
                 const idx = state.leads.findIndex(l => l.id === result.data.id);
@@ -489,104 +625,99 @@ document.addEventListener('DOMContentLoaded', () => {
         StorageService.saveLeads(state.leads);
 
         importTabContents.forEach(c => c.style.display = 'none');
-        document.getElementById('import-summary').style.display = 'block';
-        document.getElementById('summary-total').textContent = stats.total;
-        document.getElementById('summary-imported').textContent = stats.imported;
-        document.getElementById('summary-dupes').textContent = stats.dupes;
-        document.getElementById('summary-phones').textContent = stats.phones;
-        document.getElementById('summary-websites').textContent = stats.websites;
-        document.getElementById('summary-categories').textContent = stats.categories;
-        document.getElementById('summary-no-phone').textContent = stats.noPhone;
+        const importSummary = document.getElementById('import-summary');
+        if (importSummary) importSummary.style.display = 'block';
+
+        const summaryTotal = document.getElementById('summary-total');
+        if (summaryTotal) summaryTotal.textContent = stats.total;
+
+        const summaryImported = document.getElementById('summary-imported');
+        if (summaryImported) summaryImported.textContent = stats.imported;
+
+        const summaryDupes = document.getElementById('summary-dupes');
+        if (summaryDupes) summaryDupes.textContent = stats.dupes;
+
+        const summaryNew = document.getElementById('summary-new');
+        if (summaryNew) summaryNew.textContent = stats.new;
+
+        const summaryPhones = document.getElementById('summary-phones');
+        if (summaryPhones) summaryPhones.textContent = stats.phones;
+
+        const summaryWebsites = document.getElementById('summary-websites');
+        if (summaryWebsites) summaryWebsites.textContent = stats.websites;
+
+        const summaryCategories = document.getElementById('summary-categories');
+        if (summaryCategories) summaryCategories.textContent = stats.categories;
+
+        const summaryNoPhone = document.getElementById('summary-no-phone');
+        if (summaryNoPhone) summaryNoPhone.textContent = stats.noPhone;
+
+        if (state.currentPage === 'leads') renderLeads();
+        updateDashboard();
     };
+
+    const btnImportFinish = document.getElementById('btn-import-finish');
+    if (btnImportFinish) {
+        btnImportFinish.addEventListener('click', () => {
+            closeModal('import');
+            if (state.currentPage === 'leads') renderLeads();
+        });
+    }
 
     // Campaign Handlers
-    document.getElementById('btn-new-campaign').addEventListener('click', () => {
-        const selector = document.getElementById('campaign-leads-selector');
-        selector.innerHTML = state.leads.slice(0, 10).map(l => `
-            <div style="margin-bottom: 5px;"><input type="checkbox" value="${l.id}"> ${l.businessName}</div>
-        `).join('');
-        openModal('campaign');
-    });
+    const btnNewCampaign = document.getElementById('btn-new-campaign');
+    if (btnNewCampaign) {
+        btnNewCampaign.addEventListener('click', () => {
+            const selector = document.getElementById('campaign-leads-selector');
+            selector.innerHTML = state.leads.slice(0, 10).map(l => `
+                <div style="margin-bottom: 5px;"><input type="checkbox" value="${l.id}"> ${l.businessName}</div>
+            `).join('');
+            openModal('campaign');
+        });
+    }
 
-    document.getElementById('form-campaign').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = document.getElementById('campaign-name').value;
-        const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
-        const leads = state.leads.filter(l => selectedIds.includes(l.id));
-        const camp = CampaignService.createCampaign(name, leads);
-        state.campaigns.push(camp);
-        StorageService.saveCampaigns(state.campaigns);
-        closeModal('campaign');
-        navigateTo('campaigns');
-    });
+    const formCampaign = document.getElementById('form-campaign');
+    if (formCampaign) {
+        formCampaign.addEventListener('submit', (e) => {
+            try {
+                e.preventDefault();
+                const name = document.getElementById('campaign-name').value;
+                const selectedIds = Array.from(document.querySelectorAll('#campaign-leads-selector input:checked')).map(i => i.value);
 
-    // Attendance & Payroll Rendering (Placeholders for now)
-    const renderAttendanceRecords = () => {
-        const container = document.getElementById('attendance-list');
-        const records = StorageService.load('nfs_attendance', []);
+                if (selectedIds.length === 0) {
+                    alert('Please select at least one lead for the campaign.');
+                    return;
+                }
 
-        if (records.length === 0) {
-            container.innerHTML = `<tr><td colspan="6" class="empty-state">No attendance records found.</td></tr>`;
-            return;
-        }
+                const leads = state.leads.filter(l => selectedIds.includes(l.id));
+                const camp = CampaignService.createCampaign(name, leads);
 
-        container.innerHTML = records.map(r => `
-            <tr>
-                <td><strong>${r.guardName}</strong></td>
-                <td>${r.siteName}</td>
-                <td>${new Date(r.timestamp).toLocaleTimeString()}</td>
-                <td>-</td>
-                <td><span class="badge ${r.status === 'Verified' ? 'badge-validated' : 'badge-ready-for-ai'}">${r.status}</span></td>
-                <td><small>${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</small></td>
-            </tr>
-        `).join('');
-    };
+                if (!camp || !camp.messages) {
+                    throw new Error('Failed to generate campaign messages.');
+                }
 
-    const renderPayroll = () => {
-        const container = document.getElementById('payroll-list');
-        const attendance = StorageService.load('nfs_attendance', []);
-
-        // Mock Employee Database (Phase 1)
-        const employees = {
-            "NFS-9921": { name: "John Smith", baseSalary: 25000 }
-        };
-
-        const summary = attendance.reduce((acc, curr) => {
-            if (!acc[curr.guardId]) {
-                acc[curr.guardId] = {
-                    name: curr.guardName,
-                    days: new Set(),
-                    base: employees[curr.guardId]?.baseSalary || 20000
-                };
+                state.campaigns.push(camp);
+                StorageService.saveCampaigns(state.campaigns);
+                closeModal('campaign');
+                navigateTo('campaigns');
+                openCampaignReview(camp.id);
+            } catch (error) {
+                console.error('Campaign Generation Error:', error);
+                alert('An error occurred while generating the campaign. Please check the console for details.');
             }
-            acc[curr.guardId].days.add(new Date(curr.timestamp).toDateString());
-            return acc;
-        }, {});
+        });
+    }
 
-        const rows = Object.values(summary);
+    // Approve Message (Demo Mode)
+    const btnApproveMsg = document.getElementById('btn-approve-msg');
+    if (btnApproveMsg) {
+        btnApproveMsg.addEventListener('click', () => {
+            alert('Message approved! (Demo Mode: WhatsApp integration will be available in the next phase)');
+            closeModal('review');
+        });
+    }
 
-        if (rows.length === 0) {
-            container.innerHTML = `<tr><td colspan="6" class="empty-state">No attendance data found to calculate payroll.</td></tr>`;
-            return;
-        }
-
-        container.innerHTML = rows.map(r => {
-            const daysCount = r.days.size;
-            const dailyRate = r.base / 30;
-            const netPay = Math.round(dailyRate * daysCount);
-            return `
-                <tr>
-                    <td><strong>${r.name}</strong></td>
-                    <td>${daysCount} days</td>
-                    <td>₹${r.base.toLocaleString()}</td>
-                    <td>-</td>
-                    <td><strong>₹${netPay.toLocaleString()}</strong></td>
-                    <td><span class="badge badge-new">Draft</span></td>
-                </tr>
-            `;
-        }).join('');
-    };
-
+    // Attendance Portal Button
     const btnGuardPortal = document.getElementById('btn-guard-portal');
     if (btnGuardPortal) {
         btnGuardPortal.addEventListener('click', () => {
@@ -595,5 +726,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initial load
-    navigateTo('dashboard');
+    // Check if we should show landing or dashboard
+    const hasSeenLanding = localStorage.getItem('hamix_landing_seen');
+    if (hasSeenLanding) {
+        navigateTo('dashboard');
+    } else {
+        navigateTo('landing');
+        localStorage.setItem('hamix_landing_seen', 'true');
+    }
 });

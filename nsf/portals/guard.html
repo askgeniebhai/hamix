@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guard Portal | Neela Security Force</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f1f5f9; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .portal-card { background: white; width: 100%; max-width: 400px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; }
+        .portal-header { background: #0B1F3A; color: white; padding: 30px 20px; text-align: center; }
+        .portal-header h1 { font-size: 20px; margin-bottom: 5px; }
+        .portal-header p { font-size: 14px; opacity: 0.8; }
+        .portal-body { padding: 30px 20px; }
+        .guard-info { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; padding: 15px; background: #f8fafc; border-radius: 12px; }
+        .guard-avatar { width: 50px; height: 50px; background: #4f46e5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
+        .site-badge { background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 5px; display: inline-block; }
+        .status-msg { margin-top: 20px; padding: 15px; border-radius: 8px; font-size: 14px; display: none; }
+        .status-msg.success { background: #ecfdf5; color: #059669; border: 1px solid #10b981; }
+        .status-msg.error { background: #fef2f2; color: #dc2626; border: 1px solid #ef4444; }
+        .btn-attendance { width: 100%; padding: 16px; border-radius: 12px; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: all 0.2s; border: none; }
+        .btn-check-in { background: #4f46e5; color: white; }
+        .btn-check-in:hover { background: #4338ca; }
+        .btn-check-in:disabled { background: #94a3b8; cursor: not-allowed; }
+        .location-data { margin-top: 15px; font-size: 11px; color: #64748b; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="portal-card">
+    <div class="portal-header">
+        <h1>Guard Self-Service</h1>
+        <p>Neela Security Force Personnel Portal</p>
+    </div>
+
+    <div class="portal-body">
+        <div class="guard-info">
+            <div class="guard-avatar">JS</div>
+            <div>
+                <p style="font-weight: 600; font-size: 16px;">John Smith</p>
+                <p style="font-size: 13px; color: #64748b;">ID: NFS-9921</p>
+                <span class="site-badge" id="assigned-site">Assigned: Tech Park Alpha</span>
+            </div>
+        </div>
+
+        <div id="attendance-box">
+            <button id="btn-mark-attendance" class="btn-attendance btn-check-in">
+                <i data-lucide="map-pin"></i> Mark Attendance
+            </button>
+
+            <div id="status-msg" class="status-msg"></div>
+
+            <div id="location-display" class="location-data" style="display: none;">
+                GPS: <span id="coords">...</span> | Time: <span id="time">...</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+            <p style="font-size: 12px; color: #94a3b8; text-align: center;">&copy; 2026 Neela Security Force. All Rights Reserved.</p>
+        </div>
+    </div>
+</div>
+
+<script src="../../platform/services/StorageService.js"></script>
+<script>
+    // Site configuration (Phase 1)
+    const MOCK_SITE = {
+        name: "Tech Park Alpha",
+        lat: 12.9716, // Example: Bengaluru Coords
+        lng: 77.5946,
+        radius: 500 // 500 meters
+    };
+
+    const btn = document.getElementById('btn-mark-attendance');
+    const statusMsg = document.getElementById('status-msg');
+    const locationDisplay = document.getElementById('location-display');
+    const coordsEl = document.getElementById('coords');
+    const timeEl = document.getElementById('time');
+
+    btn.addEventListener('click', () => {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Locating...';
+        lucide.createIcons();
+
+        if (!navigator.geolocation) {
+            showStatus("Geolocation is not supported by your browser.", "error");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                const distance = calculateDistance(latitude, longitude, MOCK_SITE.lat, MOCK_SITE.lng);
+
+                locationDisplay.style.display = 'block';
+                coordsEl.textContent = \`\${latitude.toFixed(4)}, \${longitude.toFixed(4)}\`;
+                timeEl.textContent = new Date().toLocaleTimeString();
+
+                if (distance <= MOCK_SITE.radius) {
+                    saveAttendance(latitude, longitude, "Verified");
+                    showStatus("Attendance marked successfully! You are at Tech Park Alpha.", "success");
+                    btn.style.display = 'none';
+                } else {
+                    showStatus(\`Outside permitted radius (\${Math.round(distance)}m away). Please go to the site entrance.\`, "error");
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="map-pin"></i> Try Again';
+                    lucide.createIcons();
+                }
+            },
+            (error) => {
+                showStatus("Error: " + error.message + ". Please enable GPS.", "error");
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="map-pin"></i> Try Again';
+                lucide.createIcons();
+            },
+            { enableHighAccuracy: true }
+        );
+    });
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // Earth radius in meters
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return R * c;
+    }
+
+    function saveAttendance(lat, lng, status) {
+        const records = StorageService.load('nfs_attendance', []);
+        records.push({
+            guardName: "John Smith",
+            guardId: "NFS-9921",
+            siteName: MOCK_SITE.name,
+            timestamp: new Date().toISOString(),
+            lat: lat,
+            lng: lng,
+            status: status
+        });
+        StorageService.save('nfs_attendance', records);
+    }
+
+    function showStatus(msg, type) {
+        statusMsg.textContent = msg;
+        statusMsg.className = "status-msg " + type;
+        statusMsg.style.display = "block";
+    }
+
+    lucide.createIcons();
+</script>
+</body>
+</html>

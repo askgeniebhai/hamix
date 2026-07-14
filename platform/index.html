@@ -10,8 +10,101 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
-    <div class="app-container">
+<body class="landing-active">
+    <!-- Landing Page Section -->
+    <div id="landing-page" class="landing-wrapper">
+        <nav class="landing-nav">
+            <div class="container landing-nav-flex">
+                <div class="logo">
+                    <i data-lucide="shield" class="logo-icon"></i>
+                    <span class="logo-text">HAMIX</span>
+                </div>
+                <div class="landing-nav-links">
+                    <a href="#features">Features</a>
+                    <a href="#pricing">Pricing</a>
+                    <button class="btn btn-primary btn-launch-crm">Launch CRM</button>
+                </div>
+            </div>
+        </nav>
+
+        <header class="landing-hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Automate Your Local Business Growth</h1>
+                    <p>The all-in-one AI platform for lead collection, personalized outreach, and instant website generation.</p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary btn-lg btn-launch-crm">Get Started Now</button>
+                        <button class="btn btn-secondary btn-lg">View Demo</button>
+                    </div>
+                </div>
+                <div class="hero-image">
+                    <div class="mockup-window">
+                        <div class="mockup-header">
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                        </div>
+                        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1000" alt="Dashboard Mockup">
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section id="features" class="landing-features">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Everything You Need to Scale</h2>
+                    <p>HAMIX combines three powerful tools into one seamless workflow.</p>
+                </div>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <i data-lucide="map-pin"></i>
+                        <h3>Lead Collection</h3>
+                        <p>Extract leads from Google Maps, CSVs, or images with our AI-powered engine.</p>
+                    </div>
+                    <div class="feature-card">
+                        <i data-lucide="message-square"></i>
+                        <h3>AI Outreach</h3>
+                        <p>Generate highly personalized WhatsApp messages that convert prospects into customers.</p>
+                    </div>
+                    <div class="feature-card">
+                        <i data-lucide="layout"></i>
+                        <h3>Instant Websites</h3>
+                        <p>Deploy professional, mobile-ready websites for your clients in seconds.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="landing-pricing">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Simple, Transparent Pricing</h2>
+                </div>
+                <div class="pricing-card featured">
+                    <div class="pricing-header">
+                        <h3>Growth Plan</h3>
+                        <div class="price">$49<span>/mo</span></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><i data-lucide="check"></i> Unlimited Lead Imports</li>
+                        <li><i data-lucide="check"></i> AI Message Personalization</li>
+                        <li><i data-lucide="check"></i> 10 Website Deployments</li>
+                        <li><i data-lucide="check"></i> Priority Support</li>
+                    </ul>
+                    <button class="btn btn-primary btn-block btn-launch-crm">Start Free Trial</button>
+                </div>
+            </div>
+        </section>
+
+        <footer class="landing-footer">
+            <div class="container">
+                <p>&copy; 2026 HAMIX AI Platform. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <div class="app-container" id="crm-app">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -29,7 +122,7 @@
                     <li data-page="attendance"><a href="#"><i data-lucide="calendar-check"></i> <span>Attendance</span></a></li>
                     <li data-page="payroll"><a href="#"><i data-lucide="banknote"></i> <span>Payroll</span></a></li>
                     <li data-page="templates"><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
-                    <li data-page="deployments"><a href="#"><i data-lucide="github"></i> <span>GitHub Deployments</span></a></li>
+                    <li data-page="deployments"><a href="#"><i data-lucide="git-branch"></i> <span>GitHub Deployments</span></a></li>
                     <li data-page="settings"><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
                 </ul>
             </nav>
@@ -144,13 +237,14 @@
                         <table class="leads-table">
                             <thead>
                                 <tr>
-                                    <th>Business</th>
+                                    <th>Business Name</th>
                                     <th>Phone</th>
                                     <th>Category</th>
                                     <th>Locality</th>
                                     <th>Pincode</th>
                                     <th>Rating</th>
                                     <th>Reviews</th>
+                                    <th>AI Score</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -158,7 +252,7 @@
                             <tbody id="leads-list">
                                 <!-- Leads will be populated here -->
                                 <tr>
-                                    <td colspan="9" class="empty-state">No leads found. Start by importing or adding a lead.</td>
+                                    <td colspan="10" class="empty-state">No leads found. Start by importing or adding a lead.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -190,11 +284,12 @@
                                     <th>Website</th>
                                     <th>Status</th>
                                     <th>Joined Date</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="customers-list">
                                 <tr>
-                                    <td colspan="6" class="empty-state">No customers yet. Approve leads to see them here.</td>
+                                    <td colspan="7" class="empty-state">No customers yet. Approve leads to see them here.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -369,6 +464,8 @@
                         <select id="lead-status">
                             <option value="New">New</option>
                             <option value="Validated">Validated</option>
+                            <option value="Contacted">Contacted</option>
+                            <option value="Follow-up">Follow-up</option>
                             <option value="Sent">Sent</option>
                             <option value="Delivered">Delivered</option>
                             <option value="Read">Read</option>
@@ -376,7 +473,10 @@
                             <option value="Interested">Interested</option>
                             <option value="Quotation">Quotation</option>
                             <option value="Meeting">Meeting</option>
+                            <option value="Approved">Approved</option>
                             <option value="Customer">Customer</option>
+                            <option value="Published">Published</option>
+                            <option value="Completed">Completed</option>
                             <option value="Lost">Lost</option>
                         </select>
                     </div>
@@ -433,10 +533,10 @@
                     <div id="message-metrics" class="metrics-grid">
                         <!-- Metrics like AI Score, Spam Risk -->
                     </div>
-                    <textarea id="message-editor-text" rows="12" style="width: 100%; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); font-family: sans-serif;"></textarea>
+                    <textarea id="message-editor-text" rows="12" style="width: 100%; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); font-family: sans-serif; white-space: pre-wrap;"></textarea>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" id="btn-regenerate-msg"><i data-lucide="refresh-cw"></i> Regenerate</button>
-                        <button class="btn btn-primary" id="btn-approve-msg"><i data-lucide="check"></i> Approve & Send</button>
+                        <button class="btn btn-primary" id="btn-approve-msg"><i data-lucide="check"></i> Approve & Send (Demo Mode)</button>
                     </div>
                 </div>
             </div>
@@ -543,6 +643,10 @@
                         <span style="font-size: 12px; color: #e11d48;">Duplicates</span>
                         <h4 id="summary-dupes" style="font-size: 24px;">0</h4>
                     </div>
+                    <div class="summary-card" style="padding: 15px; background: #f0fdf4; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 12px; color: #16a34a;">New</span>
+                        <h4 id="summary-new" style="font-size: 24px;">0</h4>
+                    </div>
                     <div class="summary-card" style="padding: 15px; background: #f8fafc; border-radius: 8px; text-align: center;">
                         <span style="font-size: 12px; color: #64748b;">Phones</span>
                         <h4 id="summary-phones" style="font-size: 24px;">0</h4>
@@ -561,7 +665,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" onclick="location.reload()">Finish</button>
+                    <button class="btn btn-primary" id="btn-import-finish">Finish</button>
                 </div>
             </div>
 

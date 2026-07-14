@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My History | NSF</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f1f5f9; min-height: 100vh; padding-bottom: 80px; }
+        .g-header { background: #0B1F3A; color: white; padding: 20px; display: flex; align-items: center; gap: 15px; }
+        .g-header a { color: white; }
+        .g-header h1 { font-size: 18px; margin: 0; color: white; }
+        .g-container { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .history-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+        .history-item:last-child { border-bottom: none; }
+        .history-type { font-weight: 700; font-size: 14px; }
+        .history-time { font-size: 12px; color: #64748b; }
+    </style>
+</head>
+<body>
+
+<div class="g-header">
+    <a href="dashboard.html"><i data-lucide="chevron-left"></i></a>
+    <h1>My Attendance History</h1>
+</div>
+
+<div class="g-container" id="history-container">
+    <!-- Dynamic -->
+</div>
+
+<div class="bottom-nav">
+    <a href="dashboard.html" class="nav-link"><i data-lucide="layout-dashboard"></i>Dashboard</a>
+    <a href="attendance.html" class="nav-link"><i data-lucide="map-pin"></i>Attendance</a>
+    <a href="profile.html" class="nav-link"><i data-lucide="user"></i>Profile</a>
+</div>
+
+<script src="../../platform/services/StorageService.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+    const user = AuthService.checkAuth('guard');
+    function renderHistory() {
+        const logs = StorageService.load('nsf_attendance_logs', []).filter(l => l.userId === user.id);
+        const container = document.getElementById('history-container');
+
+        if (logs.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding:40px; color:#64748b;">No records found.</p>';
+            return;
+        }
+
+        // Group by date
+        const groups = {};
+        logs.forEach(l => {
+            const date = new Date(l.timestamp).toLocaleDateString();
+            if (!groups[date]) groups[date] = [];
+            groups[date].push(l);
+        });
+
+        container.innerHTML = Object.keys(groups).sort((a,b) => new Date(b) - new Date(a)).map(date => `
+            <div class="history-card">
+                <h3 style="font-size: 14px; margin-top:0; color:#0B1F3A; border-bottom:1px solid #eee; padding-bottom:10px;">${date}</h3>
+                ${groups[date].map(l => `
+                    <div class="history-item">
+                        <div>
+                            <div class="history-type" style="color:${l.type==='Check In'?'#059669':'#dc2626'}">${l.type}</div>
+                            <div class="history-time">${new Date(l.timestamp).toLocaleTimeString()}</div>
+                        </div>
+                        <div style="text-align:right; font-size:11px; color:#64748b;">
+                            <i data-lucide="map-pin" class="icon-sm"></i> ${l.site}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+    renderHistory();
+</script>
+</body>
+</html>
