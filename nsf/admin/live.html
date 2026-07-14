@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Tracking | NSF Admin</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f8fafc; font-family: 'Poppins', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 260px; background: #0B1F3A; color: white; display: flex; flex-direction: column; }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-nav { height: 70px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; }
+        .content-body { flex: 1; display: flex; }
+        .live-list { width: 350px; background: white; border-right: 1px solid #e2e8f0; overflow-y: auto; padding: 20px; }
+        .map-mock { flex: 1; background: #e2e8f0; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .guard-item { padding: 15px; border-radius: 8px; border: 1px solid #f1f5f9; margin-bottom: 10px; cursor: pointer; }
+        .guard-item:hover { background: #f8fafc; border-color: #D4AF37; }
+        .badge-live { color: #ef4444; font-size: 10px; font-weight: 800; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="sidebar"></div>
+    <div class="main-content">
+        <div class="top-nav"></div>
+        <div class="content-body">
+            <div class="live-list">
+                <h3 style="font-size: 16px; margin-bottom: 20px;">Guards Sharing Location</h3>
+                <div id="live-guards-container"></div>
+            </div>
+            <div class="map-mock">
+                <p style="color: #64748b; font-weight: 600;">[ MAP INTERFACE MOCK ]</p>
+                <!-- Mock markers -->
+                <div id="map-markers"></div>
+            </div>
+        </div>
+    </div>
+    <script src="../../platform/services/StorageService.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/ui-components.js"></script>
+    <script>
+        AuthService.checkAuth('admin');
+        UI.renderSidebar('live');
+        UI.renderTopNav('Live Personnel Tracking');
+
+        function updateLiveMap() {
+            const container = document.getElementById('live-guards-container');
+            const mapMarkers = document.getElementById('map-markers');
+
+            // Get all live location keys from localStorage
+            const liveKeys = Object.keys(localStorage).filter(k => k.startsWith('nsf_live_location_'));
+            const liveData = liveKeys.map(k => JSON.parse(localStorage.getItem(k)));
+
+            container.innerHTML = liveData.map(l => `
+                <div class="guard-item">
+                    <div style="display:flex; justify-content:space-between;">
+                        <strong>${l.userName}</strong>
+                        <span class="badge-live">● LIVE</span>
+                    </div>
+                    <p style="font-size:11px; color:#64748b; margin:5px 0;">Lat: ${l.lat.toFixed(4)}, Lng: ${l.lng.toFixed(4)}</p>
+                    <p style="font-size:10px; color:#94a3b8;">Updated: ${new Date(l.lastUpdate).toLocaleTimeString()}</p>
+                </div>
+            `).join('') || '<p style="text-align:center; padding:20px; color:#64748b; font-size:13px;">No guards currently sharing live location.</p>';
+
+            mapMarkers.innerHTML = liveData.map(l => `
+                <div style="position:absolute; left:${(l.lng % 1) * 1000}px; top:${(l.lat % 1) * 1000}px; width:20px; height:20px; background:#ef4444; border:3px solid white; border-radius:50%; box-shadow:0 0 10px rgba(239,68,68,0.5);"></div>
+            `).join('');
+        }
+
+        updateLiveMap();
+        setInterval(updateLiveMap, 5000);
+    </script>
+</body>
+</html>

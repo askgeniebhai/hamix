@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title id="pageTitle">Neela Security Force | Premium Corporate Security</title>
+
+    <meta name="description"
+        content="Flagship Security Solutions for Enterprise, Industry and Executive Environments. Global Standards, Elite Personnel.">
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script defer src="js/engine.js"></script>
+</head>
+
+<body>
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+        <div class="container top-bar-flex">
+            <div class="top-info">
+                <span><i data-lucide="clock" class="icon-sm"></i> 24/7 Operations</span>
+                <span><i data-lucide="mail" class="icon-sm"></i> <span id="topEmail"></span></span>
+                <span><i data-lucide="phone" class="icon-sm"></i> <span id="topPhone"></span></span>
+                <span><i data-lucide="map-pin" class="icon-sm"></i> <span id="topLocation"></span></span>
+            </div>
+            <div class="top-cta">
+                <a href="tel:918310457215" class="emergency-btn">Emergency Response</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <header role="banner">
+        <div class="container nav-flex">
+            <div class="logo-wrap">
+                <img id="logo" alt="Security Logo">
+                <div class="logo-text">
+                    <h2 id="businessName"></h2>
+                    <p id="tagline"></p>
+                </div>
+            </div>
+            <nav role="navigation">
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#about">About Us</a></li>
+                    <li><a href="#services">Services</a></li>
+                    <li><a href="#industries">Industries</a></li>
+                    <li><a href="#why">Why Choose Us</a></li>
+                    <li><a href="#contact">Contact Us</a></li>
+                    <li><a href="login.html" class="btn btn-attendance-nav"><i data-lucide="shield-check"></i> Portal Login</a></li>
+                </ul>
+            </nav>
+            <div class="nav-cta">
+                <a href="login.html" class="btn-quote">Admin Login</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO -->
+    <section id="home" class="hero">
+        <div class="hero-bg"></div>
+        <div class="container hero-container">
+            <div class="hero-content">
+                <h1 id="heroTitle" class="reveal"></h1>
+                <p id="heroSubtitle" class="reveal reveal-delay-1"></p>
+                <div class="hero-btns reveal reveal-delay-2">
+                    <a href="#services" class="btn btn-gold">Our Services <i data-lucide="arrow-right"></i></a>
+                    <a id="heroWhatsapp" class="btn btn-outline" target="_blank">Get a Free Consultation</a>
+                </div>
+                <div class="hero-features reveal reveal-delay-3">
+                    <span><i data-lucide="shield-check"></i> PSARA Compliant</span>
+                    <span><i data-lucide="clock"></i> 24x7 Operations</span>
+                    <span><i data-lucide="user-check"></i> Verified Guards</span>
+                    <span><i data-lucide="zap"></i> Quick Response</span>
+                </div>
+            </div>
+            <div class="hero-stats-box reveal reveal-delay-3">
+                 <div id="heroStatsContainer" class="hero-stats-grid">
+                     <!-- Dynamic Hero Stats -->
+                 </div>
+            </div>
+        </div>
+        <div class="scroll-down">
+            <div class="mouse"></div>
+        </div>
+    </section>
+
+    <!-- LOGO TICKER -->
+    <div class="ticker-section">
+        <div class="container">
+            <p class="ticker-label">Trusted by Leading Organizations</p>
+            <div id="clientsTrack" class="ticker-track">
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ABOUT SECTION -->
+    <section id="about" class="section">
+        <div class="container">
+            <div class="about-grid">
+                <div id="aboutImagesContainer" class="about-images reveal">
+                    <!-- Dynamic About Images -->
+                </div>
+                <div class="about-text reveal reveal-delay-1">
+                    <span class="badge" id="aboutBadge"></span>
+                    <h2 id="aboutTitle"></h2>
+                    <p id="aboutText"></p>
+                    <ul class="check-list">
+                        <li><i data-lucide="check-circle-2"></i> PSARA Licensed & Compliant</li>
+                        <li><i data-lucide="check-circle-2"></i> Trained, Verified & Well-Groomed Personnel</li>
+                        <li><i data-lucide="check-circle-2"></i> Technology Driven Operations</li>
+                        <li><i data-lucide="check-circle-2"></i> Customer-Centric Approach</li>
+                    </ul>
+                    <a href="#contact" class="btn-link">Know More About Us <i data-lucide="chevron-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MISSION & VISION -->
+    <section class="section bg-gray">
+        <div class="container">
+            <div class="mission-vision-grid">
+                <div class="mv-card reveal">
+                    <div class="mv-icon"><i data-lucide="target" class="icon-lg"></i></div>
+                    <h3>Our Mission</h3>
+                    <p id="missionText"></p>
+                </div>
+                <div class="mv-card reveal reveal-delay-1">
+                    <div class="mv-icon"><i data-lucide="eye" class="icon-lg"></i></div>
+                    <h3>Our Vision</h3>
+                    <p id="visionText"></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SERVICES -->
+    <section id="services" class="section dark">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="badge">Our Services</span>
+                <h2>Comprehensive Security Solutions</h2>
+            </div>
+            <div class="services-wrapper">
+                <div id="servicesContainer" class="services-grid">
+                    <!-- Rendered Dynamically -->
+                </div>
+                <div class="services-nav">
+                    <button class="nav-prev"><i data-lucide="chevron-left"></i></button>
+                    <button class="nav-next"><i data-lucide="chevron-right"></i></button>
+                </div>
+            </div>
+            <div class="services-footer">
+                <a href="#contact" class="btn btn-gold">View All Services <i data-lucide="arrow-right"></i></a>
+            </div>
+        </div>
+    </section>
+
+    <!-- WHY CHOOSE US -->
+    <section id="why" class="section">
+        <div class="container">
+            <div class="why-layout">
+                <div class="why-content">
+                    <span class="badge">Why Choose Us</span>
+                    <h2>Built on Trust. Driven by Excellence.</h2>
+                    <div id="featuresContainer" class="why-features-grid">
+                        <!-- Rendered Dynamically -->
+                    </div>
+                </div>
+                <div class="why-image reveal">
+                    <img src="assets/images/officer.jpg" alt="Security Officer">
+                    <div class="experience-card">
+                        <div class="stars">★★★★★</div>
+                        <h3>500+</h3>
+                        <p>Happy Clients</p>
+                        <hr>
+                        <h3>10+</h3>
+                        <p>Years of Excellence</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- INDUSTRIES -->
+    <section id="industries" class="section dark-alt">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="badge">Industries We Serve</span>
+            </div>
+            <div id="industriesContainer" class="industries-grid">
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <!-- ATTENDANCE SHOWCASE -->
+    <section id="attendance" class="section attendance-showcase">
+        <div class="container">
+            <div id="attendanceContainer" class="attendance-grid">
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <!-- LEADERSHIP (Modified as Showcase) -->
+    <section id="leadership" class="section">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="badge">Leadership</span>
+                <h2>Expert Oversight</h2>
+            </div>
+            <div id="leadershipContainer" class="leadership-grid">
+                <!-- Rendered Dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <!-- CALL TO ACTION -->
+    <section class="section cta-banner">
+        <div class="container">
+            <div class="cta-flex reveal">
+                <div class="cta-text">
+                    <h2>Need Reliable Security Solutions?</h2>
+                    <p>Let's protect what matters most to you.</p>
+                </div>
+                <div class="cta-action">
+                    <a href="#contact" class="btn btn-gold">Request a Quote</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact" class="section footer-contact">
+        <div class="container">
+            <div class="footer-main-grid">
+                <div class="footer-brand">
+                    <div class="logo-wrap footer-logo">
+                        <img id="logoFooter" src="assets/images/logo.png" alt="Logo">
+                        <div class="logo-text">
+                            <h2 id="footerBusiness"></h2>
+                        </div>
+                    </div>
+                    <p>Your trusted partner in delivering professional, reliable and technology-driven security solutions.</p>
+                    <div class="social-links">
+                        <a href="#"><i class="icon-fb"></i></a>
+                        <a href="#"><i class="icon-li"></i></a>
+                        <a href="#"><i class="icon-tw"></i></a>
+                        <a href="#"><i class="icon-ig"></i></a>
+                    </div>
+                </div>
+                <div class="footer-links-col">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="#about">About Us</a></li>
+                        <li><a href="#services">Services</a></li>
+                        <li><a href="#industries">Industries</a></li>
+                        <li><a href="#why">Why Choose Us</a></li>
+                        <li><a href="#contact">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links-col">
+                    <h4>Our Services</h4>
+                    <ul>
+                        <li><a href="#">Manpower Security</a></li>
+                        <li><a href="#">Corporate Security</a></li>
+                        <li><a href="#">Industrial Security</a></li>
+                        <li><a href="#">Residential Security</a></li>
+                        <li><a href="#">Event Security</a></li>
+                        <li><a href="#">CCTV & Tech Solutions</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links-col">
+                    <h4>Industries</h4>
+                    <ul>
+                        <li><a href="#">Corporate</a></li>
+                        <li><a href="#">Industrial</a></li>
+                        <li><a href="#">Banking</a></li>
+                        <li><a href="#">Healthcare</a></li>
+                        <li><a href="#">Education</a></li>
+                        <li><a href="#">Retail</a></li>
+                        <li><a href="#">Hospitality</a></li>
+                        <li><a href="#">Government</a></li>
+                    </ul>
+                </div>
+                <div class="footer-contact-col">
+                    <h4>Contact Us</h4>
+                    <p><i data-lucide="map-pin"></i> <span id="contactLocation"></span></p>
+                    <p><i data-lucide="phone"></i> <span id="contactPhone"></span></p>
+                    <p><i data-lucide="mail"></i> <span id="contactEmail"></span></p>
+                    <p><i data-lucide="clock"></i> 24x7 Operations</p>
+                </div>
+            </div>
+            <div class="footer-legal">
+                <p>&copy; <span id="year"></span> <span id="footerBusinessName"></span>. All Rights Reserved.</p>
+                <div class="legal-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms & Conditions</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GUARD PORTAL MODAL -->
+    <div id="guardPortal" class="portal-modal">
+        <div class="portal-container">
+            <header class="portal-header">
+                <div class="portal-logo">
+                    <i data-lucide="shield" class="icon-md"></i>
+                    <div>
+                        <h2>Guard Management Portal</h2>
+                        <p>Neela Security Force • Operations Control</p>
+                    </div>
+                </div>
+                <div class="portal-nav">
+                    <button class="p-nav-btn active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i> Dashboard</button>
+                    <button class="p-nav-btn" data-tab="attendance"><i data-lucide="users"></i> Attendance</button>
+                    <button class="p-nav-btn" data-tab="history"><i data-lucide="history"></i> History</button>
+                    <button class="p-nav-btn" data-tab="reports"><i data-lucide="file-text"></i> Reports</button>
+                </div>
+                <button class="portal-close" id="closePortal">&times;</button>
+            </header>
+
+            <main class="portal-content">
+                <!-- Dashboard Tab -->
+                <div id="p-tab-dashboard" class="p-tab active">
+                    <div class="p-stats-grid">
+                        <div class="p-stat-card">
+                            <i data-lucide="users"></i>
+                            <div class="p-stat-info">
+                                <h4>Total Employees</h4>
+                                <p id="p-stat-total">0</p>
+                            </div>
+                        </div>
+                        <div class="p-stat-card success">
+                            <i data-lucide="user-check"></i>
+                            <div class="p-stat-info">
+                                <h4>Present Today</h4>
+                                <p id="p-stat-present">0</p>
+                            </div>
+                        </div>
+                        <div class="p-stat-card danger">
+                            <i data-lucide="user-x"></i>
+                            <div class="p-stat-info">
+                                <h4>Absent Today</h4>
+                                <p id="p-stat-absent">0</p>
+                            </div>
+                        </div>
+                        <div class="p-stat-card warning">
+                            <i data-lucide="clock"></i>
+                            <div class="p-stat-info">
+                                <h4>Late Arrivals</h4>
+                                <p id="p-stat-late">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-recent-activity">
+                        <h3>Recent Check-ins</h3>
+                        <div class="p-table-wrap">
+                            <table class="p-table">
+                                <thead>
+                                    <tr>
+                                        <th>Guard Name</th>
+                                        <th>Time</th>
+                                        <th>Location</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="p-recent-list">
+                                    <!-- Dynamic -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attendance Tab -->
+                <div id="p-tab-attendance" class="p-tab">
+                    <div class="p-controls">
+                        <div class="p-search">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="p-guard-search" placeholder="Search by name or ID...">
+                        </div>
+                        <div class="p-date-display" id="p-current-date"></div>
+                    </div>
+                    <div class="p-table-wrap">
+                        <table class="p-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee ID</th>
+                                    <th>Guard Name</th>
+                                    <th>Rank</th>
+                                    <th>Shift</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="p-guard-list">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="p-tab-history" class="p-tab">
+                    <div class="p-controls">
+                        <h3>Attendance Log</h3>
+                        <div class="p-filters">
+                            <input type="date" id="p-history-date">
+                            <select id="p-history-filter">
+                                <option value="all">All Status</option>
+                                <option value="Present">Present</option>
+                                <option value="Absent">Absent</option>
+                                <option value="Leave">Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="p-table-wrap">
+                        <table class="p-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Guard Name</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="p-history-list">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Reports Tab -->
+                <div id="p-tab-reports" class="p-tab">
+                    <div class="p-report-config">
+                        <div class="p-report-card">
+                            <h3>Generate Attendance Report</h3>
+                            <div class="p-form-grid">
+                                <div class="p-form-group">
+                                    <label>Select Month</label>
+                                    <input type="month" id="p-report-month">
+                                </div>
+                                <div class="p-form-group">
+                                    <label>Report Type</label>
+                                    <select id="p-report-type">
+                                        <option value="summary">Monthly Summary</option>
+                                        <option value="detailed">Detailed Log</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="p-report-actions">
+                                <button class="btn btn-gold" id="btn-gen-report"><i data-lucide="refresh-cw"></i> Generate Report</button>
+                                <button class="btn btn-outline" id="btn-export-csv" style="border-color: var(--primary); color: var(--primary);"><i data-lucide="download"></i> Export CSV</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="p-report-result" class="p-report-view">
+                        <!-- Dynamic Report Table -->
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+</body>
+</html>

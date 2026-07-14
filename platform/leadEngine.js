@@ -4,15 +4,24 @@
  */
 
 const LeadEngine = (() => {
-    // Lead Status Constants
+    // Lead Status Constants (Enhanced for Phase 1)
     const STATUS = {
         NEW: 'New',
         VALIDATED: 'Validated',
         CONTACTED: 'Contacted',
         FOLLOWUP: 'Follow-up',
+        SENT: 'Sent',
+        DELIVERED: 'Delivered',
+        READ: 'Read',
+        REPLIED: 'Replied',
+        INTERESTED: 'Interested',
+        QUOTATION: 'Quotation',
+        MEETING: 'Meeting',
         APPROVED: 'Approved',
+        CUSTOMER: 'Customer',
         PUBLISHED: 'Published',
-        COMPLETED: 'Completed'
+        COMPLETED: 'Completed',
+        LOST: 'Lost'
     };
 
     /**
@@ -29,6 +38,9 @@ const LeadEngine = (() => {
             email: data.email || '',
             website: data.website || '',
             address: data.address || '',
+            locality: data.locality || '',
+            pincode: data.pincode || '',
+            whatsappStatus: data.whatsappStatus || 'Unknown',
             rating: data.rating || 0,
             reviews: data.reviews || 0,
             latitude: data.latitude || null,
@@ -41,7 +53,8 @@ const LeadEngine = (() => {
             notes: data.notes || '',
             createdAt: data.createdAt || now,
             updatedAt: now,
-            validationErrors: []
+            validationErrors: [],
+            hasPhone: !!data.phone
         };
     };
 
@@ -108,122 +121,137 @@ const LeadEngine = (() => {
     };
 
     /**
-     * Parse Google Maps raw data
+     * Clean category string by removing price ranges and numbers
      */
-    const parseGMapsData = (rawData) => {
-        const lines = rawData.split('\n').map(l => l.trim());
-        const leads = [];
-        const stats = {
-            imported: 0,
-            skippedNoPhone: 0,
-            skippedNoWhatsApp: 0
-        };
+    const cleanCategory = (category) => {
+        if (!category) return '';
+        // Remove price ranges like $$, £££, ₹₹, etc. and numeric chars
+        // Also remove specific phrases commonly found in maps like "Open 24 hours"
+        // And common separators like · or •
+        return category
+            .replace(/[£$€₹¥]\d+([-–]\d+)?/g, '') // Remove ₹200-400
+            .replace(/[£$€₹¥\d·•]/g, '')           // Remove symbols, digits and separators
+            .replace(/Open\s+\d+\s+hours/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line) continue;
+    /**
+     * Extract Locality and Pincode from address
+     */
+    const extractAddressParts = (address) => {
+        const result = { locality: '', pincode: '' };
+        if (!address) return result;
 
-            // Look for Rating(Reviews) pattern: e.g. "4.7(138)"
-            const ratingMatch = line.match(/^(\d\.\d)\((\d+(?:,\d+)*)\)$/);
-            if (ratingMatch) {
-                let businessName = "";
-                let backtrack = i - 1;
-
-                // Backtrack to find business name
-                while (backtrack >= 0) {
-                    const prevLine = lines[backtrack];
-                    if (prevLine &&
-                        prevLine !== 'Sponsored' &&
-                        prevLine !== '' &&
-                        prevLine !== 'Results' &&
-                        prevLine !== 'Share' &&
-                        prevLine !== 'Saved' &&
-                        prevLine !== 'Recents' &&
-                        prevLine !== 'Get app' &&
-                        prevLine !== 'On-site services' &&
-                        !prevLine.match(/^\d\.\d\(\d+\)$/) &&
-                        !/^(\+91|0)?\s?(\d{2,5}\s?\d{5,8}|\d{10,12})$/.test(prevLine.replace(/\s/g, ''))
-                    ) {
-                        businessName = prevLine;
-                        break;
-                    }
-                    backtrack--;
-                }
-
-                if (!businessName) continue;
-
-                const leadData = {
-                    businessName: businessName,
-                    rating: parseFloat(ratingMatch[1]),
-                    reviews: parseInt(ratingMatch[2].replace(/,/g, '')),
-                    notes: 'Imported from Google Maps'
-                };
-
-                let extractedPhone = "";
-                // Forward scan for fields
-                for (let j = i + 1; j < Math.min(i + 15, lines.length); j++) {
-                    const nextLine = lines[j];
-                    if (!nextLine) continue;
-                    if (nextLine.match(/^\d\.\d\(\d+\)$/)) break;
-
-                    const parts = nextLine.split(/[·\u00B7]/).map(p => p.trim());
-
-                    parts.forEach(part => {
-                        // Phone check
-                        if (/^(\+91|0)?\s?(\d{2,5}\s?\d{5,8}|\d{10,12})$/.test(part.replace(/\s/g, ''))) {
-                            if (!extractedPhone) extractedPhone = part;
-                        }
-                        // Category keywords
-                        else if (!leadData.category && (
-                            part.toLowerCase().includes('service') ||
-                            part.toLowerCase().includes('agency') ||
-                            part.toLowerCase().includes('company') ||
-                            part.toLowerCase().includes('guard') ||
-                            part.toLowerCase().includes('supplier') ||
-                            part.toLowerCase().includes('office') ||
-                            part.toLowerCase().includes('management') ||
-                            part.toLowerCase().includes('property')
-                        )) {
-                            leadData.category = part;
-                        }
-                        // Address check
-                        else if (!leadData.address && (part.includes(',') || /\d/.test(part)) && part.length > 5 && !part.match(/\d+\s*(am|pm)/i) && !part.match(/Open|Closed/i)) {
-                            leadData.address = part;
-                        }
-                    });
-
-                    if (!extractedPhone && nextLine.match(/^(\+91|0)?\s?(\d{2,5}\s?\d{5,8}|\d{10,12})$/)) {
-                        extractedPhone = nextLine;
-                    } else if (nextLine === 'Website' || nextLine === 'Visit site') {
-                        leadData.website = 'Available';
-                    }
-                }
-
-                if (!extractedPhone) {
-                    stats.skippedNoPhone++;
-                    console.warn(`Skipped "${businessName}": No phone number found`);
-                    continue;
-                }
-
-                // WhatsApp eligibility check (Indian Mobiles: 6-9 prefix, 10 digits excluding country code)
-                const cleanPhone = extractedPhone.replace(/\s/g, '');
-                const isLandline = cleanPhone.startsWith('080') && cleanPhone.length === 11 && /^[2346]/.test(cleanPhone[3]);
-                const mobilePart = cleanPhone.replace(/^\+91/, '').replace(/^0/, '');
-                const isMobile = mobilePart.length === 10 && /^[6-9]/.test(mobilePart);
-
-                if (isMobile && !isLandline) {
-                    leadData.phone = extractedPhone;
-                    leads.push(createLead(leadData));
-                    stats.imported++;
-                } else {
-                    stats.skippedNoWhatsApp++;
-                    console.warn(`Skipped "${businessName}": WhatsApp number unavailable (${extractedPhone})`);
-                }
-            }
+        // Skip if address looks like a date (common bug in parsing)
+        if (address.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+/i)) {
+            return result;
         }
 
-        leads.importStats = stats;
-        return leads;
+        // Try to find a 6-digit pincode (common in India) or 5-digit zip
+        const pincodeMatch = address.match(/\b\d{5,6}\b/);
+        if (pincodeMatch) {
+            result.pincode = pincodeMatch[0];
+        }
+
+        // Locality is often the second to last or third to last part in a comma-separated address
+        const parts = address.split(',').map(p => p.trim()).filter(p => !p.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+/i));
+
+        if (parts.length > 2) {
+            // Usually: [Shop No], [Building], [Locality/Area], [City], [State] [Pincode]
+            // We take parts that aren't the last two (City/State)
+            result.locality = parts[parts.length - 3] || parts[0];
+        } else if (parts.length > 1) {
+            result.locality = parts[0];
+        } else if (parts.length === 1) {
+            result.locality = parts[0];
+        }
+
+        return result;
+    };
+
+    /**
+     * Parse Google Maps raw data
+     * Supports multiple entries by detecting "Rating(Reviews) · Category" pattern
+     */
+    const parseGMapsData = (rawData) => {
+        const lines = rawData.split('\n').map(l => l.trim()).filter(l => l);
+        const leads = [];
+        let currentLead = null;
+
+        // Improved regex to handle "No reviews" and optional dots
+        const ratingRegex = /^(\d\.\d|No reviews)\s*(\(([\d,]+)\))?\s*[·•]?\s*(.*)$/;
+        const phoneRegex = /^(\+?\d[\d\s-]{5,20})$/;
+        const websiteRegex = /^https?:\/\/[^\s$.?#].[^\s]*$/i;
+        const mapsUrlRegex = /google\.com\/maps/;
+
+        const isRatingLine = (line) => ratingRegex.test(line);
+        const isPhoneLine = (line) => phoneRegex.test(line) && !line.startsWith('http');
+        const isWebsiteLine = (line) => websiteRegex.test(line);
+
+        lines.forEach((line, index) => {
+            const ratingMatch = line.match(ratingRegex);
+
+            // A new business usually starts with a name followed by a rating line
+            // OR if we already have a lead, and we encounter another line that looks like a business name
+            const nextLine = lines[index + 1];
+            const isPossibleBusinessName = !isRatingLine(line) && !isPhoneLine(line) && !isWebsiteLine(line) && !line.includes('google.com/maps');
+
+            if (isPossibleBusinessName && nextLine && isRatingLine(nextLine)) {
+                // We found a new business block
+                if (currentLead) {
+                    leads.push(finalizeLead(currentLead));
+                }
+                currentLead = createLead({
+                    businessName: line,
+                    notes: 'Imported from Google Maps'
+                });
+            } else if (ratingMatch && currentLead) {
+                // Populate rating details
+                if (ratingMatch[1] !== 'No reviews') {
+                    currentLead.rating = parseFloat(ratingMatch[1]);
+                    currentLead.reviews = parseInt((ratingMatch[3] || '0').replace(/,/g, ''));
+                }
+                currentLead.category = cleanCategory(ratingMatch[4]);
+            } else if (isPhoneLine(line) && currentLead) {
+                if (!currentLead.phone || currentLead.phone === 'Phone not available') {
+                    currentLead.phone = line;
+                }
+            } else if (isWebsiteLine(line) && currentLead) {
+                if (mapsUrlRegex.test(line)) {
+                    currentLead.mapsUrl = line;
+                } else {
+                    currentLead.website = line;
+                }
+            } else if (currentLead && !currentLead.address && line.includes(',') && /\d/.test(line)) {
+                // Likely an address line
+                currentLead.address = line;
+                const parts = extractAddressParts(line);
+                currentLead.locality = parts.locality;
+                currentLead.pincode = parts.pincode;
+            } else if (!currentLead && isPossibleBusinessName) {
+                // Fallback for first lead if it doesn't have a next line rating immediately
+                currentLead = createLead({
+                    businessName: line,
+                    notes: 'Imported from Google Maps'
+                });
+            }
+        });
+
+        if (currentLead) {
+            leads.push(finalizeLead(currentLead));
+        }
+
+        // Deduplicate within the same import
+        return leads.filter((lead, index, self) =>
+            index === self.findIndex((t) => t.businessName === lead.businessName && t.phone === lead.phone)
+        );
+    };
+
+    const finalizeLead = (lead) => {
+        lead.hasPhone = !!(lead.phone && lead.phone !== '' && lead.phone !== 'Phone not available');
+        if (!lead.phone) lead.phone = 'Phone not available';
+        return lead;
     };
 
     return {
