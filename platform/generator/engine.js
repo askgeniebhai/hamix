@@ -1,52 +1,86 @@
 /**
- * HAMIX Website Generation Engine
- * Core logic to bind data, apply themes, and generate HTML.
+ * HAMIX Platform - Website Generation Engine
+ * Binds customer data to templates and components
  */
 
-const Engine = {
+const WebsiteGenerator = (() => {
     /**
-     * Generates the complete HTML for a customer website.
-     * @param {Object} customerData - The customer JSON data.
-     * @param {String} templateId - The ID of the template to use.
-     * @param {String} themeId - The ID of the theme to apply.
-     * @returns {String} - The generated HTML string.
+     * Generate complete HTML for a customer website
      */
-    generateWebsite: function(customerData, templateId = 'Default', themeId = 'Indigo', options = {}) {
-        const components = window.HAMIX_Components;
-        const templates = window.HAMIX_Templates;
-        const themes = window.HAMIX_Themes;
+    const generate = (customerData, themeKey = 'indigo') => {
+        const components = [
+            GeneratorComponents.Navbar(customerData),
+            GeneratorComponents.Hero(customerData),
+            GeneratorComponents.About(customerData),
+            GeneratorComponents.Services(customerData),
+            GeneratorComponents.Contact(customerData),
+            GeneratorComponents.Footer(customerData)
+        ];
 
-        if (!components || !templates || !themes) {
-            console.error('HAMIX Engine: Required modules not found.');
-            return '';
+        const htmlBody = components.join('');
+        const styles = GeneratorComponents.CommonStyles();
+        const themeCSS = ThemeSystem.getThemeCSS(themeKey);
+
+        const fullHTML = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>${customerData.businessName} - Professional ${customerData.category} Services</title>
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                <script src="https://unpkg.com/lucide@latest"></script>
+                ${styles}
+                <style>${themeCSS}</style>
+            </head>
+            <body>
+                ${htmlBody}
+                <script>
+                    lucide.createIcons();
+                    // Basic mobile nav toggle logic
+                    document.getElementById('navToggle')?.addEventListener('click', () => {
+                        console.log('Mobile nav toggle clicked');
+                    });
+                </script>
+            </body>
+            </html>
+        `;
+
+        return bindData(fullHTML, customerData);
+    };
+
+    /**
+     * Replace placeholders with actual data
+     */
+    const bindData = (template, data) => {
+        let output = template;
+        const placeholders = {
+            businessName: data.businessName || 'Business Name',
+            category: data.category || 'Professional Services',
+            phone: data.phone || '',
+            whatsapp: data.whatsapp || data.phone || '',
+            email: data.email || '',
+            address: data.address || '',
+            rating: data.rating || '5.0',
+            reviews: data.reviews || '10',
+            website: data.website || ''
+        };
+
+        for (const [key, value] of Object.entries(placeholders)) {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            output = output.replace(regex, value);
         }
 
-        // Generate Theme CSS
-        const themeCSS = themes.generateThemeCSS(themeId);
+        return output;
+    };
 
-        // Render Template via Registry if available
-        const registry = window.HAMIX_TemplatesRegistry;
-        const templateFunc = (registry && registry.get(templateId)) || templates[templateId] || templates.Default;
-        let html = templateFunc(customerData, components, themeCSS);
+    return {
+        generate
+    };
+})();
 
-        // Inject Base Tag if provided (useful for CRM preview)
-        if (options.baseHref) {
-            html = html.replace('<head>', `<head>\n    <base href="${options.baseHref}">`);
-        }
-
-        return html;
-    },
-
-    // Legacy support for v0.3 calling patterns if any
-    generate: function(customerData, themeId = 'Indigo') {
-        return this.generateWebsite(customerData, 'Default', themeId);
-    }
-};
-
-// Export
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Engine;
-} else {
-    window.HAMIX_Engine = Engine;
-    window.WebsiteGenerator = Engine; // Compatibility with origin/main
+    module.exports = WebsiteGenerator;
 }

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor Portal | NSF</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f1f5f9; font-family: 'Poppins', sans-serif; margin: 0; }
+        .s-header { background: #0B1F3A; color: white; padding: 25px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .s-container { padding: 40px; max-width: 1200px; margin: 0 auto; }
+        .tab-nav { display: flex; gap: 30px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }
+        .tab-btn { padding: 15px 5px; background: none; border: none; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; }
+        .tab-btn.active { color: #0B1F3A; border-bottom-color: #D4AF37; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .p-table-wrap { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); overflow: hidden; }
+        .p-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .p-table th { background: #f8fafc; padding: 15px 25px; font-size: 11px; text-transform: uppercase; color: #64748b; }
+        .p-table td { padding: 15px 25px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+
+        .p-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .p-badge.present { background: #ecfdf5; color: #059669; }
+        .p-badge.pending { background: #fffbeb; color: #d97706; }
+    </style>
+</head>
+<body>
+
+<div class="s-header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <i data-lucide="shield" style="color: #D4AF37;"></i>
+        <h2 style="font-size: 20px; color: white; margin: 0;">Supervisor Control Panel</h2>
+    </div>
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <span id="s-name" style="font-size: 14px; font-weight: 500;">Supervisor User</span>
+        <button onclick="AuthService.logout()" style="background: none; border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 15px; border-radius: 6px; cursor: pointer;">Logout</button>
+    </div>
+</div>
+
+<div class="s-container">
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="showTab('dashboard')">Dashboard</button>
+        <button class="tab-btn" onclick="showTab('attendance')">Live Attendance</button>
+        <button class="tab-btn" onclick="showTab('guards')">My Guards</button>
+    </div>
+
+    <div id="tab-dashboard" class="tab-content active">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px;">
+            <div class="p-table-wrap" style="padding: 25px; text-align: center;">
+                <h4 style="font-size: 12px; text-transform: uppercase; color: #64748b;">Total Reporting</h4>
+                <p id="s-total-guards" style="font-size: 32px; font-weight: 700; margin: 10px 0;">6</p>
+            </div>
+            <div class="p-table-wrap" style="padding: 25px; text-align: center;">
+                <h4 style="font-size: 12px; text-transform: uppercase; color: #64748b;">Present</h4>
+                <p id="s-present-guards" style="font-size: 32px; font-weight: 700; color: #059669; margin: 10px 0;">0</p>
+            </div>
+            <div class="p-table-wrap" style="padding: 25px; text-align: center;">
+                <h4 style="font-size: 12px; text-transform: uppercase; color: #64748b;">Missing</h4>
+                <p id="s-absent-guards" style="font-size: 32px; font-weight: 700; color: #dc2626; margin: 10px 0;">6</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-attendance" class="tab-content">
+        <div class="p-table-wrap">
+            <table class="p-table">
+                <thead>
+                    <tr>
+                        <th>Guard</th>
+                        <th>Status</th>
+                        <th>In Time</th>
+                        <th>Out Time</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="s-attendance-list">
+                    <!-- Dynamic -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="../../platform/services/StorageService.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+    AuthService.checkAuth('supervisor');
+
+    const employees = [
+        { id: 'NFS-001', name: 'Rajesh Kumar', rank: 'Head Guard' },
+        { id: 'NFS-002', name: 'Suresh Raina', rank: 'Security Guard' },
+        { id: 'NFS-003', name: 'Amit Singh', rank: 'Security Guard' },
+        { id: 'NFS-004', name: 'Vikram Rathore', rank: 'Supervisor' },
+        { id: 'NFS-9921', name: 'John Smith', rank: 'Guard' }
+    ];
+
+    function showTab(id) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + id).classList.add('active');
+        event.currentTarget.classList.add('active');
+        if(id === 'attendance') renderAttendance();
+    }
+
+    function renderAttendance() {
+        const logs = StorageService.load('nsf_attendance_logs', []);
+        const list = document.getElementById('s-attendance-list');
+
+        list.innerHTML = employees.map(emp => {
+            const inLog = logs.find(l => l.userId === emp.id && l.type === 'Check In');
+            const outLog = logs.find(l => l.userId === emp.id && l.type === 'Check Out');
+            const status = inLog ? (outLog ? 'Completed' : 'On Duty') : 'Pending';
+
+            return `
+                <tr>
+                    <td><strong>${emp.name}</strong><br><small>${emp.id}</small></td>
+                    <td><span class="p-badge ${inLog ? 'present' : 'pending'}">${status}</span></td>
+                    <td>${inLog ? new Date(inLog.timestamp).toLocaleTimeString() : '--'}</td>
+                    <td>${outLog ? new Date(outLog.timestamp).toLocaleTimeString() : '--'}</td>
+                    <td><button style="background:#0B1F3A; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:11px; cursor:pointer;">Manual Mark</button></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    lucide.createIcons();
+</script>
+</body>
+</html>

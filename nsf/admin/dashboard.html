@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | NSF</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: #f8fafc; font-family: 'Poppins', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 260px; background: #0B1F3A; color: white; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
+        .sidebar-header img { height: 40px; margin-bottom: 10px; }
+        .sidebar-menu { flex: 1; padding: 20px 0; }
+        .menu-link { display: flex; align-items: center; gap: 15px; padding: 12px 30px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 14px; transition: all 0.2s; }
+        .menu-link:hover, .menu-link.active { color: white; background: rgba(212, 175, 55, 0.1); }
+        .menu-link.active { border-left: 4px solid #D4AF37; color: #D4AF37; }
+        .menu-link i { width: 18px; height: 18px; }
+
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .top-nav { height: 70px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; }
+        .content-body { padding: 40px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px; margin-bottom: 40px; }
+        .stat-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; align-items: center; gap: 20px; }
+        .stat-card i { width: 40px; height: 40px; background: #f1f5f9; color: #0B1F3A; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        .stat-card.alert i { background: #fef2f2; color: #ef4444; }
+
+        .table-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); overflow: hidden; }
+        .table-header { padding: 20px 25px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        .p-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .p-table th { background: #f8fafc; padding: 15px 25px; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; }
+        .p-table td { padding: 15px 25px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+
+        .badge-live { display: inline-flex; align-items: center; gap: 5px; color: #ef4444; font-weight: 700; font-size: 11px; text-transform: uppercase; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="sidebar"></div>
+
+<div class="main-content">
+    <div class="top-nav"></div>
+
+    <div class="content-body">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i data-lucide="users"></i>
+                <div>
+                    <h4 style="font-size: 11px; color: #64748b; text-transform: uppercase;">Guards on Duty</h4>
+                    <p id="stat-on-duty" style="font-size: 24px; font-weight: 700; margin: 0;">0</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="user-x"></i>
+                <div>
+                    <h4 style="font-size: 11px; color: #64748b; text-transform: uppercase;">Absentees</h4>
+                    <p id="stat-absent" style="font-size: 24px; font-weight: 700; margin: 0;">0</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="map-pin"></i>
+                <div>
+                    <h4 style="font-size: 11px; color: #64748b; text-transform: uppercase;">Active Sites</h4>
+                    <p id="stat-sites" style="font-size: 24px; font-weight: 700; margin: 0;">1</p>
+                </div>
+            </div>
+            <div class="stat-card alert">
+                <i data-lucide="alert-circle"></i>
+                <div>
+                    <h4 style="font-size: 11px; color: #64748b; text-transform: uppercase;">Unresolved Alerts</h4>
+                    <p id="stat-alerts" style="font-size: 24px; font-weight: 700; margin: 0;">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="table-header">
+                <h3>Live Attendance Log <span class="badge-live">● LIVE</span></h3>
+                <button onclick="renderDashboard()" class="btn-outline" style="border: 1px solid #e2e8f0; padding: 8px 15px; font-size: 12px; border-radius: 6px; cursor: pointer;">Refresh</button>
+            </div>
+            <table class="p-table">
+                <thead>
+                    <tr>
+                        <th>Guard Name</th>
+                        <th>Site</th>
+                        <th>Type</th>
+                        <th>Time</th>
+                        <th>GPS Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-log-body">
+                    <!-- Dynamic -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="../../platform/services/StorageService.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/ui-components.js"></script>
+<script>
+    AuthService.checkAuth('admin');
+    UI.renderSidebar('dashboard');
+    UI.renderTopNav('Operations Overview');
+
+    function renderDashboard() {
+        const logs = StorageService.load('nsf_attendance_logs', []);
+        const alerts = StorageService.load('nsf_admin_alerts', []);
+
+        document.getElementById('stat-on-duty').textContent = logs.filter(l => l.type === 'Check In').length;
+        document.getElementById('stat-alerts').textContent = alerts.length;
+
+        const body = document.getElementById('admin-log-body');
+        body.innerHTML = logs.slice(-10).reverse().map(l => `
+            <tr>
+                <td><strong>${l.userName}</strong><br><small style="color:#94a3b8">${l.userId}</small></td>
+                <td>${l.client}</td>
+                <td><span style="color: ${l.type === 'Check In' ? '#10b981' : '#ef4444'}">${l.type}</span></td>
+                <td>${new Date(l.timestamp).toLocaleTimeString()}</td>
+                <td><span title="Acc: ${Math.round(l.accuracy)}m" style="color: #0369a1; cursor: help;"><i data-lucide="map-pin" class="icon-sm"></i> ${l.lat.toFixed(4)}, ${l.lng.toFixed(4)}</span></td>
+                <td><button style="background:none; border:none; color:#4f46e5; font-size:12px; font-weight:600; cursor:pointer;">Verify</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="6" style="text-align:center; padding:40px; opacity:0.5;">No activity recorded yet.</td></tr>';
+
+        lucide.createIcons();
+    }
+
+    renderDashboard();
+    setInterval(renderDashboard, 10000);
+</script>
+</body>
+</html>
