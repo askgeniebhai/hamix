@@ -9,6 +9,29 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Generator Scripts -->
+    <script src="generator/components.js"></script>
+    <script src="generator/themes.js"></script>
+    <script src="generator/templates.js"></script>
+    <script src="generator/engine.js"></script>
+    <script src="generator/deployment.js"></script>
+
+    <!-- Operations -->
+    <script src="operations/dal.js"></script>
+    <script src="operations/manager.js"></script>
+    <script src="operations/admin.js"></script>
+
+    <!-- UI Modules -->
+    <script src="ui/modals.js"></script>
+
+    <!-- Automation & AI -->
+    <script src="ai/engine.js"></script>
+    <script src="automation/workflow.js"></script>
+
+    <!-- App Logic -->
+    <script src="utils.js"></script>
+    <script src="app.js" defer></script>
 </head>
 <body class="landing-active">
     <!-- Landing Page Section -->
@@ -146,9 +169,10 @@
                 <div class="header-right">
                     <div class="search-bar">
                         <i data-lucide="search"></i>
-                        <input type="text" placeholder="Search...">
+                        <input type="text" placeholder="Global search (leads, customers, users...)" id="globalSearchInput" oninput="handleGlobalSearch(this.value)">
+                        <div class="search-results-overlay" id="searchResults"></div>
                     </div>
-                    <button class="btn btn-primary"><i data-lucide="plus"></i> New Lead</button>
+                    <button class="btn btn-primary" onclick="window.openModal('lead')"><i data-lucide="plus"></i> New Lead</button>
                 </div>
             </header>
 
@@ -258,6 +282,13 @@
                         </table>
                     </div>
                 </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="window.closeModal('lead')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Lead</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
                 <!-- Customers Page -->
                 <div id="page-customers" class="page">
@@ -395,7 +426,23 @@
                 <div id="page-deployments" class="page"><h2>GitHub Deployments</h2></div>
                 <div id="page-settings" class="page"><h2>Settings</h2></div>
             </div>
-        </main>
+
+            <div id="import-preview" class="import-preview-container" style="display: none;">
+                <h3>Import Preview (<span id="preview-count">0</span> leads)</h3>
+                <div class="preview-table-wrapper">
+                    <table class="preview-table">
+                        <thead>
+                            <tr id="preview-header"></tr>
+                        </thead>
+                        <tbody id="preview-body"></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="btn-back-to-import">Back</button>
+                    <button class="btn btn-primary" id="btn-confirm-import">Confirm Import</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Modals -->

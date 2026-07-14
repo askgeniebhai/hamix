@@ -41,6 +41,7 @@ body {
     flex-direction: column;
     position: fixed;
     height: 100vh;
+    z-index: 10;
 }
 
 .sidebar-header {
@@ -63,13 +64,12 @@ body {
 .logo-text {
     font-size: 20px;
     font-weight: 700;
-    letter-spacing: -0.025em;
-    color: var(--text-main);
+    letter-spacing: -0.5px;
 }
 
 .sidebar-nav {
     flex: 1;
-    padding: 16px 12px;
+    padding: 24px 12px;
 }
 
 .sidebar-nav ul {
@@ -84,32 +84,27 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
+    padding: 12px;
     text-decoration: none;
     color: var(--text-muted);
-    font-size: 14px;
     font-weight: 500;
     border-radius: var(--radius);
-    transition: all 0.2s;
+    transition: 0.2s;
 }
 
+.sidebar-nav li.active a,
 .sidebar-nav a:hover {
-    background-color: var(--sidebar-active);
-    color: var(--text-main);
-}
-
-.sidebar-nav li.active a {
     background-color: var(--sidebar-active);
     color: var(--primary-color);
 }
 
-.sidebar-nav a i {
+.sidebar-nav i {
     width: 20px;
     height: 20px;
 }
 
 .sidebar-footer {
-    padding: 16px;
+    padding: 24px;
     border-top: 1px solid var(--border-color);
 }
 
@@ -120,24 +115,23 @@ body {
 }
 
 .user-avatar {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     background-color: var(--primary-color);
     color: white;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+    font-weight: 600;
+}
+
+.user-info .user-name {
     font-size: 14px;
     font-weight: 600;
 }
 
-.user-name {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.user-role {
+.user-info .user-role {
     font-size: 12px;
     color: var(--text-muted);
 }
@@ -146,17 +140,24 @@ body {
 .main-content {
     flex: 1;
     margin-left: 260px;
-    padding: 32px;
+    display: flex;
+    flex-direction: column;
 }
 
 .top-header {
+    height: 70px;
+    background-color: var(--white);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
+    justify-content: space-between;
+    padding: 0 32px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
 }
 
-.top-header h1 {
+.header-left h1 {
     font-size: 24px;
     font-weight: 700;
 }
@@ -652,54 +653,61 @@ form {
 
 .header-right {
     display: flex;
-    gap: 16px;
     align-items: center;
+    gap: 24px;
 }
 
 .search-bar {
     position: relative;
-    display: flex;
-    align-items: center;
+    width: 300px;
 }
 
 .search-bar i {
     position: absolute;
     left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--text-muted);
-    width: 18px;
-    height: 18px;
+    width: 16px;
 }
 
 .search-bar input {
-    padding: 8px 12px 8px 38px;
+    width: 100%;
+    padding: 10px 10px 10px 40px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
-    font-size: 14px;
-    width: 240px;
     outline: none;
-    transition: border-color 0.2s;
+    font-size: 14px;
+    transition: 0.2s;
 }
 
 .search-bar input:focus {
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
+.content-body {
+    padding: 32px;
+    flex: 1;
+}
+
+/* Buttons */
 .btn {
-    padding: 8px 16px;
-    border-radius: var(--radius);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 1px solid transparent;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.2s;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    border: 1px solid transparent;
 }
 
 .btn-primary {
     background-color: var(--primary-color);
-    color: white;
+    color: var(--white);
 }
 
 .btn-primary:hover {
@@ -715,13 +723,14 @@ form {
     max-width: 1200px;
 }
 
+/* Dashboard */
 .welcome-section {
     margin-bottom: 32px;
 }
 
 .welcome-section h2 {
-    font-size: 20px;
-    margin-bottom: 4px;
+    font-size: 28px;
+    margin-bottom: 8px;
 }
 
 .welcome-section p {
@@ -985,28 +994,23 @@ form {
 .stat-card {
     background-color: var(--white);
     padding: 24px;
-    border-radius: var(--radius);
+    border-radius: 12px;
     border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
     display: flex;
     align-items: center;
     gap: 20px;
+    box-shadow: var(--shadow-sm);
 }
 
 .stat-icon {
     width: 48px;
     height: 48px;
-    background-color: #f5f3ff;
+    background-color: rgba(79, 70, 229, 0.1);
     color: var(--primary-color);
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
-}
-
-.stat-icon i {
-    width: 24px;
-    height: 24px;
 }
 
 .stat-data h3 {

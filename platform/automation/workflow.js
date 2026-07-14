@@ -1,0 +1,120 @@
+/**
+ * HAMIX Automation Engine
+ * Coordinates the movement of a customer through the platform stages.
+ */
+
+const WorkflowEngine = {
+    STAGES: {
+        LEAD: 'Lead',
+        CUSTOMER: 'Customer',
+        UNDERSTANDING: 'Business Understanding',
+        AI_PROCESSING: 'AI Processing',
+        GENERATION: 'Website Generation',
+        DEPLOYMENT: 'Deployment Package',
+        PUBLISHING: 'Ready for Publishing',
+        PUBLISHED: 'Published',
+        UPDATED: 'Updated',
+        OFFLINE: 'Offline',
+        ARCHIVED: 'Archived'
+    },
+
+    /**
+     * Moves a customer to the next stage and triggers associated tasks.
+     * @param {Object} customer - The customer object.
+     * @param {String} targetStage - The stage to move to.
+     * @returns {Promise<Object>} - Updated customer object.
+     */
+    async transitionTo(customer, targetStage) {
+        console.log(`Workflow: Transitioning ${customer.businessName} to ${targetStage}`);
+
+        customer.status = targetStage;
+        customer.updatedAt = new Date().toISOString();
+
+        // Add to history
+        if (!customer.history) customer.history = [];
+        customer.history.push({
+            stage: targetStage,
+            timestamp: customer.updatedAt
+        });
+
+        // Trigger background processing based on stage
+        this.processStage(customer, targetStage);
+
+        return customer;
+    },
+
+    /**
+     * Processes tasks for a specific stage.
+     * @param {Object} customer - The customer object.
+     * @param {String} stage - The current stage.
+     */
+    async processStage(customer, stage) {
+        switch (stage) {
+            case this.STAGES.CUSTOMER:
+                // When becoming a customer, start with Understanding
+                await this.transitionTo(customer, this.STAGES.UNDERSTANDING);
+                break;
+
+            case this.STAGES.UNDERSTANDING:
+                // Simulate deep business analysis phase
+                setTimeout(async () => {
+                    await this.transitionTo(customer, this.STAGES.AI_PROCESSING);
+                }, 800);
+                break;
+
+            case this.STAGES.AI_PROCESSING:
+                // Trigger full AI pipeline (Profile, content, SEO, Scores)
+                if (window.HAMIX_AI) {
+                    await window.HAMIX_AI.processCustomer(customer);
+                    await this.transitionTo(customer, this.STAGES.GENERATION);
+                }
+                break;
+
+            case this.STAGES.GENERATION:
+                // Trigger Website generation
+                if (window.HAMIX_Engine) {
+                    const html = window.HAMIX_Engine.generateWebsite(customer);
+                    customer.generatedHtml = html; // Store or cache
+                    await this.transitionTo(customer, this.STAGES.DEPLOYMENT);
+                }
+                break;
+
+            case this.STAGES.DEPLOYMENT:
+                // Trigger Deployment package preparation
+                if (window.HAMIX_Deployment) {
+                    const pkg = window.HAMIX_Deployment.prepareDeployment(customer, customer.generatedHtml);
+                    customer.deploymentPackage = pkg;
+
+                    // Simulate GitHub Storage and Pages Deployment
+                    customer.githubRepo = `github.com/hamix-org/${customer.id}`;
+                    customer.liveWebsiteUrl = `https://hamix-org.github.io/${customer.id}/`;
+
+                    await this.transitionTo(customer, this.STAGES.PUBLISHING);
+                }
+                break;
+        }
+
+        // Save updated customer to storage
+        this.saveCustomer(customer);
+
+        // Notify UI if possible (via custom event)
+        const event = new CustomEvent('hamix:workflow-update', { detail: { customer } });
+        window.dispatchEvent(event);
+    },
+
+    /**
+     * Saves the customer via DAL.
+     */
+    saveCustomer(customer) {
+        if (window.HAMIX_DAL) {
+            window.HAMIX_DAL.saveCustomer(customer);
+        }
+    }
+};
+
+// Export
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = WorkflowEngine;
+} else {
+    window.HAMIX_Workflow = WorkflowEngine;
+}
