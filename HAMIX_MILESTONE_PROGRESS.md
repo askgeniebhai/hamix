@@ -164,3 +164,12 @@
 - No push was attempted because the correct remote cannot be safely inferred.
 - No hosted PR number, URL, base branch, head branch, or hosted-check status can be reported from this checkout.
 - Added `HAMIX_PRODUCTION_SETUP_CHECKLIST.md` covering Git publishing, HTTPS/reverse proxy, secret storage, AI, deployment, DNS, object storage, email, SMS/WhatsApp, monitoring, analytics, customer feedback, backups/restore drills, browser QA, and Product Owner decisions.
+
+## PR Conflict Follow-up: RC1 Review Fixes
+
+- Repository checkout still has no configured Git remote, so the latest approved base branch could not be fetched and no hosted merge-conflict markers were available locally to resolve.
+- Preserved the RC1 backend, tenant auth, lifecycle APIs, hardening tests, and documentation already present on branch `work`.
+- Resolved repository-controlled RC1 review findings locally:
+  - Proposal print output now HTML-escapes all persisted proposal fields and serves the print-ready response with a restrictive Content Security Policy so stored proposal content cannot execute script in the print view.
+  - Static-host API routing now supports an explicit `HAMIX_API_BASE_URL`, `<meta name="hamix-api-base">`, or `localStorage.hamix_api_base_url` backend origin; print links use the shared `ApiService.urlFor()` helper rather than hard-coded same-origin `/api` paths.
+- No force-push or history rewrite was performed.

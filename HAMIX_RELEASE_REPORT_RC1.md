@@ -117,3 +117,7 @@ HAMIX is ready for a controlled RC1 review because repository-controlled lifecyc
 Estimated repository-controlled completion: **92%**.
 
 Estimated production-launch completion with external dependencies included: **78%**.
+
+## RC1 PR Review Follow-up
+
+The proposal print stored-XSS risk is resolved in the repository-controlled backend by escaping dynamic proposal content and removing script execution from the print-ready document. The static-host API fallback/configuration gap is resolved by adding a shared configurable API base URL path in `ApiService` and using it for proposal print links. Hosted PR conflict resolution and push remain blocked until a Git remote is configured in this checkout.

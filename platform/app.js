@@ -675,7 +675,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </td>
             </tr>
         `).join('');
-        document.querySelectorAll('.proposal-print').forEach(btn => btn.addEventListener('click', () => window.open(`/api/proposals/${encodeURIComponent(btn.dataset.id)}/print`, '_blank')));
+        document.querySelectorAll('.proposal-print').forEach(btn => btn.addEventListener('click', () => window.open(ApiService.urlFor(`/api/proposals/${encodeURIComponent(btn.dataset.id)}/print`), '_blank')));
         document.querySelectorAll('.proposal-send').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Sent', 'Marked sent manually; email provider not configured.')));
         document.querySelectorAll('.proposal-accept').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Accepted', 'Accepted internally on behalf of customer; no e-signature captured.')));
         document.querySelectorAll('.proposal-reject').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Rejected', prompt('Rejection reason (optional):') || 'Rejected internally.')));
