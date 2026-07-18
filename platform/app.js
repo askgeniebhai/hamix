@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         proposals: [],
         diagnostics: [],
         projects: [],
+        websites: [],
+        deployments: [],
         filters: {
             leads: { search: '', status: 'all', sort: 'newest' },
             customers: { search: '', sort: 'newest' }
@@ -32,6 +34,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.proposals = await StorageService.loadProposals();
         state.diagnostics = await StorageService.loadDiagnostics();
         state.projects = await StorageService.loadProjects();
+        state.websites = await StorageService.loadWebsites();
+        state.deployments = await StorageService.loadDeployments();
     };
 
     const updateCurrentUser = () => {
@@ -106,6 +110,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             state.proposals = [];
             state.diagnostics = [];
             state.projects = [];
+            state.websites = [];
+            state.deployments = [];
             showAuth();
         });
     }
@@ -156,6 +162,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pageId === 'proposals') renderProposals();
         if (pageId === 'customers') renderCustomers();
         if (pageId === 'projects') renderProjects();
+        if (pageId === 'websites') renderWebsites();
+        if (pageId === 'deployments') renderDeployments();
 
         if (window.lucide) window.lucide.createIcons();
     };
@@ -632,6 +640,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (status === 'Accepted') {
                 state.customers = await StorageService.loadCustomers();
                 state.projects = await StorageService.loadProjects();
+        state.websites = await StorageService.loadWebsites();
+        state.deployments = await StorageService.loadDeployments();
             }
             renderProposals();
             updateDashboard();
@@ -767,11 +777,190 @@ document.addEventListener('DOMContentLoaded', async () => {
             btnRefreshProjects.disabled = true;
             try {
                 state.projects = await StorageService.loadProjects();
+        state.websites = await StorageService.loadWebsites();
+        state.deployments = await StorageService.loadDeployments();
                 renderProjects();
             } catch (error) {
                 alert(`Project refresh failed: ${error.message}`);
             } finally {
                 btnRefreshProjects.disabled = false;
+            }
+        });
+    }
+
+
+    // Website generation engine
+    const renderWebsites = () => {
+        const listContainer = document.getElementById('websites-list');
+        if (!listContainer) return;
+        if (!state.websites.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No website projects yet. Create one from a discovery-ready onboarding project.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.websites.map(site => `
+            <tr>
+                <td><strong>${site.businessName || site.projectName || 'HAMIX Website'}</strong><br><small>${site.aiProviderStatus === 'missing' ? 'Pending configured AI provider' : 'AI provider configured'}</small></td>
+                <td>${site.projectId}</td>
+                <td><span class="badge">${site.status || site.generationStatus}</span></td>
+                <td>v${site.currentVersion || 1}</td>
+                <td>${(site.pages || []).join(', ')}</td>
+                <td>${new Date(site.updatedAt || site.createdAt).toLocaleDateString()}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn btn-secondary btn-sm website-regenerate" data-project="${site.projectId}">Regenerate</button>
+                        <button class="btn btn-secondary btn-sm website-versions" data-id="${site.id}">Versions</button>
+                        <button class="btn btn-primary btn-sm website-approve" data-id="${site.id}">Approve</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.website-regenerate').forEach(btn => btn.addEventListener('click', () => requestWebsiteGeneration(btn.dataset.project, true, btn)));
+        document.querySelectorAll('.website-versions').forEach(btn => btn.addEventListener('click', async () => {
+            try {
+                const response = await StorageService.loadWebsiteVersions(btn.dataset.id);
+                alert(`Website versions:\n${response.data.map(v => `v${v.version} · ${v.status} · ${new Date(v.createdAt).toLocaleString()}`).join('\n') || 'No versions found.'}`);
+            } catch (error) {
+                alert(`Version history failed: ${error.message}`);
+            }
+        }));
+        document.querySelectorAll('.website-approve').forEach(btn => btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const updated = await StorageService.updateWebsiteProjectStatus(btn.dataset.id, 'Approved');
+                const index = state.websites.findIndex(site => site.id === updated.id);
+                if (index !== -1) state.websites[index] = updated;
+                renderWebsites();
+                alert('Website project approved internally. Publishing is handled by the deployment workflow and is not simulated here.');
+            } catch (error) {
+                alert(`Website approval failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }));
+    };
+
+    const requestWebsiteGeneration = async (projectId, regenerate = false, button = null) => {
+        if (button) button.disabled = true;
+        try {
+            const notes = prompt(regenerate ? 'Regeneration notes:' : 'Generation request notes:', regenerate ? 'Regenerate as a new preserved version.' : 'Generate from approved project discovery.');
+            if (notes === null) return;
+            const pages = prompt('Pages (comma separated):', 'Home, About, Services, Contact');
+            if (pages === null) return;
+            const payload = { notes, pages: pages.split(',').map(page => page.trim()).filter(Boolean) };
+            const result = regenerate ? await StorageService.regenerateWebsiteProject(projectId, payload) : await StorageService.createWebsiteProject({ ...payload, projectId });
+            const website = result.website || result;
+            if (result.duplicate) {
+                alert(result.message);
+            } else if (regenerate) {
+                const index = state.websites.findIndex(site => site.id === website.id);
+                if (index !== -1) state.websites[index] = website;
+                alert(`Website regeneration saved as version ${website.currentVersion}. Status: ${website.status}.`);
+            } else {
+                state.websites.unshift(website);
+                alert(`Website generation request persisted. Status: ${website.status}. Configure an AI provider before generated content is produced.`);
+            }
+            renderWebsites();
+        } catch (error) {
+            alert(`Website generation failed: ${error.message}`);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    };
+
+    const btnGenerateWebsite = document.getElementById('btn-generate-website');
+    if (btnGenerateWebsite) {
+        btnGenerateWebsite.addEventListener('click', async () => {
+            const projectId = prompt('Enter discovery-ready project ID:');
+            if (!projectId) return;
+            await requestWebsiteGeneration(projectId, false, btnGenerateWebsite);
+        });
+    }
+    const btnRefreshWebsites = document.getElementById('btn-refresh-websites');
+    if (btnRefreshWebsites) {
+        btnRefreshWebsites.addEventListener('click', async () => {
+            btnRefreshWebsites.disabled = true;
+            try {
+                state.websites = await StorageService.loadWebsites();
+        state.deployments = await StorageService.loadDeployments();
+                renderWebsites();
+            } catch (error) {
+                alert(`Website refresh failed: ${error.message}`);
+            } finally {
+                btnRefreshWebsites.disabled = false;
+            }
+        });
+    }
+
+
+    // Website deployment workflow
+    const renderDeployments = () => {
+        const listContainer = document.getElementById('deployments-list');
+        if (!listContainer) return;
+        if (!state.deployments.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No deployment requests yet. Approve a website project before requesting deployment.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.deployments.map(deployment => `
+            <tr>
+                <td><strong>${deployment.id}</strong><br><small>${deployment.providerStatus === 'missing' ? 'Provider not configured' : 'Provider configured'}</small></td>
+                <td>${deployment.websiteProjectId}</td>
+                <td>v${deployment.version}</td>
+                <td><span class="badge">${deployment.status}</span></td>
+                <td>${deployment.requestedDomain || '-'}</td>
+                <td>${new Date(deployment.updatedAt || deployment.createdAt).toLocaleDateString()}</td>
+                <td><button class="btn btn-secondary btn-sm deployment-cancel" data-id="${deployment.id}">Cancel</button></td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.deployment-cancel').forEach(btn => btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const updated = await StorageService.updateDeploymentStatus(btn.dataset.id, 'Cancelled');
+                const index = state.deployments.findIndex(item => item.id === updated.id);
+                if (index !== -1) state.deployments[index] = updated;
+                renderDeployments();
+            } catch (error) {
+                alert(`Deployment update failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }));
+    };
+
+    const requestDeployment = async (button = null) => {
+        if (button) button.disabled = true;
+        try {
+            const websiteProjectId = prompt('Approved website project ID:');
+            if (!websiteProjectId) return;
+            const domain = prompt('Requested domain (optional):', '');
+            const notes = prompt('Deployment notes:', 'Deployment request; provider configuration required before publishing.');
+            const result = await StorageService.createDeployment({ websiteProjectId, domain, notes });
+            const deployment = result.deployment || result;
+            if (result.duplicate) alert(result.message);
+            else {
+                state.deployments.unshift(deployment);
+                alert(`Deployment request saved. Status: ${deployment.status}. Configure a deployment provider before publishing.`);
+            }
+            renderDeployments();
+        } catch (error) {
+            alert(`Deployment request failed: ${error.message}`);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    };
+
+    const btnRequestDeployment = document.getElementById('btn-request-deployment');
+    if (btnRequestDeployment) btnRequestDeployment.addEventListener('click', () => requestDeployment(btnRequestDeployment));
+    const btnRefreshDeployments = document.getElementById('btn-refresh-deployments');
+    if (btnRefreshDeployments) {
+        btnRefreshDeployments.addEventListener('click', async () => {
+            btnRefreshDeployments.disabled = true;
+            try {
+                state.deployments = await StorageService.loadDeployments();
+                renderDeployments();
+            } catch (error) {
+                alert(`Deployment refresh failed: ${error.message}`);
+            } finally {
+                btnRefreshDeployments.disabled = false;
             }
         });
     }

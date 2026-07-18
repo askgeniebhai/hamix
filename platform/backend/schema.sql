@@ -208,3 +208,44 @@ CREATE TABLE IF NOT EXISTS project_assets (
   created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS website_projects (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  proposal_id TEXT REFERENCES proposals(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'Pending AI Provider',
+  current_version INTEGER NOT NULL DEFAULT 1,
+  data TEXT NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (workspace_id, project_id)
+);
+
+CREATE TABLE IF NOT EXISTS website_project_versions (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  website_project_id TEXT NOT NULL REFERENCES website_projects(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  data TEXT NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE (workspace_id, website_project_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS website_deployments (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  website_project_id TEXT NOT NULL REFERENCES website_projects(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Pending Deployment Provider',
+  data TEXT NOT NULL,
+  requested_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

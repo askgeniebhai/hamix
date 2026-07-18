@@ -111,3 +111,18 @@ This plan follows `HAMIX_CONSTITUTION.md` and prioritizes verified defects. Work
 - Verification: backend syntax, frontend syntax, API lifecycle smoke tests, backend restart persistence, cross-tenant read/update rejection, lint/build checks, and git diff checks.
 - Rollback: revert this milestone commit to remove project/asset endpoints and Projects UI while preserving previously accepted auth/lead/proposal/diagnostic schema.
 - Remaining blockers: durable object storage and secure secret storage/provider selection are external deployment decisions.
+
+## Completed Milestone: Website Generation Engine
+
+- Objective: connect approved onboarding discovery to a persistent website-generation project without faking AI output.
+- Scope completed: website project schema, version schema, create/list/detail/edit/status/version APIs, duplicate prevention, regeneration/versioning, frontend Websites page/actions, audit logging, and documentation.
+- Verification: creation, duplicate prevention, regeneration/version history, backend restart persistence, project linkage, cross-tenant rejection, syntax checks, lint/build checks, and clean tree checks.
+- Rollback: revert this milestone commit to remove website project endpoints/UI while preserving accepted onboarding and proposal data.
+- Remaining blockers: external AI provider configuration, prompt/model governance, and the upcoming website deployment provider workflow.
+
+## Completed Milestone: Website Deployment Workflow
+
+- Objective: persist deployment requests for approved website projects without simulating deployment provider success.
+- Scope completed: deployment schema, list/create/detail/status APIs, duplicate pending deployment prevention, provider-missing status, frontend request/list/cancel controls, audit logging, and documentation.
+- Verification: approved website deployment request, unapproved rejection, duplicate prevention, backend restart persistence, cross-tenant rejection, syntax checks, lint/build checks, and clean tree checks.
+- Remaining blockers: deployment provider selection, target repository/hosting configuration, DNS/domain credentials, and secret storage.

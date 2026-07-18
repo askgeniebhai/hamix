@@ -97,3 +97,18 @@
 - Captured discovery fields include company profile, contacts, products, services, target audience, competitors, brand details, domain/current website, content status, technical requirements, notes, and project/discovery status.
 - Asset handling is metadata-only because this checkout has no durable object-storage provider; `/api/projects/:id/assets` validates metadata, rejects inline file bytes/base64 payloads, records `metadata_only` status, and audit logs the action.
 - Frontend navigation now includes a Projects page for onboarding discovery, status updates, and asset metadata capture through the shared `StorageService`/`ApiService` path.
+
+## Website Generation Engine Milestone Update
+
+- Website generation is now represented by persistent `website_projects` and `website_project_versions` records linked to workspace, onboarding project, customer, and accepted proposal.
+- `/api/websites` creates one website project per onboarding project; repeat create requests return the existing website project, while explicit regeneration creates a new preserved version.
+- Because no external AI provider is configured in this checkout, generation requests are saved with `Pending AI Provider` rather than fake generated website content.
+- Stored website-generation request data includes pages, sitemap, navigation, branding, palette, typography, sections, prompts, discovery snapshot, generation status, timestamps, and version history.
+- Frontend Websites navigation uses shared services to create generation requests, request regenerations, inspect version history, and approve internal website project records.
+
+## Website Deployment Workflow Milestone Update
+
+- Website deployment is now represented by persistent `website_deployments` records linked to workspace, approved website project, onboarding project, customer, and website version.
+- `/api/deployments` creates deployment requests only for approved website projects and records `Pending Deployment Provider` when no deployment provider/target is configured.
+- Duplicate pending deployment requests for the same website version are prevented; cancellation is supported and audited.
+- Frontend deployment navigation now lists deployment requests and supports request/cancel/refresh through shared services.

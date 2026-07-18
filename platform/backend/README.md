@@ -25,3 +25,15 @@ The backend exposes tenant-scoped project onboarding APIs at `/api/projects`, `/
 Asset handling is metadata-only in this repository checkout. The API validates file name, MIME type, and size, records `storageStatus: metadata_only`, and rejects inline file bytes/base64 payloads because no durable object-storage provider is configured. Configure an approved object-storage service before handling production customer files.
 
 Discovery notes and asset metadata must not contain passwords, tokens, API keys, hosting credentials, or other secrets. A dedicated secret store is required before HAMIX can collect deployment credentials.
+
+## Website generation engine
+
+Website-generation requests are stored through `/api/websites` and linked to onboarding projects. The database allows one website project per workspace/project and stores regeneration requests as new versions.
+
+If `HAMIX_AI_PROVIDER` and `HAMIX_AI_API_KEY` are not configured, the backend records website projects as `Pending AI Provider` and does not fabricate generated content. Configure an approved AI provider and review prompt/model governance before enabling generated website content.
+
+## Website deployment workflow
+
+Deployment requests are stored through `/api/deployments` and require an approved website project. If `HAMIX_DEPLOYMENT_PROVIDER` and `HAMIX_DEPLOYMENT_TARGET` are not configured, requests are saved as `Pending Deployment Provider` and no publishing is simulated.
+
+Configure approved hosting/repository targets, DNS/domain access, and secure secret storage before enabling real website publishing.

@@ -348,6 +348,38 @@ const validateDiscoveryPayload = (body) => {
     updatedAt: now()
   };
 };
+const AI_PROVIDER_CONFIGURED = Boolean(process.env.HAMIX_AI_PROVIDER && process.env.HAMIX_AI_API_KEY);
+const DEPLOYMENT_PROVIDER_CONFIGURED = Boolean(process.env.HAMIX_DEPLOYMENT_PROVIDER && process.env.HAMIX_DEPLOYMENT_TARGET);
+const deploymentRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, websiteProjectId: row.website_project_id, projectId: row.project_id, customerId: row.customer_id, version: row.version, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+const websiteRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, projectId: row.project_id, customerId: row.customer_id, proposalId: row.proposal_id, status: row.status, currentVersion: row.current_version, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+const buildWebsiteProjectData = (body, project, discovery = {}, customer = {}) => {
+  const projectData = JSON.parse(project.data);
+  const businessName = discovery.companyInfo || customer.businessName || projectData.projectName || 'HAMIX Customer Website';
+  return {
+    projectName: projectData.projectName || businessName,
+    businessName,
+    generationStatus: AI_PROVIDER_CONFIGURED ? 'Queued' : 'Pending AI Provider',
+    aiProviderStatus: AI_PROVIDER_CONFIGURED ? 'configured' : 'missing',
+    pages: body.pages || ['Home', 'About', 'Services', 'Contact'],
+    sitemap: body.sitemap || ['/', '/about', '/services', '/contact'],
+    navigation: body.navigation || ['Home', 'About', 'Services', 'Contact'],
+    branding: body.branding || discovery.brandDetails || { logo: discovery.logo || '', brandColours: discovery.brandColours || [] },
+    colorPalette: body.colorPalette || discovery.brandColours || ['#1e3a8a', '#4f46e5', '#14b8a6'],
+    typography: body.typography || { heading: 'Inter', body: 'Inter' },
+    sections: body.sections || ['hero', 'about', 'services', 'contact'],
+    generatedContent: AI_PROVIDER_CONFIGURED ? (body.generatedContent || {}) : {},
+    images: body.images || discovery.images || [],
+    prompts: body.prompts || { source: 'Project discovery', instruction: 'Generate a business website from approved discovery data.' },
+    discoverySnapshot: discovery,
+    requestNotes: body.notes || '',
+    versionHistory: [],
+    approvedAt: null,
+    publishedAt: null,
+    createdAt: now(),
+    updatedAt: now()
+  };
+};
+
 const validateAssetMetadata = (body) => {
   if (body.content || body.base64 || body.dataUrl || body.fileData) throw new Error('Durable object storage is not configured; submit asset metadata only.');
   const fileName = String(body.fileName || '').trim();
@@ -753,6 +785,137 @@ const server = http.createServer(async (req, res) => {
       run(`INSERT INTO project_assets (id, workspace_id, project_id, customer_id, proposal_id, file_name, file_type, file_size, asset_type, storage_status, data, created_by, created_at) VALUES (${sqlString(assetId)}, ${sqlString(session.workspace_id)}, ${sqlString(project.id)}, ${sqlString(project.customer_id)}, ${sqlString(projectData.acceptedProposalId || null)}, ${sqlString(metadata.fileName)}, ${sqlString(metadata.fileType)}, ${metadata.fileSize}, ${sqlString(metadata.assetType)}, 'metadata_only', ${sqlString(JSON.stringify(metadata))}, ${sqlString(session.user_id)}, ${sqlString(metadata.createdAt)})`);
       audit(session, 'project_asset_metadata_created', 'project_asset', assetId, { projectId: project.id, fileName: metadata.fileName, storageStatus: 'metadata_only' });
       return json(res, 201, { ...metadata, id: assetId, projectId: project.id, customerId: project.customer_id, proposalId: projectData.acceptedProposalId || null });
+    }
+
+    if (url.pathname === '/api/websites' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM website_projects WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY updated_at DESC`);
+      return json(res, 200, { data: rows.map(websiteRowToJson) });
+    }
+    if (url.pathname === '/api/websites' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.projectId) return safeError(res, 400, 'Website generation requires a projectId.');
+      const project = getOwnedProject(session.workspace_id, body.projectId);
+      if (!project) return safeError(res, 404, 'Project not found.');
+      const existing = one(`SELECT * FROM website_projects WHERE workspace_id=${sqlString(session.workspace_id)} AND project_id=${sqlString(project.id)}`);
+      if (existing && !body.regenerate) return json(res, 200, { website: websiteRowToJson(existing), duplicate: true, message: 'Website project already exists for this onboarding project.' });
+      const projectData = JSON.parse(project.data);
+      const discoveryRow = one(`SELECT data FROM project_discovery WHERE workspace_id=${sqlString(session.workspace_id)} AND project_id=${sqlString(project.id)}`);
+      const customerRow = getOwnedCustomer(session.workspace_id, project.customer_id);
+      const discovery = discoveryRow ? JSON.parse(discoveryRow.data) : {};
+      const customer = customerRow ? JSON.parse(customerRow.data) : {};
+      const timestamp = now();
+      if (existing && body.regenerate) {
+        const nextVersion = Number(existing.current_version || 1) + 1;
+        const data = buildWebsiteProjectData(body, project, discovery, customer);
+        data.versionHistory = [...(JSON.parse(existing.data).versionHistory || []), { version: existing.current_version, status: existing.status, archivedAt: timestamp }];
+        run(`UPDATE website_projects SET status=${sqlString(data.generationStatus)}, current_version=${nextVersion}, data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(timestamp)} WHERE id=${sqlString(existing.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+        run(`INSERT INTO website_project_versions (id, workspace_id, website_project_id, version, status, data, created_by, created_at) VALUES (${sqlString(id('website_version'))}, ${sqlString(session.workspace_id)}, ${sqlString(existing.id)}, ${nextVersion}, ${sqlString(data.generationStatus)}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)})`);
+        audit(session, 'website_regeneration_requested', 'website_project', existing.id, { projectId: project.id, version: nextVersion, status: data.generationStatus });
+        return json(res, 200, websiteRowToJson(one(`SELECT * FROM website_projects WHERE id=${sqlString(existing.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+      }
+      const websiteId = id('website');
+      const data = buildWebsiteProjectData(body, project, discovery, customer);
+      run(`INSERT INTO website_projects (id, workspace_id, project_id, customer_id, proposal_id, status, current_version, data, created_by, created_at, updated_at) VALUES (${sqlString(websiteId)}, ${sqlString(session.workspace_id)}, ${sqlString(project.id)}, ${sqlString(project.customer_id)}, ${sqlString(projectData.acceptedProposalId || null)}, ${sqlString(data.generationStatus)}, 1, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)}, ${sqlString(timestamp)})`);
+      run(`INSERT INTO website_project_versions (id, workspace_id, website_project_id, version, status, data, created_by, created_at) VALUES (${sqlString(id('website_version'))}, ${sqlString(session.workspace_id)}, ${sqlString(websiteId)}, 1, ${sqlString(data.generationStatus)}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)})`);
+      audit(session, 'website_generation_requested', 'website_project', websiteId, { projectId: project.id, status: data.generationStatus, aiProviderConfigured: AI_PROVIDER_CONFIGURED });
+      return json(res, 201, websiteRowToJson(one(`SELECT * FROM website_projects WHERE id=${sqlString(websiteId)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const websiteMatch = url.pathname.match(/^\/api\/websites\/([^/]+)$/);
+    if (websiteMatch && req.method === 'GET') {
+      const row = one(`SELECT * FROM website_projects WHERE id=${sqlString(websiteMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Website project not found.');
+      return json(res, 200, websiteRowToJson(row));
+    }
+    if (websiteMatch && req.method === 'POST') {
+      const row = one(`SELECT * FROM website_projects WHERE id=${sqlString(websiteMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Website project not found.');
+      const body = await readBody(req);
+      const data = { ...JSON.parse(row.data), ...body, updatedAt: now() };
+      delete data.id; delete data.workspaceId;
+      run(`UPDATE website_projects SET data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'website_project_edited', 'website_project', row.id, { fields: Object.keys(body) });
+      return json(res, 200, websiteRowToJson(one(`SELECT * FROM website_projects WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const websiteVersionsMatch = url.pathname.match(/^\/api\/websites\/([^/]+)\/versions$/);
+    if (websiteVersionsMatch && req.method === 'GET') {
+      const row = one(`SELECT id FROM website_projects WHERE id=${sqlString(websiteVersionsMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Website project not found.');
+      const versions = all(`SELECT version, status, data, created_at FROM website_project_versions WHERE workspace_id=${sqlString(session.workspace_id)} AND website_project_id=${sqlString(row.id)} ORDER BY version DESC`).map(v => ({ version: v.version, status: v.status, data: JSON.parse(v.data), createdAt: v.created_at }));
+      return json(res, 200, { data: versions });
+    }
+    const websiteStatusMatch = url.pathname.match(/^\/api\/websites\/([^/]+)\/status$/);
+    if (websiteStatusMatch && req.method === 'POST') {
+      const row = one(`SELECT * FROM website_projects WHERE id=${sqlString(websiteStatusMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Website project not found.');
+      const body = await readBody(req);
+      const allowed = ['Pending AI Provider', 'Draft', 'Approved', 'Published', 'Cancelled'];
+      if (!allowed.includes(body.status)) return safeError(res, 400, 'Unsupported website project status.');
+      if (body.status === 'Published') return safeError(res, 400, 'Website deployment is not configured in this milestone. Use the deployment workflow after provider configuration.');
+      const data = { ...JSON.parse(row.data), generationStatus: body.status, updatedAt: now() };
+      if (body.status === 'Approved') data.approvedAt = now();
+      run(`UPDATE website_projects SET status=${sqlString(body.status)}, data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, body.status === 'Approved' ? 'website_project_approved' : 'website_project_status_changed', 'website_project', row.id, { status: body.status });
+      return json(res, 200, websiteRowToJson(one(`SELECT * FROM website_projects WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+
+    if (url.pathname === '/api/deployments' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM website_deployments WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY updated_at DESC`);
+      return json(res, 200, { data: rows.map(deploymentRowToJson) });
+    }
+    if (url.pathname === '/api/deployments' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.websiteProjectId) return safeError(res, 400, 'Deployment requires a websiteProjectId.');
+      const website = one(`SELECT * FROM website_projects WHERE id=${sqlString(body.websiteProjectId)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!website) return safeError(res, 404, 'Website project not found.');
+      if (website.status !== 'Approved') return safeError(res, 400, 'Website project must be Approved before deployment can be requested.');
+      const duplicate = one(`SELECT * FROM website_deployments WHERE workspace_id=${sqlString(session.workspace_id)} AND website_project_id=${sqlString(website.id)} AND version=${Number(website.current_version)} AND status IN ('Pending Deployment Provider','Queued','Deploying') ORDER BY created_at DESC LIMIT 1`);
+      if (duplicate) return json(res, 200, { deployment: deploymentRowToJson(duplicate), duplicate: true, message: 'Deployment request already exists for this website version.' });
+      const websiteData = JSON.parse(website.data);
+      const status = DEPLOYMENT_PROVIDER_CONFIGURED ? 'Queued' : 'Pending Deployment Provider';
+      const deploymentId = id('deployment');
+      const timestamp = now();
+      const data = {
+        websiteProjectId: website.id,
+        projectId: website.project_id,
+        customerId: website.customer_id,
+        version: website.current_version,
+        status,
+        providerStatus: DEPLOYMENT_PROVIDER_CONFIGURED ? 'configured' : 'missing',
+        target: process.env.HAMIX_DEPLOYMENT_TARGET || null,
+        requestedDomain: body.domain || websiteData.discoverySnapshot?.domain || '',
+        manifest: {
+          pages: websiteData.pages || [],
+          sitemap: websiteData.sitemap || [],
+          navigation: websiteData.navigation || [],
+          branding: websiteData.branding || {},
+          generatorStatus: website.status
+        },
+        notes: body.notes || '',
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+      run(`INSERT INTO website_deployments (id, workspace_id, website_project_id, project_id, customer_id, version, status, data, requested_by, created_at, updated_at) VALUES (${sqlString(deploymentId)}, ${sqlString(session.workspace_id)}, ${sqlString(website.id)}, ${sqlString(website.project_id)}, ${sqlString(website.customer_id)}, ${Number(website.current_version)}, ${sqlString(status)}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)}, ${sqlString(timestamp)})`);
+      audit(session, 'website_deployment_requested', 'website_deployment', deploymentId, { websiteProjectId: website.id, version: website.current_version, status, providerConfigured: DEPLOYMENT_PROVIDER_CONFIGURED });
+      return json(res, 201, deploymentRowToJson(one(`SELECT * FROM website_deployments WHERE id=${sqlString(deploymentId)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const deploymentMatch = url.pathname.match(/^\/api\/deployments\/([^/]+)$/);
+    if (deploymentMatch && req.method === 'GET') {
+      const row = one(`SELECT * FROM website_deployments WHERE id=${sqlString(deploymentMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Deployment not found.');
+      return json(res, 200, deploymentRowToJson(row));
+    }
+    const deploymentStatusMatch = url.pathname.match(/^\/api\/deployments\/([^/]+)\/status$/);
+    if (deploymentStatusMatch && req.method === 'POST') {
+      const row = one(`SELECT * FROM website_deployments WHERE id=${sqlString(deploymentStatusMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Deployment not found.');
+      const body = await readBody(req);
+      const allowed = ['Pending Deployment Provider', 'Queued', 'Cancelled'];
+      if (!allowed.includes(body.status)) return safeError(res, 400, 'Unsupported deployment status for local workflow.');
+      if (body.status === 'Queued' && !DEPLOYMENT_PROVIDER_CONFIGURED) return safeError(res, 400, 'Deployment provider is not configured.');
+      const data = { ...JSON.parse(row.data), status: body.status, updatedAt: now(), note: body.note || '' };
+      run(`UPDATE website_deployments SET status=${sqlString(body.status)}, data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'website_deployment_status_changed', 'website_deployment', row.id, { status: body.status });
+      return json(res, 200, deploymentRowToJson(one(`SELECT * FROM website_deployments WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
     }
 
     if (url.pathname === '/api/settings') {

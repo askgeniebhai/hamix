@@ -89,3 +89,20 @@ This audit follows `HAMIX_CONSTITUTION.md` v1.0 and records verified repository 
 | High | Customer assets could be implied as uploaded without durable object storage. | Fixed with limitation | Added metadata-only asset API that rejects file bytes/base64 and labels `storageStatus=metadata_only`. | Object storage provider selection/configuration is an external infrastructure blocker. |
 | Medium | Discovery notes could accidentally capture secrets. | Fixed with guardrail | Backend rejects obvious password/token/API-key/secret terms in ordinary discovery notes and asset metadata. | A dedicated secrets vault is still required before storing deployment credentials. |
 | Medium | Project/discovery cross-tenant authorization needed direct API enforcement. | Fixed | All project, discovery, and asset queries derive workspace from the authenticated session and return 404 for foreign project IDs. | Broader role-based permissions remain future hardening. |
+
+## Website Generation Engine Milestone Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Project discovery was not connected to a durable website-generation request model. | Fixed | Added tenant-scoped website project and version APIs linked to onboarding projects/customers/proposals. | Actual AI content generation requires configured provider credentials and product approval. |
+| High | Website generation could be mistaken for complete AI output without a provider. | Fixed | Requests are persisted as `Pending AI Provider` when no provider is configured; no fake output is generated. | Provider selection, prompt governance, and model monitoring remain external blockers. |
+| Medium | Duplicate generation could create multiple active website projects for one onboarding project. | Fixed | Database uniqueness enforces one website project per workspace/project; regeneration creates version history instead. | Concurrent production hardening should be revisited if replacing SQLite. |
+| Medium | Website project approval/publish actions needed auditability. | Partially fixed | Generation, regeneration, edit, and approval actions create audit entries; publishing is blocked for the deployment milestone. | Deployment provider, repository target, and domain credentials remain unresolved. |
+
+## Website Deployment Workflow Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Deployment page was a placeholder and could not persist deployment requests. | Fixed | Added tenant-scoped deployment schema/API and frontend request/list/cancel controls. | Real publishing requires deployment provider and target configuration. |
+| High | Publishing could be implied without infrastructure. | Fixed | Requests are saved as `Pending Deployment Provider` when `HAMIX_DEPLOYMENT_PROVIDER`/`HAMIX_DEPLOYMENT_TARGET` are missing; no fake publish occurs. | DNS/domain, repository target, hosting credentials, and CI/CD approvals remain external blockers. |
+| Medium | Duplicate pending deployments could be requested for one website version. | Fixed | Backend returns existing active deployment request for the same workspace/website/version. | Provider-specific idempotency must be added when a real provider is selected. |

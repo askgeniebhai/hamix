@@ -96,3 +96,21 @@
 - Completed: audit logs are created for project updates, discovery updates, and asset metadata actions.
 - Verification summary: project creation via accepted proposal, discovery update, invalid secret handling, metadata-only asset limitation, backend restart persistence, and cross-tenant rejection were tested locally.
 - Publishing blocker remains: no Git remote is configured in this checkout, branch `work` cannot currently be pushed, hosted pull-request status cannot be verified, local commits are preserved, and repository remote access must be restored before final delivery.
+
+## Milestone: Website Generation Engine
+
+- Completed: discovery-ready onboarding projects can create one persistent website project linked to workspace, project, customer, and proposal.
+- Completed: duplicate website generation is prevented by a workspace/project uniqueness rule; explicit regeneration creates a new version record while preserving history.
+- Completed: generation requests store pages, sitemap, navigation, branding, colour palette, typography, sections, prompts, discovery snapshot, status, and timestamps.
+- Completed: missing AI provider configuration is represented honestly as `Pending AI Provider` with no fake generated content.
+- Completed: frontend Websites navigation and controls provide create, regenerate, version-history, refresh, and approval actions through shared services.
+- Verification summary: website project creation, duplicate prevention, regeneration/versioning, backend restart persistence, project linkage, cross-tenant rejection, lint/build, and clean tree were tested locally.
+- Publishing blocker remains: no Git remote is configured in this checkout, branch `work` cannot currently be pushed, hosted pull-request status cannot be verified, local commits are preserved, and repository remote access must be restored before final delivery.
+
+## Milestone: Website Deployment Workflow
+
+- Completed: approved website projects can create persistent deployment requests linked to workspace, website project, project, customer, and version.
+- Completed: missing deployment provider configuration is represented as `Pending Deployment Provider`; HAMIX does not fake publishing.
+- Completed: duplicate active deployment requests for the same website version are prevented and cancellation is available.
+- Verification summary: approved deployment request, unapproved rejection, duplicate prevention, backend restart persistence, cross-tenant rejection, lint/build, and clean tree were tested locally.
+- Publishing blocker remains: no Git remote is configured in this checkout, branch `work` cannot currently be pushed, hosted pull-request status cannot be verified, local commits are preserved, and repository remote access must be restored before final delivery.
