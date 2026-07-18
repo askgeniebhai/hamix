@@ -31,9 +31,43 @@
 
     <!-- App Logic -->
     <script src="utils.js"></script>
-    <script src="app.js" defer></script>
 </head>
 <body class="landing-active">
+    <div id="auth-screen" class="auth-screen" aria-live="polite">
+        <div class="auth-card">
+            <div class="logo auth-logo">
+                <i data-lucide="shield" class="logo-icon"></i>
+                <span class="logo-text">HAMIX</span>
+            </div>
+            <h1>Secure HAMIX Workspace</h1>
+            <p class="auth-subtitle">Sign in or create a tenant workspace to access CRM, leads, customers, campaigns, and deployment tools.</p>
+            <div class="auth-tabs">
+                <button type="button" class="auth-tab active" data-auth-mode="login">Login</button>
+                <button type="button" class="auth-tab" data-auth-mode="register">Register</button>
+            </div>
+            <form id="form-auth" class="auth-form">
+                <div class="form-group auth-register-only">
+                    <label for="auth-name">Name</label>
+                    <input type="text" id="auth-name" autocomplete="name">
+                </div>
+                <div class="form-group auth-register-only">
+                    <label for="auth-tenant">Workspace / Company</label>
+                    <input type="text" id="auth-tenant" autocomplete="organization">
+                </div>
+                <div class="form-group">
+                    <label for="auth-email">Email</label>
+                    <input type="email" id="auth-email" autocomplete="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" autocomplete="current-password" minlength="8" required>
+                </div>
+                <p id="auth-error" class="auth-error" role="alert"></p>
+                <button type="submit" class="btn btn-primary btn-lg auth-submit">Login</button>
+            </form>
+            <p class="auth-note">Static deployment note: this local auth boundary scopes browser data by tenant. Replace the adapter with server-backed auth before handling production customer data.</p>
+        </div>
+    </div>
     <!-- Landing Page Section -->
     <div id="landing-page" class="landing-wrapper">
         <nav class="landing-nav">
@@ -141,6 +175,7 @@
                     <li class="active" data-page="dashboard"><a href="#"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a></li>
                     <li data-page="leads"><a href="#"><i data-lucide="users"></i> <span>Leads</span></a></li>
                     <li data-page="campaigns"><a href="#"><i data-lucide="message-square"></i> <span>Campaigns</span></a></li>
+                    <li data-page="proposals"><a href="#"><i data-lucide="file-text"></i> <span>Proposals</span></a></li>
                     <li data-page="customers"><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
                     <li data-page="attendance"><a href="#"><i data-lucide="calendar-check"></i> <span>Attendance</span></a></li>
                     <li data-page="payroll"><a href="#"><i data-lucide="banknote"></i> <span>Payroll</span></a></li>
@@ -153,9 +188,10 @@
                 <div class="user-profile">
                     <div class="user-avatar">AD</div>
                     <div class="user-info">
-                        <p class="user-name">Admin User</p>
-                        <p class="user-role">Super Admin</p>
+                        <p class="user-name" id="current-user-name">Not signed in</p>
+                        <p class="user-role" id="current-user-role">Authentication required</p>
                     </div>
+                    <button class="btn btn-secondary btn-sm" id="btn-logout" type="button">Logout</button>
                 </div>
             </div>
         </aside>
@@ -289,6 +325,28 @@
             </form>
         </div>
     </div>
+
+
+                <!-- Proposals Page -->
+                <div id="page-proposals" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Proposals & Quotations</h2>
+                            <p>Create, review, send, accept, or reject HAMIX proposals.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-primary" id="btn-new-proposal"><i data-lucide="plus"></i> New Proposal</button>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr><th>Proposal</th><th>Source</th><th>Status</th><th>Version</th><th>Total</th><th>Updated</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="proposals-list"><tr><td colspan="7" class="empty-state">No proposals yet. Create one from a qualified lead or customer.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
 
                 <!-- Customers Page -->
                 <div id="page-customers" class="page">
@@ -734,6 +792,8 @@
         </div>
     </div>
 
+    <script src="services/ApiService.js"></script>
+    <script src="services/AuthService.js"></script>
     <script src="services/StorageService.js"></script>
     <script src="services/AcquisitionService.js"></script>
     <script src="services/PipelineService.js"></script>

@@ -2,18 +2,106 @@
  * HAMIX Platform - Main Application Logic (Integrated & Refactored)
  */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    const authScreen = document.getElementById('auth-screen');
+    const authForm = document.getElementById('form-auth');
+    const authError = document.getElementById('auth-error');
+    const authSubmit = document.querySelector('.auth-submit');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    let authMode = 'login';
+
     // State management
     const state = {
         currentPage: 'dashboard',
-        leads: StorageService.getLeads(),
-        customers: StorageService.getCustomers(),
-        campaigns: StorageService.getCampaigns(),
+        leads: [],
+        customers: [],
+        campaigns: [],
+        proposals: [],
         filters: {
             leads: { search: '', status: 'all', sort: 'newest' },
             customers: { search: '', sort: 'newest' }
         }
     };
+
+    const loadWorkspaceState = async () => {
+        state.leads = await StorageService.loadLeads();
+        state.customers = await StorageService.loadCustomers();
+        state.campaigns = await StorageService.loadCampaigns();
+        state.proposals = await StorageService.loadProposals();
+    };
+
+    const updateCurrentUser = () => {
+        const session = AuthService.getSession();
+        const name = document.getElementById('current-user-name');
+        const role = document.getElementById('current-user-role');
+        const avatar = document.querySelector('.user-avatar');
+        if (!session) return;
+        if (name) name.textContent = session.name;
+        if (role) role.textContent = `${session.role} · ${session.tenantName}`;
+        if (avatar) avatar.textContent = session.name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+    };
+
+    const showAuth = () => {
+        document.body.classList.add('auth-locked');
+        if (authScreen) authScreen.style.display = 'flex';
+        const crmApp = document.getElementById('crm-app');
+        if (crmApp) crmApp.style.display = 'none';
+    };
+
+    const showApp = async () => {
+        await loadWorkspaceState();
+        updateCurrentUser();
+        document.body.classList.remove('auth-locked');
+        if (authScreen) authScreen.style.display = 'none';
+        navigateTo('dashboard');
+    };
+
+    const setAuthMode = (mode) => {
+        authMode = mode;
+        document.body.classList.toggle('auth-register-mode', mode === 'register');
+        authTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.authMode === mode));
+        if (authSubmit) authSubmit.textContent = mode === 'register' ? 'Create Workspace' : 'Login';
+        if (authError) authError.textContent = '';
+    };
+
+    authTabs.forEach(tab => {
+        tab.addEventListener('click', () => setAuthMode(tab.dataset.authMode));
+    });
+
+    if (authForm) {
+        authForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (authError) authError.textContent = '';
+            if (authSubmit) authSubmit.disabled = true;
+            try {
+                const payload = {
+                    name: document.getElementById('auth-name').value,
+                    tenantName: document.getElementById('auth-tenant').value,
+                    email: document.getElementById('auth-email').value,
+                    password: document.getElementById('auth-password').value
+                };
+                if (authMode === 'register') await AuthService.register(payload);
+                else await AuthService.login(payload);
+                authForm.reset();
+                await showApp();
+            } catch (error) {
+                if (authError) authError.textContent = error.message;
+            } finally {
+                if (authSubmit) authSubmit.disabled = false;
+            }
+        });
+    }
+
+    const logoutButton = document.getElementById('btn-logout');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', async () => {
+            await AuthService.logout();
+            state.leads = [];
+            state.customers = [];
+            state.campaigns = [];
+            showAuth();
+        });
+    }
 
     // UI Elements
     const pages = document.querySelectorAll('.page');
@@ -22,6 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Navigation Logic
     const navigateTo = (pageId) => {
+        if (pageId !== 'landing' && !AuthService.isAuthenticated()) {
+            showAuth();
+            return;
+        }
+
         // Handle landing page transition
         if (pageId !== 'landing') {
             document.body.classList.remove('landing-active');
@@ -52,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageId === 'dashboard') updateDashboard();
         if (pageId === 'leads') renderLeads();
         if (pageId === 'campaigns') renderCampaigns();
+        if (pageId === 'proposals') renderProposals();
         if (pageId === 'customers') renderCustomers();
 
         if (window.lucide) window.lucide.createIcons();
@@ -197,21 +291,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Handle conversion to customer if status becomes Approved or Customer
                 if (oldStatus !== 'Approved' && oldStatus !== 'Customer' && (formData.status === 'Approved' || formData.status === 'Customer')) {
-                    const customer = LeadEngine.createCustomer(state.leads[index]);
-                    state.customers.push(customer);
-                    StorageService.saveCustomers(state.customers);
+                    const hasCustomer = state.customers.some(customer => customer.sourceLeadId === state.leads[index].id);
+                    if (!hasCustomer) {
+                        const customer = LeadEngine.createCustomer(state.leads[index]);
+                        customer.sourceLeadId = state.leads[index].id;
+                        const savedCustomer = await StorageService.convertCustomer(state.leads[index].id, customer);
+                        state.customers.push(savedCustomer);
+                        StorageService.saveCustomers(state.customers);
+                    }
                 }
             }
         } else {
             const result = await PipelineService.process(formData, state.leads);
-            if (result.action === 'CREATE') state.leads.push(result.data);
+            if (result.action === 'CREATE') {
+                const savedLead = await StorageService.saveLead(result.data);
+                state.leads.push(savedLead);
+            }
             else {
                 const index = state.leads.findIndex(l => l.id === result.data.id);
-                state.leads[index] = result.data;
+                state.leads[index] = await StorageService.saveLead(result.data);
             }
         }
 
         StorageService.saveLeads(state.leads);
+        if (leadId) await StorageService.saveLead(state.leads.find(l => l.id === leadId));
         closeModal('lead');
         navigateTo(state.currentPage);
     });
@@ -280,6 +383,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><span class="badge badge-${lead.status.toLowerCase().replace(/ /g, '-')}">${lead.status}</span></td>
                 <td>
                     <div class="action-group">
+                        <button class="btn-icon qualify-lead" data-id="${lead.id}" title="Qualify"><i data-lucide="sparkles"></i></button>
+                        <button class="btn-icon stage-lead" data-id="${lead.id}" title="Next stage"><i data-lucide="arrow-right-circle"></i></button>
+                        <button class="btn-icon convert-lead" data-id="${lead.id}" title="Convert"><i data-lucide="user-check"></i></button>
                         <button class="btn-icon edit-lead" data-id="${lead.id}"><i data-lucide="edit-2"></i></button>
                         <button class="btn-icon delete-lead" data-id="${lead.id}"><i data-lucide="trash-2"></i></button>
                     </div>
@@ -288,15 +394,82 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('');
         if (window.lucide) lucide.createIcons();
 
+
+        document.querySelectorAll('.qualify-lead').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                btn.disabled = true;
+                try {
+                    const qualified = await StorageService.qualifyLead(id);
+                    if (qualified) state.leads[state.leads.findIndex(l => l.id === id)] = qualified;
+                    renderLeads();
+                    updateDashboard();
+                } catch (error) {
+                    alert(`Qualification failed: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        const stages = ['New Lead', 'Contact Attempted', 'Interested', 'Meeting Scheduled', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'];
+        document.querySelectorAll('.stage-lead').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const lead = state.leads.find(l => l.id === id);
+                const current = lead.pipelineStage || 'New Lead';
+                const next = stages[Math.min(stages.indexOf(current) + 1, stages.length - 1)] || 'Contact Attempted';
+                btn.disabled = true;
+                try {
+                    const updated = await StorageService.changeLeadStage(id, next);
+                    if (updated) state.leads[state.leads.findIndex(l => l.id === id)] = updated;
+                    renderLeads();
+                    updateDashboard();
+                } catch (error) {
+                    alert(`Stage change failed: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.convert-lead').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const lead = state.leads.find(l => l.id === id);
+                if (!lead) return;
+                btn.disabled = true;
+                try {
+                    const customer = LeadEngine.createCustomer(lead);
+                    customer.sourceLeadId = id;
+                    const savedCustomer = await StorageService.convertCustomer(id, customer);
+                    if (!state.customers.some(c => c.id === savedCustomer.id)) state.customers.push(savedCustomer);
+                    StorageService.saveCustomers(state.customers);
+                    const idx = state.leads.findIndex(l => l.id === id);
+                    state.leads[idx] = { ...state.leads[idx], status: 'Customer', pipelineStage: 'Won' };
+                    StorageService.saveLeads(state.leads);
+                    alert(savedCustomer.project ? 'Lead converted and onboarding project created.' : 'Lead is already converted to a customer.');
+                    renderLeads();
+                    renderCustomers();
+                    updateDashboard();
+                } catch (error) {
+                    alert(`Conversion failed: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
         document.querySelectorAll('.edit-lead').forEach(btn => {
             btn.addEventListener('click', () => openLeadEditor(btn.dataset.id));
         });
 
         document.querySelectorAll('.delete-lead').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
                 state.leads = state.leads.filter(l => l.id !== id);
+                await StorageService.deleteLead(id);
                 StorageService.saveLeads(state.leads);
                 renderLeads();
                 updateDashboard();
@@ -326,6 +499,76 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('lead-status').value = lead.status || 'New';
         openModal('lead');
     };
+
+
+    // Proposals
+    const renderProposals = () => {
+        const listContainer = document.getElementById('proposals-list');
+        if (!listContainer) return;
+        if (!state.proposals.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No proposals yet. Create one from a qualified lead or customer.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.proposals.map(proposal => `
+            <tr>
+                <td><strong>${proposal.proposalNumber}</strong><br><small>${proposal.title}</small></td>
+                <td>${proposal.leadId || proposal.customerId || '-'}</td>
+                <td><span class="badge">${proposal.status}</span></td>
+                <td>v${proposal.version}</td>
+                <td>${proposal.currency || 'INR'} ${proposal.total || 0}</td>
+                <td>${new Date(proposal.updatedAt || proposal.createdAt).toLocaleDateString()}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn btn-secondary btn-sm proposal-print" data-id="${proposal.id}">Print</button>
+                        <button class="btn btn-secondary btn-sm proposal-send" data-id="${proposal.id}">Mark Sent</button>
+                        <button class="btn btn-primary btn-sm proposal-accept" data-id="${proposal.id}">Accept</button>
+                        <button class="btn btn-secondary btn-sm proposal-reject" data-id="${proposal.id}">Reject</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.proposal-print').forEach(btn => btn.addEventListener('click', () => window.open(`/api/proposals/${encodeURIComponent(btn.dataset.id)}/print`, '_blank')));
+        document.querySelectorAll('.proposal-send').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Sent', 'Marked sent manually; email provider not configured.')));
+        document.querySelectorAll('.proposal-accept').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Accepted', 'Accepted internally on behalf of customer; no e-signature captured.')));
+        document.querySelectorAll('.proposal-reject').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Rejected', prompt('Rejection reason (optional):') || 'Rejected internally.')));
+    };
+
+    const updateProposalStatus = async (id, status, note) => {
+        try {
+            const response = await StorageService.changeProposalStatus(id, status, note);
+            const proposal = response.proposal || response;
+            const index = state.proposals.findIndex(item => item.id === proposal.id);
+            if (index !== -1) state.proposals[index] = proposal;
+            if (response.customer && !state.customers.some(c => c.id === response.customer.id)) state.customers.push(response.customer);
+            if (status === 'Accepted') state.customers = await StorageService.loadCustomers();
+            renderProposals();
+            updateDashboard();
+            alert(`Proposal ${status}. ${status === 'Sent' ? 'Email provider is not configured; this records a manual send state.' : ''}`);
+        } catch (error) {
+            alert(`Proposal update failed: ${error.message}`);
+        }
+    };
+
+    const btnNewProposal = document.getElementById('btn-new-proposal');
+    if (btnNewProposal) {
+        btnNewProposal.addEventListener('click', async () => {
+            const sourceType = prompt('Create proposal from "lead" or "customer"?', 'lead');
+            if (!sourceType) return;
+            const sourceId = prompt(`Enter ${sourceType} ID:`);
+            if (!sourceId) return;
+            try {
+                const body = { title: prompt('Proposal title:', 'HAMIX Growth Proposal') || 'HAMIX Growth Proposal' };
+                if (sourceType.toLowerCase().startsWith('customer')) body.customerId = sourceId;
+                else body.leadId = sourceId;
+                const proposal = await StorageService.createProposal(body);
+                state.proposals.unshift(proposal);
+                renderProposals();
+                alert(`Proposal ${proposal.proposalNumber} created as Draft. Review before marking sent.`);
+            } catch (error) {
+                alert(`Proposal creation failed: ${error.message}`);
+            }
+        });
+    }
 
     // Campaigns
     const renderCampaigns = () => {
@@ -602,27 +845,36 @@ document.addEventListener('DOMContentLoaded', () => {
             new: 0
         };
 
-        for (const raw of rawLeads) {
-            // Count metadata before processing pipeline
-            if (raw.phone && raw.phone !== 'Phone not available') stats.phones++;
-            else stats.noPhone++;
-
-            if (raw.website) stats.websites++;
-            if (raw.category) stats.categories++;
-
-            const result = await PipelineService.process(raw, state.leads);
-            if (result.action === 'CREATE') {
-                state.leads.push(result.data);
-                stats.new++;
-                stats.imported++;
-            } else {
-                const idx = state.leads.findIndex(l => l.id === result.data.id);
-                state.leads[idx] = result.data;
-                stats.dupes++;
-                stats.imported++;
+        const importResult = await StorageService.importLeads(rawLeads);
+        if (importResult) {
+            stats.total = importResult.total;
+            stats.imported = importResult.imported;
+            stats.dupes = importResult.duplicates;
+            stats.new = importResult.imported;
+            stats.noPhone = importResult.details.filter(item => /no phone/i.test(item.reason || '')).length;
+            stats.failed = importResult.failed;
+            state.leads = await StorageService.loadLeads();
+        } else {
+            for (const raw of rawLeads) {
+                if (raw.phone && raw.phone !== 'Phone not available') stats.phones++;
+                else stats.noPhone++;
+                if (raw.website) stats.websites++;
+                if (raw.category) stats.categories++;
+                const result = await PipelineService.process(raw, state.leads);
+                if (result.action === 'CREATE') {
+                    const savedLead = await StorageService.saveLead(result.data);
+                    state.leads.push(savedLead);
+                    stats.new++;
+                    stats.imported++;
+                } else {
+                    const idx = state.leads.findIndex(l => l.id === result.data.id);
+                    state.leads[idx] = await StorageService.saveLead(result.data);
+                    stats.dupes++;
+                    stats.imported++;
+                }
             }
+            StorageService.saveLeads(state.leads);
         }
-        StorageService.saveLeads(state.leads);
 
         importTabContents.forEach(c => c.style.display = 'none');
         const importSummary = document.getElementById('import-summary');
@@ -678,7 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formCampaign = document.getElementById('form-campaign');
     if (formCampaign) {
-        formCampaign.addEventListener('submit', (e) => {
+        formCampaign.addEventListener('submit', async (e) => {
             try {
                 e.preventDefault();
                 const name = document.getElementById('campaign-name').value;
@@ -696,7 +948,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error('Failed to generate campaign messages.');
                 }
 
-                state.campaigns.push(camp);
+                const savedCampaign = await StorageService.saveCampaign(camp);
+                state.campaigns.push(savedCampaign);
                 StorageService.saveCampaigns(state.campaigns);
                 closeModal('campaign');
                 navigateTo('campaigns');
@@ -726,12 +979,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initial load
-    // Check if we should show landing or dashboard
-    const hasSeenLanding = localStorage.getItem('hamix_landing_seen');
-    if (hasSeenLanding) {
-        navigateTo('dashboard');
+    setAuthMode('login');
+    if (await AuthService.refreshSession()) {
+        await showApp();
     } else {
         navigateTo('landing');
-        localStorage.setItem('hamix_landing_seen', 'true');
     }
 });
