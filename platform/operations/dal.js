@@ -14,9 +14,14 @@ const DAL = {
     /**
      * Generic fetch from storage
      */
+    _scopedKey: function(key) {
+        const session = window.AuthService ? window.AuthService.getSession() : null;
+        return session && session.tenantId ? `${session.tenantId}:${key}` : key;
+    },
+
     _get: function(key, defaultValue = []) {
         try {
-            const data = localStorage.getItem(key);
+            const data = localStorage.getItem(this._scopedKey(key));
             return data ? JSON.parse(data) : defaultValue;
         } catch (e) {
             console.error(`DAL: Error reading ${key}`, e);
@@ -29,7 +34,7 @@ const DAL = {
      */
     _set: function(key, value) {
         try {
-            localStorage.setItem(key, JSON.stringify(value));
+            localStorage.setItem(this._scopedKey(key), JSON.stringify(value));
             return true;
         } catch (e) {
             console.error(`DAL: Error saving ${key}`, e);
