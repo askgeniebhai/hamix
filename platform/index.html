@@ -177,10 +177,13 @@
                     <li data-page="campaigns"><a href="#"><i data-lucide="message-square"></i> <span>Campaigns</span></a></li>
                     <li data-page="proposals"><a href="#"><i data-lucide="file-text"></i> <span>Proposals</span></a></li>
                     <li data-page="customers"><a href="#"><i data-lucide="user-check"></i> <span>Customers</span></a></li>
+                    <li data-page="projects"><a href="#"><i data-lucide="clipboard-list"></i> <span>Projects</span></a></li>
+                    <li data-page="websites"><a href="#"><i data-lucide="globe-2"></i> <span>Websites</span></a></li>
                     <li data-page="attendance"><a href="#"><i data-lucide="calendar-check"></i> <span>Attendance</span></a></li>
                     <li data-page="payroll"><a href="#"><i data-lucide="banknote"></i> <span>Payroll</span></a></li>
                     <li data-page="templates"><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
                     <li data-page="deployments"><a href="#"><i data-lucide="git-branch"></i> <span>GitHub Deployments</span></a></li>
+                    <li data-page="success"><a href="#"><i data-lucide="heart-handshake"></i> <span>Customer Success</span></a></li>
                     <li data-page="settings"><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
                 </ul>
             </nav>
@@ -254,6 +257,12 @@
                     <div class="dashboard-section" style="margin-top: 32px;">
                         <h3>Pipeline Status</h3>
                         <div class="pipeline-grid" id="pipeline-stats">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="dashboard-section" style="margin-top: 32px;">
+                        <h3>HAMIX Lifecycle Health</h3>
+                        <div class="pipeline-grid" id="lifecycle-stats">
                             <!-- Populated by JS -->
                         </div>
                     </div>
@@ -385,6 +394,29 @@
                     </div>
                 </div>
 
+
+
+                <!-- Projects Page -->
+                <div id="page-projects" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Project Discovery & Onboarding</h2>
+                            <p>Persist customer discovery, onboarding status, and asset metadata for accepted HAMIX work.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary" id="btn-refresh-projects"><i data-lucide="refresh-cw"></i> Refresh Projects</button>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr><th>Project</th><th>Customer</th><th>Proposal</th><th>Status</th><th>Discovery</th><th>Updated</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="projects-list"><tr><td colspan="7" class="empty-state">No onboarding projects yet. Accept a proposal or convert a lead to create one.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Campaigns Page -->
                 <div id="page-campaigns" class="page">
                     <div class="page-header">
@@ -413,6 +445,30 @@
                                     <td colspan="5" class="empty-state">No campaigns created yet.</td>
                                 </tr>
                             </tbody>
+                        </table>
+                    </div>
+                </div>
+
+
+
+                <!-- Website Generation Page -->
+                <div id="page-websites" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Website Generation Engine</h2>
+                            <p>Create persistent website projects from approved onboarding discovery. Missing AI providers are recorded honestly as Pending AI Provider.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary" id="btn-refresh-websites"><i data-lucide="refresh-cw"></i> Refresh Websites</button>
+                            <button class="btn btn-primary" id="btn-generate-website"><i data-lucide="sparkles"></i> Generate from Project</button>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead>
+                                <tr><th>Website</th><th>Project</th><th>Status</th><th>Version</th><th>Pages</th><th>Updated</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="websites-list"><tr><td colspan="7" class="empty-state">No website projects yet. Create one from a discovery-ready onboarding project.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -479,10 +535,77 @@
                     </div>
                 </div>
 
+
+
+                <!-- Customer Success Page -->
+                <div id="page-success" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Customer Success</h2>
+                            <p>Track onboarding completion, support, follow-ups, renewals, growth opportunities, satisfaction, and next actions.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary" id="btn-refresh-success"><i data-lucide="refresh-cw"></i> Refresh Success</button>
+                            <button class="btn btn-primary" id="btn-create-success"><i data-lucide="plus"></i> Create Success Record</button>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead><tr><th>Customer</th><th>Project</th><th>Status</th><th>Onboarding</th><th>Satisfaction</th><th>Next Actions</th><th>Actions</th></tr></thead>
+                            <tbody id="success-list"><tr><td colspan="7" class="empty-state">No customer-success records yet. Create one from an active customer/project.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Other Pages Placeholders -->
-                <div id="page-templates" class="page"><h2>Templates</h2></div>
-                <div id="page-deployments" class="page"><h2>GitHub Deployments</h2></div>
-                <div id="page-settings" class="page"><h2>Settings</h2></div>
+                <div id="page-templates" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Website Templates</h2>
+                            <p>Existing generator templates are available for preview through customer website preview. Template editing remains provider/workflow dependent.</p>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead><tr><th>Template</th><th>Status</th><th>Use</th></tr></thead>
+                            <tbody>
+                                <tr><td>Default Business Website</td><td><span class="badge">Available</span></td><td>Used by customer preview and website generation request context.</td></tr>
+                                <tr><td>Custom Template Builder</td><td><span class="badge">Blocked</span></td><td>Requires approved design/editor scope before production editing.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="page-deployments" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Website Deployment Workflow</h2>
+                            <p>Request deployment for approved website projects. Missing deployment providers are recorded honestly as Pending Deployment Provider.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary" id="btn-refresh-deployments"><i data-lucide="refresh-cw"></i> Refresh Deployments</button>
+                            <button class="btn btn-primary" id="btn-request-deployment"><i data-lucide="rocket"></i> Request Deployment</button>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead><tr><th>Deployment</th><th>Website</th><th>Version</th><th>Status</th><th>Domain</th><th>Updated</th><th>Actions</th></tr></thead>
+                            <tbody id="deployments-list"><tr><td colspan="7" class="empty-state">No deployment requests yet. Approve a website project before requesting deployment.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="page-settings" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Workspace Settings</h2>
+                            <p>Configuration is read from backend environment variables and workspace records. Secrets must be configured server-side, not in browser notes.</p>
+                        </div>
+                    </div>
+                    <div class="dashboard-grid">
+                        <div class="stat-card"><div class="stat-data"><h3>Authentication</h3><p>Server-backed sessions with local fallback blocked for production use.</p></div></div>
+                        <div class="stat-card"><div class="stat-data"><h3>AI Provider</h3><p>Pending <code>HAMIX_AI_PROVIDER</code> and API key configuration.</p></div></div>
+                        <div class="stat-card"><div class="stat-data"><h3>Deployment</h3><p>Pending deployment provider, target, domain, and secret storage.</p></div></div>
+                    </div>
+                </div>
             </div>
 
             <div id="import-preview" class="import-preview-container" style="display: none;">
