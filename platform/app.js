@@ -358,6 +358,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             const count = state.leads.filter(l => l.status === status).length;
             return `<div class="pipeline-card"><span class="pipeline-label">${status}</span><span class="pipeline-value">${count}</span></div>`;
         }).join('');
+
+        const lifecycleContainer = document.getElementById('lifecycle-stats');
+        if (lifecycleContainer) {
+            const metrics = [
+                ['Diagnostics', state.diagnostics.length],
+                ['Proposals', state.proposals.length],
+                ['Projects', state.projects.length],
+                ['Websites', state.websites.length],
+                ['Deployments', state.deployments.length],
+                ['Success Records', state.successRecords.length]
+            ];
+            lifecycleContainer.innerHTML = metrics.map(([label, value]) => `<div class="pipeline-card"><span class="pipeline-label">${label}</span><span class="pipeline-value">${value}</span></div>`).join('');
+        }
     };
 
     // Leads
@@ -405,6 +418,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td>
                     <div class="action-group">
                         <button class="btn-icon qualify-lead" data-id="${lead.id}" title="Qualify"><i data-lucide="sparkles"></i></button>
+                        <button class="btn-icon diagnostic-lead" data-id="${lead.id}" title="Create Diagnostic"><i data-lucide="brain-circuit"></i></button>
+                        <button class="btn-icon proposal-lead" data-id="${lead.id}" title="Create Proposal"><i data-lucide="file-text"></i></button>
                         <button class="btn-icon stage-lead" data-id="${lead.id}" title="Next stage"><i data-lucide="arrow-right-circle"></i></button>
                         <button class="btn-icon convert-lead" data-id="${lead.id}" title="Convert"><i data-lucide="user-check"></i></button>
                         <button class="btn-icon edit-lead" data-id="${lead.id}"><i data-lucide="edit-2"></i></button>
@@ -427,6 +442,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                     updateDashboard();
                 } catch (error) {
                     alert(`Qualification failed: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.diagnostic-lead').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                try {
+                    const diagnostic = await StorageService.createDiagnostic({ leadId: btn.dataset.id });
+                    state.diagnostics.unshift(diagnostic);
+                    alert('Diagnostic created from lead. Review and approve it before proposal drafting.');
+                    navigateTo('diagnostics');
+                } catch (error) {
+                    alert(`Diagnostic creation failed: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.proposal-lead').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                try {
+                    const proposal = await StorageService.createProposal({ leadId: btn.dataset.id, title: 'HAMIX Growth Proposal' });
+                    state.proposals.unshift(proposal);
+                    alert(`Proposal ${proposal.proposalNumber} created from lead. Review before marking sent.`);
+                    navigateTo('proposals');
+                } catch (error) {
+                    alert(`Proposal creation failed: ${error.message}`);
                 } finally {
                     btn.disabled = false;
                 }
@@ -1140,11 +1187,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Customers
     const renderCustomers = () => {
         const listContainer = document.getElementById('customers-list');
-        if (state.customers.length === 0) {
-            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No customers yet.</td></tr>`;
+        let customers = [...state.customers];
+        const search = state.filters.customers.search.toLowerCase();
+        if (search) customers = customers.filter(c => JSON.stringify(c).toLowerCase().includes(search));
+        if (state.filters.customers.sort === 'name') customers.sort((a, b) => String(a.businessName || '').localeCompare(String(b.businessName || '')));
+        else customers.sort((a, b) => new Date(b.joinedAt || b.createdAt || 0) - new Date(a.joinedAt || a.createdAt || 0));
+        if (customers.length === 0) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No customers match the current filters.</td></tr>`;
             return;
         }
-        listContainer.innerHTML = state.customers.map(c => `
+        listContainer.innerHTML = customers.map(c => `
             <tr>
                 <td><strong>${c.businessName}</strong></td>
                 <td>${c.category || '-'}</td>
@@ -1196,6 +1248,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (themeSelect) {
         themeSelect.addEventListener('change', updatePreviewFrame);
     }
+
+
+    window.handleGlobalSearch = (query) => {
+        const overlay = document.getElementById('searchResults');
+        if (!overlay) return;
+        const q = String(query || '').trim().toLowerCase();
+        if (!q) {
+            overlay.innerHTML = '';
+            overlay.style.display = 'none';
+            return;
+        }
+        const collections = [
+            ['Lead', state.leads, item => item.businessName || item.email || item.phone, 'leads'],
+            ['Customer', state.customers, item => item.businessName || item.email || item.phone, 'customers'],
+            ['Proposal', state.proposals, item => item.proposalNumber || item.title, 'proposals'],
+            ['Project', state.projects, item => item.projectName || item.scopeSummary, 'projects'],
+            ['Website', state.websites, item => item.businessName || item.projectName, 'websites'],
+            ['Deployment', state.deployments, item => item.requestedDomain || item.status, 'deployments'],
+            ['Success', state.successRecords, item => item.customerSnapshot?.businessName || item.status, 'success']
+        ];
+        const matches = collections.flatMap(([type, items, labeler, page]) => items
+            .filter(item => JSON.stringify(item).toLowerCase().includes(q))
+            .slice(0, 4)
+            .map(item => ({ type, label: labeler(item) || item.id, page }))
+        ).slice(0, 10);
+        overlay.style.display = 'block';
+        overlay.innerHTML = matches.length
+            ? matches.map(match => `<button type="button" class="search-result-item" data-page="${match.page}"><strong>${match.type}</strong><span>${match.label}</span></button>`).join('')
+            : '<div class="search-result-empty">No matching HAMIX records found.</div>';
+        overlay.querySelectorAll('.search-result-item').forEach(item => item.addEventListener('click', () => {
+            overlay.style.display = 'none';
+            navigateTo(item.dataset.page);
+        }));
+    };
 
     // Filter Handlers
     document.querySelectorAll('.filter-btn').forEach(btn => {

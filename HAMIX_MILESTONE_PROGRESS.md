@@ -131,3 +131,11 @@
 - Completed: platform CSS now uses a consistent navy/indigo/teal professional palette with accessible focus states, table overflow safeguards, and tablet/mobile layout rules.
 - Verification summary: syntax checks, lint, production build, diff check, and clean tree were tested locally.
 - Remaining blocker: screenshot/browser verification remains unavailable because this checkout environment does not include a browser runtime.
+
+## Milestone: Platform Integration
+
+- Completed: verified one end-to-end lifecycle from lead import and qualification through diagnostic approval, proposal acceptance, customer/project creation, project discovery, website request/approval, deployment request, and customer-success activity.
+- Completed: added cross-module lead actions for diagnostic/proposal creation, lifecycle dashboard metrics, global entity search, and customer table filtering.
+- Completed: statically verified every sidebar `data-page` navigation target has a matching page container.
+- Verification summary: full customer journey, major CRUD/list endpoints, duplicate prevention, invalid/provider-action rejection, backend restart persistence, cross-tenant rejection, lint, build, syntax checks, diff check, and clean tree were tested locally.
+- Remaining external blockers only: AI provider, deployment provider/target, object storage, email/SMS/monitoring/analytics/feedback providers, secret storage, browser runtime for screenshot/console verification, and Git remote restoration.

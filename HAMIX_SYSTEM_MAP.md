@@ -125,3 +125,10 @@
 - The public landing page and internal platform now share a restrained HAMIX visual direction based on navy structure, indigo primary actions, teal success/accent, neutral surfaces, visible focus states, and responsive layout safeguards.
 - Templates and Settings pages are no longer empty placeholders; they document current repository-supported capabilities and external provider dependencies.
 - The website app lint warning in `Button.jsx` is resolved.
+
+## Platform Integration Milestone Update
+
+- The completed modules are now connected into one navigable lifecycle: Lead Discovery → Lead Qualification → AI Business Diagnostic → Proposal → Customer Conversion → Project Discovery → Website Generation → Website Deployment → Customer Success.
+- Lead rows now provide direct diagnostic and proposal actions, dashboard lifecycle statistics include diagnostics/proposals/projects/websites/deployments/customer-success, and global search spans the major persisted entities.
+- Customer filtering now applies to the customer table, and all sidebar navigation entries were statically verified to have matching page containers.
+- Cross-module data remains server-authenticated and tenant-scoped through the existing service/API architecture; provider-dependent AI/deployment/customer-success actions continue to be marked pending or blocked rather than faked.

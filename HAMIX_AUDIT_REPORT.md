@@ -122,3 +122,12 @@ This audit follows `HAMIX_CONSTITUTION.md` v1.0 and records verified repository 
 | Medium | Website lint emitted an unused `clsx` warning. | Fixed | Removed the unused import from the shared website Button component. | None observed after lint rerun. |
 | Medium | Templates and Settings navigation rendered placeholder-only pages. | Fixed | Replaced placeholders with actionable status/limitation content so navigation does not dead-end. | Full template editor remains future approved scope. |
 | Medium | Internal and landing colour usage needed a consistent professional palette and mobile safeguards. | Fixed | Added shared platform tokens, focus-visible states, table overflow, and tablet/mobile layout rules without changing product scope. | Full visual QA in a real browser remains blocked by missing browser runtime in this environment. |
+
+## Platform Integration Milestone Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Completed modules needed explicit cross-module transition controls. | Fixed | Added lead-to-diagnostic/proposal actions and verified API lifecycle from lead import through customer success. | Browser-based visual journey testing remains blocked by missing browser runtime. |
+| Medium | Dashboard did not expose downstream lifecycle health. | Fixed | Added lifecycle statistics for diagnostics, proposals, projects, websites, deployments, and customer success records. | Live KPI charts remain future product scope. |
+| Medium | Global search input referenced a missing handler and could produce console errors when used. | Fixed | Implemented `window.handleGlobalSearch` over persisted HAMIX lifecycle entities. | Full browser console verification requires a browser runtime. |
+| Medium | Customer table search input did not affect rendered rows. | Fixed | Customer rendering now applies search/sort filters and proper empty-state messaging. | Advanced pagination remains future scope. |

@@ -140,3 +140,10 @@ This plan follows `HAMIX_CONSTITUTION.md` and prioritizes verified defects. Work
 - Scope completed: removed unused `clsx` import, replaced Templates/Settings placeholders with useful state/dependency content, added shared platform colour tokens, focus-visible states, table overflow protection, and tablet/mobile responsive rules.
 - Verification: JavaScript syntax checks, website lint, production build, diff check, and clean tree check.
 - Remaining blocker: browser screenshot/responsive visual verification requires an installed browser runtime.
+
+## Completed Milestone: Platform Integration
+
+- Objective: connect accepted HAMIX modules into one end-to-end lifecycle without redesign or fake provider behavior.
+- Scope completed: cross-module lead actions, dashboard lifecycle stats, global entity search, customer filtering, static navigation/page reachability verification, full API journey verification, backend restart persistence, and tenant-isolation verification.
+- Verification: full Lead Discovery → Customer Success API journey, major CRUD/list checks, duplicate/idempotency checks, invalid/provider-action checks, direct cross-tenant attack checks, backend restart persistence, page reachability check, syntax checks, lint, production build, diff check, and clean tree check.
+- Remaining blockers: external AI provider, deployment provider/target, object storage, email/SMS/monitoring/analytics/feedback providers, secret storage, browser runtime for console/screenshot verification, and Git remote restoration.
