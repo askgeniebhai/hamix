@@ -37,3 +37,9 @@ If `HAMIX_AI_PROVIDER` and `HAMIX_AI_API_KEY` are not configured, the backend re
 Deployment requests are stored through `/api/deployments` and require an approved website project. If `HAMIX_DEPLOYMENT_PROVIDER` and `HAMIX_DEPLOYMENT_TARGET` are not configured, requests are saved as `Pending Deployment Provider` and no publishing is simulated.
 
 Configure approved hosting/repository targets, DNS/domain access, and secure secret storage before enabling real website publishing.
+
+## Customer success workflow
+
+Customer-success records are stored through `/api/customer-success` and linked to customer, project, proposal, website project, and deployment data inside the authenticated workspace. Activity history is stored through `/api/customer-success/:id/activities`.
+
+Provider-dependent actions such as email, SMS, monitoring alerts, analytics reports, and customer feedback requests are blocked unless approved providers are configured. HAMIX records manual activity history but does not fake customer communications or monitoring.

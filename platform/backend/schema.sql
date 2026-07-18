@@ -249,3 +249,35 @@ CREATE TABLE IF NOT EXISTS website_deployments (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS customer_success_records (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+  proposal_id TEXT REFERENCES proposals(id) ON DELETE SET NULL,
+  website_project_id TEXT REFERENCES website_projects(id) ON DELETE SET NULL,
+  deployment_id TEXT REFERENCES website_deployments(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'Onboarding',
+  data TEXT NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (workspace_id, customer_id, project_id)
+);
+
+CREATE TABLE IF NOT EXISTS customer_success_activities (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  success_id TEXT NOT NULL REFERENCES customer_success_records(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  activity_type TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  outcome TEXT,
+  next_action TEXT,
+  follow_up_at TEXT,
+  provider_status TEXT NOT NULL DEFAULT 'manual',
+  created_at TEXT NOT NULL
+);

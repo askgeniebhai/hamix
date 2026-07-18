@@ -184,6 +184,7 @@
                     <li data-page="payroll"><a href="#"><i data-lucide="banknote"></i> <span>Payroll</span></a></li>
                     <li data-page="templates"><a href="#"><i data-lucide="layout-template"></i> <span>Templates</span></a></li>
                     <li data-page="deployments"><a href="#"><i data-lucide="git-branch"></i> <span>GitHub Deployments</span></a></li>
+                    <li data-page="success"><a href="#"><i data-lucide="heart-handshake"></i> <span>Customer Success</span></a></li>
                     <li data-page="settings"><a href="#"><i data-lucide="settings"></i> <span>Settings</span></a></li>
                 </ul>
             </nav>
@@ -549,8 +550,46 @@
                     </div>
                 </div>
 
+
+
+                <!-- Customer Success Page -->
+                <div id="page-success" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Customer Success</h2>
+                            <p>Track onboarding completion, support, follow-ups, renewals, growth opportunities, satisfaction, and next actions.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary" id="btn-refresh-success"><i data-lucide="refresh-cw"></i> Refresh Success</button>
+                            <button class="btn btn-primary" id="btn-create-success"><i data-lucide="plus"></i> Create Success Record</button>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead><tr><th>Customer</th><th>Project</th><th>Status</th><th>Onboarding</th><th>Satisfaction</th><th>Next Actions</th><th>Actions</th></tr></thead>
+                            <tbody id="success-list"><tr><td colspan="7" class="empty-state">No customer-success records yet. Create one from an active customer/project.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Other Pages Placeholders -->
-                <div id="page-templates" class="page"><h2>Templates</h2></div>
+                <div id="page-templates" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Website Templates</h2>
+                            <p>Existing generator templates are available for preview through customer website preview. Template editing remains provider/workflow dependent.</p>
+                        </div>
+                    </div>
+                    <div class="leads-table-container">
+                        <table class="leads-table">
+                            <thead><tr><th>Template</th><th>Status</th><th>Use</th></tr></thead>
+                            <tbody>
+                                <tr><td>Default Business Website</td><td><span class="badge">Available</span></td><td>Used by customer preview and website generation request context.</td></tr>
+                                <tr><td>Custom Template Builder</td><td><span class="badge">Blocked</span></td><td>Requires approved design/editor scope before production editing.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 <div id="page-deployments" class="page">
                     <div class="page-header">
                         <div class="header-info">
@@ -569,7 +608,19 @@
                         </table>
                     </div>
                 </div>
-                <div id="page-settings" class="page"><h2>Settings</h2></div>
+                <div id="page-settings" class="page">
+                    <div class="page-header">
+                        <div class="header-info">
+                            <h2>Workspace Settings</h2>
+                            <p>Configuration is read from backend environment variables and workspace records. Secrets must be configured server-side, not in browser notes.</p>
+                        </div>
+                    </div>
+                    <div class="dashboard-grid">
+                        <div class="stat-card"><div class="stat-data"><h3>Authentication</h3><p>Server-backed sessions with local fallback blocked for production use.</p></div></div>
+                        <div class="stat-card"><div class="stat-data"><h3>AI Provider</h3><p>Pending <code>HAMIX_AI_PROVIDER</code> and API key configuration.</p></div></div>
+                        <div class="stat-card"><div class="stat-data"><h3>Deployment</h3><p>Pending deployment provider, target, domain, and secret storage.</p></div></div>
+                    </div>
+                </div>
             </div>
 
             <div id="import-preview" class="import-preview-container" style="display: none;">

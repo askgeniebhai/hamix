@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         projects: [],
         websites: [],
         deployments: [],
+        successRecords: [],
         filters: {
             leads: { search: '', status: 'all', sort: 'newest' },
             customers: { search: '', sort: 'newest' }
@@ -36,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.projects = await StorageService.loadProjects();
         state.websites = await StorageService.loadWebsites();
         state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
     };
 
     const updateCurrentUser = () => {
@@ -112,6 +114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             state.projects = [];
             state.websites = [];
             state.deployments = [];
+            state.successRecords = [];
             showAuth();
         });
     }
@@ -164,6 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pageId === 'projects') renderProjects();
         if (pageId === 'websites') renderWebsites();
         if (pageId === 'deployments') renderDeployments();
+        if (pageId === 'success') renderCustomerSuccess();
 
         if (window.lucide) window.lucide.createIcons();
     };
@@ -642,6 +646,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 state.projects = await StorageService.loadProjects();
         state.websites = await StorageService.loadWebsites();
         state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
             }
             renderProposals();
             updateDashboard();
@@ -779,6 +784,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 state.projects = await StorageService.loadProjects();
         state.websites = await StorageService.loadWebsites();
         state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
                 renderProjects();
             } catch (error) {
                 alert(`Project refresh failed: ${error.message}`);
@@ -882,6 +888,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 state.websites = await StorageService.loadWebsites();
         state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
                 renderWebsites();
             } catch (error) {
                 alert(`Website refresh failed: ${error.message}`);
@@ -956,11 +963,130 @@ document.addEventListener('DOMContentLoaded', async () => {
             btnRefreshDeployments.disabled = true;
             try {
                 state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
                 renderDeployments();
             } catch (error) {
                 alert(`Deployment refresh failed: ${error.message}`);
             } finally {
                 btnRefreshDeployments.disabled = false;
+            }
+        });
+    }
+
+
+    // Customer success workflow
+    const renderCustomerSuccess = () => {
+        const listContainer = document.getElementById('success-list');
+        if (!listContainer) return;
+        if (!state.successRecords.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No customer-success records yet. Create one from an active customer/project.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.successRecords.map(record => `
+            <tr>
+                <td><strong>${record.customerSnapshot?.businessName || record.customerId}</strong><br><small>${record.deploymentStatus || 'No deployment request'}</small></td>
+                <td>${record.projectName || record.projectId || '-'}</td>
+                <td><span class="badge">${record.status}</span></td>
+                <td>${record.onboardingCompletion || 0}%</td>
+                <td>${record.satisfaction || 'Not captured'}</td>
+                <td>${(record.nextActions || []).join(', ') || '-'}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn btn-secondary btn-sm success-update" data-id="${record.id}">Update</button>
+                        <button class="btn btn-secondary btn-sm success-activity" data-id="${record.id}">Add Activity</button>
+                        <button class="btn btn-primary btn-sm success-history" data-id="${record.id}">History</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.success-update').forEach(btn => btn.addEventListener('click', () => updateSuccessRecord(btn.dataset.id, btn)));
+        document.querySelectorAll('.success-activity').forEach(btn => btn.addEventListener('click', () => addSuccessActivity(btn.dataset.id, btn)));
+        document.querySelectorAll('.success-history').forEach(btn => btn.addEventListener('click', async () => {
+            try {
+                const response = await StorageService.loadCustomerSuccessActivities(btn.dataset.id);
+                alert(`Activity history:\n${response.data.map(item => `${item.created_at} · ${item.activity_type}: ${item.notes}`).join('\n') || 'No activities yet.'}`);
+            } catch (error) {
+                alert(`Activity load failed: ${error.message}`);
+            }
+        }));
+    };
+
+    const createSuccessRecord = async (button = null) => {
+        if (button) button.disabled = true;
+        try {
+            const customerId = prompt('Customer ID:');
+            if (!customerId) return;
+            const projectId = prompt('Project ID (optional, latest customer project is used if blank):', '');
+            const created = await StorageService.createCustomerSuccess({ customerId, projectId: projectId || undefined, status: 'Onboarding', nextActions: ['Complete onboarding review'] });
+            const record = created.success || created;
+            if (created.duplicate) alert(created.message);
+            else {
+                state.successRecords.unshift(record);
+                alert('Customer-success record created. Provider-dependent email/SMS/monitoring/analytics actions remain blocked until configured.');
+            }
+            renderCustomerSuccess();
+        } catch (error) {
+            alert(`Customer success creation failed: ${error.message}`);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    };
+
+    const updateSuccessRecord = async (id, button) => {
+        button.disabled = true;
+        try {
+            const current = state.successRecords.find(record => record.id === id);
+            const status = prompt('Status (Onboarding, Active, At Risk, Renewal Due, Growth Opportunity, Closed):', current?.status || 'Active');
+            if (!status) return;
+            const onboardingCompletion = prompt('Onboarding completion %:', current?.onboardingCompletion ?? 50);
+            if (onboardingCompletion === null) return;
+            const satisfaction = prompt('Satisfaction 1-5 (blank if not captured):', current?.satisfaction || '');
+            if (satisfaction === null) return;
+            const nextActions = prompt('Next actions (comma separated):', (current?.nextActions || []).join(', '));
+            if (nextActions === null) return;
+            const updated = await StorageService.updateCustomerSuccess(id, { status, onboardingCompletion, satisfaction, nextActions });
+            const index = state.successRecords.findIndex(record => record.id === updated.id);
+            if (index !== -1) state.successRecords[index] = updated;
+            renderCustomerSuccess();
+        } catch (error) {
+            alert(`Customer success update failed: ${error.message}`);
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    const addSuccessActivity = async (id, button) => {
+        button.disabled = true;
+        try {
+            const activityType = prompt('Activity type (note, call, meeting, follow_up, support_issue, renewal_review, growth_review):', 'note');
+            if (!activityType) return;
+            const notes = prompt('Activity notes:');
+            if (!notes) return;
+            const outcome = prompt('Outcome:', 'Recorded');
+            const nextAction = prompt('Next action:', 'Follow up');
+            const followUpAt = prompt('Follow-up date/time (optional ISO/date):', '');
+            await StorageService.addCustomerSuccessActivity(id, { activityType, notes, outcome, nextAction, followUpAt: followUpAt || null });
+            alert('Customer-success activity saved. Provider-dependent notifications were not sent.');
+        } catch (error) {
+            alert(`Customer success activity failed: ${error.message}`);
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    const btnCreateSuccess = document.getElementById('btn-create-success');
+    if (btnCreateSuccess) btnCreateSuccess.addEventListener('click', () => createSuccessRecord(btnCreateSuccess));
+    const btnRefreshSuccess = document.getElementById('btn-refresh-success');
+    if (btnRefreshSuccess) {
+        btnRefreshSuccess.addEventListener('click', async () => {
+            btnRefreshSuccess.disabled = true;
+            try {
+                state.successRecords = await StorageService.loadCustomerSuccess();
+                renderCustomerSuccess();
+            } catch (error) {
+                alert(`Customer success refresh failed: ${error.message}`);
+            } finally {
+                btnRefreshSuccess.disabled = false;
             }
         });
     }

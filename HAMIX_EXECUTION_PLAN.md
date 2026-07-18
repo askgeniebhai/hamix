@@ -126,3 +126,17 @@ This plan follows `HAMIX_CONSTITUTION.md` and prioritizes verified defects. Work
 - Scope completed: deployment schema, list/create/detail/status APIs, duplicate pending deployment prevention, provider-missing status, frontend request/list/cancel controls, audit logging, and documentation.
 - Verification: approved website deployment request, unapproved rejection, duplicate prevention, backend restart persistence, cross-tenant rejection, syntax checks, lint/build checks, and clean tree checks.
 - Remaining blockers: deployment provider selection, target repository/hosting configuration, DNS/domain credentials, and secret storage.
+
+## Completed Milestone: Customer Success Workflow
+
+- Objective: connect customer/project handoff to persistent customer success without faking external automation providers.
+- Scope completed: success record schema, activity schema, tenant-scoped APIs, duplicate prevention, support/activity history, provider-block validation, frontend Customer Success page/actions, audit logging, and documentation.
+- Verification: creation/update, duplicate prevention, invalid input/provider rejection, activity persistence, backend restart persistence, customer/project linkage, cross-tenant rejection, syntax checks, lint/build checks, and clean tree checks.
+- Remaining blockers: email, SMS, monitoring, analytics, customer feedback collection, and SLA automation providers require selection/configuration.
+
+## Completed Milestone: Navigation, Lint, Responsive, Accessibility, and Visual-System Cleanup
+
+- Objective: remove known lint defect, reduce dead placeholder navigation, and apply a restrained consistent HAMIX visual system.
+- Scope completed: removed unused `clsx` import, replaced Templates/Settings placeholders with useful state/dependency content, added shared platform colour tokens, focus-visible states, table overflow protection, and tablet/mobile responsive rules.
+- Verification: JavaScript syntax checks, website lint, production build, diff check, and clean tree check.
+- Remaining blocker: browser screenshot/responsive visual verification requires an installed browser runtime.

@@ -112,3 +112,16 @@
 - `/api/deployments` creates deployment requests only for approved website projects and records `Pending Deployment Provider` when no deployment provider/target is configured.
 - Duplicate pending deployment requests for the same website version are prevented; cancellation is supported and audited.
 - Frontend deployment navigation now lists deployment requests and supports request/cancel/refresh through shared services.
+
+## Customer Success Workflow Milestone Update
+
+- Customer success is now represented by persistent `customer_success_records` and `customer_success_activities` linked to workspace, customer, project, proposal, website project, and deployment where available.
+- `/api/customer-success` creates one record per workspace/customer/project, returns existing records on duplicates, and stores onboarding completion, project status, support issues, follow-ups, renewal data, growth opportunities, satisfaction, next actions, provider blocks, and notes.
+- `/api/customer-success/:id/activities` persists manual support/activity history while rejecting provider-dependent actions such as email, SMS, monitoring alerts, analytics reports, and feedback requests until providers are configured.
+- Frontend Customer Success navigation provides create, update, activity history, refresh, empty-state, and provider-block messaging through shared service methods.
+
+## Navigation, Responsive, Accessibility, and Visual-System Cleanup
+
+- The public landing page and internal platform now share a restrained HAMIX visual direction based on navy structure, indigo primary actions, teal success/accent, neutral surfaces, visible focus states, and responsive layout safeguards.
+- Templates and Settings pages are no longer empty placeholders; they document current repository-supported capabilities and external provider dependencies.
+- The website app lint warning in `Button.jsx` is resolved.

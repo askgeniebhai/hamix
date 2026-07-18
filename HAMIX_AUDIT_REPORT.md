@@ -106,3 +106,19 @@ This audit follows `HAMIX_CONSTITUTION.md` v1.0 and records verified repository 
 | High | Deployment page was a placeholder and could not persist deployment requests. | Fixed | Added tenant-scoped deployment schema/API and frontend request/list/cancel controls. | Real publishing requires deployment provider and target configuration. |
 | High | Publishing could be implied without infrastructure. | Fixed | Requests are saved as `Pending Deployment Provider` when `HAMIX_DEPLOYMENT_PROVIDER`/`HAMIX_DEPLOYMENT_TARGET` are missing; no fake publish occurs. | DNS/domain, repository target, hosting credentials, and CI/CD approvals remain external blockers. |
 | Medium | Duplicate pending deployments could be requested for one website version. | Fixed | Backend returns existing active deployment request for the same workspace/website/version. | Provider-specific idempotency must be added when a real provider is selected. |
+
+## Customer Success Workflow Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Customer success records were absent after deployment/project handoff. | Fixed | Added tenant-scoped customer-success records linked to customer/project/proposal/website/deployment. | External success automation providers remain unconfigured. |
+| High | Support/follow-up history was not persisted for customers. | Fixed | Added customer-success activity history with authenticated user, notes, outcome, next action, and follow-up date. | Email/SMS/monitoring/analytics/feedback providers are still blocked and not faked. |
+| Medium | Duplicate success records could fragment customer history. | Fixed | Database uniqueness and API duplicate response enforce one record per workspace/customer/project. | More detailed SLA/escalation roles remain future product scope. |
+
+## Cleanup, Navigation, Responsive, Accessibility, and Visual-System Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| Medium | Website lint emitted an unused `clsx` warning. | Fixed | Removed the unused import from the shared website Button component. | None observed after lint rerun. |
+| Medium | Templates and Settings navigation rendered placeholder-only pages. | Fixed | Replaced placeholders with actionable status/limitation content so navigation does not dead-end. | Full template editor remains future approved scope. |
+| Medium | Internal and landing colour usage needed a consistent professional palette and mobile safeguards. | Fixed | Added shared platform tokens, focus-visible states, table overflow, and tablet/mobile layout rules without changing product scope. | Full visual QA in a real browser remains blocked by missing browser runtime in this environment. |

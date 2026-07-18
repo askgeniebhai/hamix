@@ -114,3 +114,20 @@
 - Completed: duplicate active deployment requests for the same website version are prevented and cancellation is available.
 - Verification summary: approved deployment request, unapproved rejection, duplicate prevention, backend restart persistence, cross-tenant rejection, lint/build, and clean tree were tested locally.
 - Publishing blocker remains: no Git remote is configured in this checkout, branch `work` cannot currently be pushed, hosted pull-request status cannot be verified, local commits are preserved, and repository remote access must be restored before final delivery.
+
+## Milestone: Customer Success Workflow
+
+- Completed: customer success records persist onboarding completion, project status, support issues, follow-ups, renewals, growth opportunities, satisfaction, next actions, provider blocks, and notes.
+- Completed: success records link to workspace, customer, project, proposal, website project, and deployment where available, with duplicate prevention per customer/project.
+- Completed: persistent support/activity history is available with notes, outcomes, next actions, follow-up dates, authenticated user attribution, and audit entries.
+- Completed: provider-dependent email/SMS/monitoring/analytics/feedback actions are rejected or marked blocked rather than faked.
+- Verification summary: creation/update, duplicate prevention, invalid status/satisfaction/provider action rejection, activity persistence, backend restart persistence, cross-tenant rejection, lint/build, and clean tree were tested locally.
+- Publishing blocker remains: no Git remote is configured in this checkout, branch `work` cannot currently be pushed, hosted pull-request status cannot be verified, local commits are preserved, and repository remote access must be restored before final delivery.
+
+## Milestone: Navigation, Lint, Responsive, Accessibility, and Visual-System Cleanup
+
+- Completed: fixed the existing `clsx` lint warning in the website Button component.
+- Completed: Templates and Settings navigation now presents useful status/dependency content instead of placeholder-only dead ends.
+- Completed: platform CSS now uses a consistent navy/indigo/teal professional palette with accessible focus states, table overflow safeguards, and tablet/mobile layout rules.
+- Verification summary: syntax checks, lint, production build, diff check, and clean tree were tested locally.
+- Remaining blocker: screenshot/browser verification remains unavailable because this checkout environment does not include a browser runtime.

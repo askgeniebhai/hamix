@@ -350,6 +350,28 @@ const validateDiscoveryPayload = (body) => {
 };
 const AI_PROVIDER_CONFIGURED = Boolean(process.env.HAMIX_AI_PROVIDER && process.env.HAMIX_AI_API_KEY);
 const DEPLOYMENT_PROVIDER_CONFIGURED = Boolean(process.env.HAMIX_DEPLOYMENT_PROVIDER && process.env.HAMIX_DEPLOYMENT_TARGET);
+const successRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, customerId: row.customer_id, projectId: row.project_id, proposalId: row.proposal_id, websiteProjectId: row.website_project_id, deploymentId: row.deployment_id, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+const getOwnedSuccess = (workspaceId, successId) => one(`SELECT * FROM customer_success_records WHERE id=${sqlString(successId)} AND workspace_id=${sqlString(workspaceId)}`);
+const validateSuccessData = (body, existing = {}) => {
+  const allowedStatuses = ['Onboarding', 'Active', 'At Risk', 'Renewal Due', 'Growth Opportunity', 'Closed'];
+  const status = body.status || existing.status || 'Onboarding';
+  if (!allowedStatuses.includes(status)) throw new Error('Unsupported customer-success status.');
+  const satisfaction = body.satisfaction === undefined || body.satisfaction === '' ? existing.satisfaction || null : Number(body.satisfaction);
+  if (satisfaction !== null && (!Number.isFinite(satisfaction) || satisfaction < 1 || satisfaction > 5)) throw new Error('Satisfaction must be a number from 1 to 5.');
+  return {
+    onboardingCompletion: Math.max(0, Math.min(100, Number(body.onboardingCompletion ?? existing.onboardingCompletion ?? 0))),
+    projectStatus: body.projectStatus || existing.projectStatus || 'Onboarding',
+    supportIssues: Array.isArray(body.supportIssues) ? body.supportIssues : existing.supportIssues || [],
+    followUps: Array.isArray(body.followUps) ? body.followUps : existing.followUps || [],
+    renewals: body.renewals || existing.renewals || { status: 'Not Due', nextRenewalDate: null },
+    growthOpportunities: Array.isArray(body.growthOpportunities) ? body.growthOpportunities : existing.growthOpportunities || [],
+    satisfaction,
+    nextActions: Array.isArray(body.nextActions) ? body.nextActions : String(body.nextActions || existing.nextActions || '').split(/[\n,]/).map(item => item.trim()).filter(Boolean),
+    providerBlocks: body.providerBlocks || existing.providerBlocks || { email: 'Provider not configured', sms: 'Provider not configured', monitoring: 'Provider not configured', analytics: 'Provider not configured', feedback: 'Provider not configured' },
+    notes: body.notes ?? existing.notes ?? '',
+    updatedAt: now()
+  };
+};
 const deploymentRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, websiteProjectId: row.website_project_id, projectId: row.project_id, customerId: row.customer_id, version: row.version, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at } : null;
 const websiteRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, projectId: row.project_id, customerId: row.customer_id, proposalId: row.proposal_id, status: row.status, currentVersion: row.current_version, createdAt: row.created_at, updatedAt: row.updated_at } : null;
 const buildWebsiteProjectData = (body, project, discovery = {}, customer = {}) => {
@@ -916,6 +938,69 @@ const server = http.createServer(async (req, res) => {
       run(`UPDATE website_deployments SET status=${sqlString(body.status)}, data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
       audit(session, 'website_deployment_status_changed', 'website_deployment', row.id, { status: body.status });
       return json(res, 200, deploymentRowToJson(one(`SELECT * FROM website_deployments WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+
+    if (url.pathname === '/api/customer-success' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM customer_success_records WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY updated_at DESC`);
+      return json(res, 200, { data: rows.map(successRowToJson) });
+    }
+    if (url.pathname === '/api/customer-success' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.customerId) return safeError(res, 400, 'Customer success record requires a customerId.');
+      const customer = getOwnedCustomer(session.workspace_id, body.customerId);
+      if (!customer) return safeError(res, 404, 'Customer not found.');
+      const project = body.projectId ? getOwnedProject(session.workspace_id, body.projectId) : one(`SELECT * FROM projects WHERE workspace_id=${sqlString(session.workspace_id)} AND customer_id=${sqlString(body.customerId)} ORDER BY updated_at DESC LIMIT 1`);
+      if (body.projectId && !project) return safeError(res, 404, 'Project not found.');
+      const projectData = project ? JSON.parse(project.data) : {};
+      const website = project ? one(`SELECT * FROM website_projects WHERE workspace_id=${sqlString(session.workspace_id)} AND project_id=${sqlString(project.id)} ORDER BY updated_at DESC LIMIT 1`) : null;
+      const deployment = website ? one(`SELECT * FROM website_deployments WHERE workspace_id=${sqlString(session.workspace_id)} AND website_project_id=${sqlString(website.id)} ORDER BY updated_at DESC LIMIT 1`) : null;
+      const existing = project ? one(`SELECT * FROM customer_success_records WHERE workspace_id=${sqlString(session.workspace_id)} AND customer_id=${sqlString(body.customerId)} AND project_id=${sqlString(project.id)}`) : null;
+      if (existing) return json(res, 200, { success: successRowToJson(existing), duplicate: true, message: 'Customer success record already exists for this customer/project.' });
+      let successData;
+      try { successData = validateSuccessData(body); } catch (error) { return safeError(res, 400, error.message); }
+      const timestamp = now();
+      const successId = id('success');
+      const data = { ...successData, customerSnapshot: JSON.parse(customer.data), projectName: projectData.projectName || '', deploymentStatus: deployment ? deployment.status : 'No deployment request', createdAt: timestamp };
+      run(`INSERT INTO customer_success_records (id, workspace_id, customer_id, project_id, proposal_id, website_project_id, deployment_id, status, data, created_by, created_at, updated_at) VALUES (${sqlString(successId)}, ${sqlString(session.workspace_id)}, ${sqlString(body.customerId)}, ${sqlString(project?.id || null)}, ${sqlString(projectData.acceptedProposalId || null)}, ${sqlString(website?.id || null)}, ${sqlString(deployment?.id || null)}, ${sqlString(body.status || 'Onboarding')}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)}, ${sqlString(timestamp)})`);
+      audit(session, 'customer_success_created', 'customer_success', successId, { customerId: body.customerId, projectId: project?.id || null, websiteProjectId: website?.id || null, deploymentId: deployment?.id || null });
+      return json(res, 201, successRowToJson(one(`SELECT * FROM customer_success_records WHERE id=${sqlString(successId)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const successMatch = url.pathname.match(/^\/api\/customer-success\/([^/]+)$/);
+    if (successMatch && req.method === 'GET') {
+      const row = getOwnedSuccess(session.workspace_id, successMatch[1]);
+      if (!row) return safeError(res, 404, 'Customer success record not found.');
+      return json(res, 200, successRowToJson(row));
+    }
+    if (successMatch && req.method === 'POST') {
+      const row = getOwnedSuccess(session.workspace_id, successMatch[1]);
+      if (!row) return safeError(res, 404, 'Customer success record not found.');
+      const body = await readBody(req);
+      let merged;
+      try { merged = { ...JSON.parse(row.data), ...validateSuccessData(body, JSON.parse(row.data)) }; } catch (error) { return safeError(res, 400, error.message); }
+      const status = body.status || row.status;
+      run(`UPDATE customer_success_records SET status=${sqlString(status)}, data=${sqlString(JSON.stringify(merged))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'customer_success_updated', 'customer_success', row.id, { status, onboardingCompletion: merged.onboardingCompletion, satisfaction: merged.satisfaction });
+      return json(res, 200, successRowToJson(one(`SELECT * FROM customer_success_records WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const successActivitiesMatch = url.pathname.match(/^\/api\/customer-success\/([^/]+)\/activities$/);
+    if (successActivitiesMatch && req.method === 'GET') {
+      const row = getOwnedSuccess(session.workspace_id, successActivitiesMatch[1]);
+      if (!row) return safeError(res, 404, 'Customer success record not found.');
+      const activities = all(`SELECT * FROM customer_success_activities WHERE workspace_id=${sqlString(session.workspace_id)} AND success_id=${sqlString(row.id)} ORDER BY created_at DESC`);
+      return json(res, 200, { data: activities });
+    }
+    if (successActivitiesMatch && req.method === 'POST') {
+      const row = getOwnedSuccess(session.workspace_id, successActivitiesMatch[1]);
+      if (!row) return safeError(res, 404, 'Customer success record not found.');
+      const body = await readBody(req);
+      const type = body.activityType || 'note';
+      const providerTypes = ['email', 'sms', 'monitoring_alert', 'analytics_report', 'feedback_request'];
+      if (providerTypes.includes(type)) return safeError(res, 400, `${type} provider is not configured. Record a manual note or configure the provider first.`);
+      if (!String(body.notes || '').trim()) return safeError(res, 400, 'Activity notes are required.');
+      const activityId = id('success_activity');
+      run(`INSERT INTO customer_success_activities (id, workspace_id, success_id, customer_id, project_id, user_id, activity_type, notes, outcome, next_action, follow_up_at, provider_status, created_at) VALUES (${sqlString(activityId)}, ${sqlString(session.workspace_id)}, ${sqlString(row.id)}, ${sqlString(row.customer_id)}, ${sqlString(row.project_id)}, ${sqlString(session.user_id)}, ${sqlString(type)}, ${sqlString(body.notes)}, ${sqlString(body.outcome || '')}, ${sqlString(body.nextAction || '')}, ${sqlString(body.followUpAt || null)}, 'manual', ${sqlString(now())})`);
+      audit(session, 'customer_success_activity_created', 'customer_success_activity', activityId, { successId: row.id, activityType: type });
+      return json(res, 201, one(`SELECT * FROM customer_success_activities WHERE id=${sqlString(activityId)} AND workspace_id=${sqlString(session.workspace_id)}`));
     }
 
     if (url.pathname === '/api/settings') {
