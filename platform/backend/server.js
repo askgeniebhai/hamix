@@ -318,6 +318,49 @@ const upsertProjectForProposal = (session, proposal) => {
   else run(`INSERT INTO projects (id, workspace_id, customer_id, source_lead_id, data, created_at, updated_at) VALUES (${sqlString(projectData.id)}, ${sqlString(session.workspace_id)}, ${sqlString(customerId)}, ${sqlString(proposal.lead_id)}, ${sqlString(JSON.stringify(projectData))}, ${sqlString(now())}, ${sqlString(now())})`);
   return projectData;
 };
+
+const projectRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, customerId: row.customer_id, sourceLeadId: row.source_lead_id, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+const getOwnedProject = (workspaceId, projectId) => one(`SELECT * FROM projects WHERE id=${sqlString(projectId)} AND workspace_id=${sqlString(workspaceId)}`);
+const containsSecret = (value) => /\b(password|secret|token|api[_ -]?key|private[_ -]?key|credential)\b/i.test(String(value || ''));
+const normalizeList = (value) => Array.isArray(value) ? value.map(item => String(item).trim()).filter(Boolean) : String(value || '').split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+const validateDiscoveryPayload = (body) => {
+  const sensitiveFields = [body.notes, body.technicalRequirements, body.hostingPassword, body.apiKey, body.secret];
+  if (sensitiveFields.some(containsSecret)) throw new Error('Do not store passwords, API keys, tokens, or secrets in project discovery notes. Use approved secret storage when available.');
+  return {
+    companyInfo: String(body.companyInfo || '').trim(),
+    contacts: normalizeList(body.contacts || body.primaryContact),
+    primaryContact: String(body.primaryContact || '').trim(),
+    products: normalizeList(body.products),
+    services: normalizeList(body.services),
+    targetAudience: String(body.targetAudience || '').trim(),
+    competitors: normalizeList(body.competitors),
+    brandDetails: body.brandDetails && typeof body.brandDetails === 'object' ? body.brandDetails : { logo: body.logo || '', brandColours: normalizeList(body.brandColours) },
+    logo: String(body.logo || body.brandDetails?.logo || '').trim(),
+    brandColours: normalizeList(body.brandColours || body.brandDetails?.brandColours),
+    existingWebsite: String(body.existingWebsite || '').trim(),
+    domain: String(body.domain || '').trim(),
+    contentStatus: String(body.contentStatus || '').trim(),
+    images: normalizeList(body.images),
+    videos: normalizeList(body.videos),
+    technicalRequirements: String(body.technicalRequirements || '').trim(),
+    notes: String(body.notes || '').trim(),
+    projectStatus: body.projectStatus || 'Onboarding',
+    updatedAt: now()
+  };
+};
+const validateAssetMetadata = (body) => {
+  if (body.content || body.base64 || body.dataUrl || body.fileData) throw new Error('Durable object storage is not configured; submit asset metadata only.');
+  const fileName = String(body.fileName || '').trim();
+  const fileType = String(body.fileType || '').trim().toLowerCase();
+  const fileSize = Number(body.fileSize || 0);
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'application/pdf', 'text/plain'];
+  if (!fileName) throw new Error('Asset fileName is required.');
+  if (!allowedTypes.includes(fileType)) throw new Error('Unsupported asset file type.');
+  if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > 25 * 1024 * 1024) throw new Error('Asset fileSize must be between 1 byte and 25 MB.');
+  if (containsSecret(body.notes) || containsSecret(fileName)) throw new Error('Asset metadata must not contain secrets.');
+  return { fileName, fileType, fileSize, assetType: body.assetType || 'discovery', storageStatus: 'metadata_only', notes: body.notes || '', tags: normalizeList(body.tags), createdAt: now() };
+};
+
 const convertLeadToCustomer = (session, leadId, extra = {}) => {
   const lead = one(`SELECT * FROM leads WHERE id=${sqlString(leadId)} AND workspace_id=${sqlString(session.workspace_id)}`);
   if (!lead) throw new Error('Lead not found.');
@@ -646,21 +689,70 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       return res.end(html);
     }
+    if (url.pathname === '/api/projects' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM projects WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY updated_at DESC`);
+      return json(res, 200, { data: rows.map(projectRowToJson) });
+    }
+    const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/);
+    if (projectMatch && req.method === 'GET') {
+      const row = getOwnedProject(session.workspace_id, projectMatch[1]);
+      if (!row) return safeError(res, 404, 'Project not found.');
+      return json(res, 200, projectRowToJson(row));
+    }
+    if (projectMatch && req.method === 'POST') {
+      const row = getOwnedProject(session.workspace_id, projectMatch[1]);
+      if (!row) return safeError(res, 404, 'Project not found.');
+      const body = await readBody(req);
+      const data = { ...JSON.parse(row.data) };
+      for (const key of ['projectName', 'status', 'expectedStartDate', 'expectedCompletionDate', 'scopeSummary', 'discoveryStatus']) {
+        if (body[key] !== undefined) data[key] = body[key];
+      }
+      if (!data.projectName) return safeError(res, 400, 'Project name is required.');
+      data.updatedAt = now();
+      run(`UPDATE projects SET data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'project_updated', 'project', row.id, { status: data.status, discoveryStatus: data.discoveryStatus });
+      return json(res, 200, projectRowToJson(getOwnedProject(session.workspace_id, row.id)));
+    }
     const discoveryMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/discovery$/);
     if (discoveryMatch && req.method === 'GET') {
-      const project = one(`SELECT id FROM projects WHERE id=${sqlString(discoveryMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      const project = getOwnedProject(session.workspace_id, discoveryMatch[1]);
       if (!project) return safeError(res, 404, 'Project not found.');
       const row = one(`SELECT data FROM project_discovery WHERE project_id=${sqlString(discoveryMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
       return json(res, 200, { data: row ? JSON.parse(row.data) : {} });
     }
     if (discoveryMatch && req.method === 'POST') {
       const body = await readBody(req);
-      const project = one(`SELECT id FROM projects WHERE id=${sqlString(discoveryMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      const project = getOwnedProject(session.workspace_id, discoveryMatch[1]);
       if (!project) return safeError(res, 404, 'Project not found.');
-      const data = { companyInfo: body.companyInfo || '', primaryContact: body.primaryContact || '', logo: body.logo || '', brandColours: body.brandColours || [], products: body.products || [], services: body.services || [], targetAudience: body.targetAudience || '', competitors: body.competitors || [], existingWebsite: body.existingWebsite || '', domain: body.domain || '', contentStatus: body.contentStatus || '', images: body.images || [], videos: body.videos || [], technicalRequirements: body.technicalRequirements || '', notes: body.notes || '' };
+      let data;
+      try { data = validateDiscoveryPayload(body); } catch (error) { return safeError(res, 400, error.message); }
       run(`INSERT INTO project_discovery (project_id, workspace_id, data, updated_by, updated_at) VALUES (${sqlString(discoveryMatch[1])}, ${sqlString(session.workspace_id)}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(now())}) ON CONFLICT(project_id) DO UPDATE SET data=excluded.data, updated_by=excluded.updated_by, updated_at=excluded.updated_at`);
-      audit(session, 'onboarding_updated', 'project', discoveryMatch[1]);
+      const projectData = JSON.parse(project.data);
+      projectData.discoveryStatus = 'Complete';
+      projectData.status = data.projectStatus || projectData.status || 'Onboarding';
+      projectData.updatedAt = now();
+      run(`UPDATE projects SET data=${sqlString(JSON.stringify(projectData))}, updated_at=${sqlString(now())} WHERE id=${sqlString(project.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'project_discovery_updated', 'project', discoveryMatch[1], { contentStatus: data.contentStatus, projectStatus: data.projectStatus });
       return json(res, 200, data);
+    }
+    const assetMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/assets$/);
+    if (assetMatch && req.method === 'GET') {
+      const project = getOwnedProject(session.workspace_id, assetMatch[1]);
+      if (!project) return safeError(res, 404, 'Project not found.');
+      const rows = all(`SELECT * FROM project_assets WHERE project_id=${sqlString(assetMatch[1])} AND workspace_id=${sqlString(session.workspace_id)} ORDER BY created_at DESC`);
+      return json(res, 200, { data: rows.map(row => ({ ...JSON.parse(row.data), id: row.id, projectId: row.project_id, customerId: row.customer_id, proposalId: row.proposal_id, fileName: row.file_name, fileType: row.file_type, fileSize: row.file_size, assetType: row.asset_type, storageStatus: row.storage_status, createdAt: row.created_at })) });
+    }
+    if (assetMatch && req.method === 'POST') {
+      const project = getOwnedProject(session.workspace_id, assetMatch[1]);
+      if (!project) return safeError(res, 404, 'Project not found.');
+      const body = await readBody(req);
+      let metadata;
+      try { metadata = validateAssetMetadata(body); } catch (error) { return safeError(res, 400, error.message); }
+      const projectData = JSON.parse(project.data);
+      const assetId = id('asset');
+      run(`INSERT INTO project_assets (id, workspace_id, project_id, customer_id, proposal_id, file_name, file_type, file_size, asset_type, storage_status, data, created_by, created_at) VALUES (${sqlString(assetId)}, ${sqlString(session.workspace_id)}, ${sqlString(project.id)}, ${sqlString(project.customer_id)}, ${sqlString(projectData.acceptedProposalId || null)}, ${sqlString(metadata.fileName)}, ${sqlString(metadata.fileType)}, ${metadata.fileSize}, ${sqlString(metadata.assetType)}, 'metadata_only', ${sqlString(JSON.stringify(metadata))}, ${sqlString(session.user_id)}, ${sqlString(metadata.createdAt)})`);
+      audit(session, 'project_asset_metadata_created', 'project_asset', assetId, { projectId: project.id, fileName: metadata.fileName, storageStatus: 'metadata_only' });
+      return json(res, 201, { ...metadata, id: assetId, projectId: project.id, customerId: project.customer_id, proposalId: projectData.acceptedProposalId || null });
     }
 
     if (url.pathname === '/api/settings') {

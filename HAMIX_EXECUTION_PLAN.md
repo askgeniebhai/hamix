@@ -103,3 +103,11 @@ This plan follows `HAMIX_CONSTITUTION.md` and prioritizes verified defects. Work
 ## Completed milestone note — AI diagnostic hardening
 
 - Diagnostic input persistence, review/edit state, approval gating, diagnostic-to-proposal audit linkage, and invalid-input handling are implemented.
+
+## Completed Milestone: Project Discovery and Asset Metadata
+
+- Objective: connect existing onboarding/project discovery flow to persistent backend storage without inventing a new project-management platform.
+- Scope completed: project list/detail/update APIs, discovery persistence, project status updates, metadata-only asset tracking, tenant isolation, audit logging, frontend Projects navigation and controls.
+- Verification: backend syntax, frontend syntax, API lifecycle smoke tests, backend restart persistence, cross-tenant read/update rejection, lint/build checks, and git diff checks.
+- Rollback: revert this milestone commit to remove project/asset endpoints and Projects UI while preserving previously accepted auth/lead/proposal/diagnostic schema.
+- Remaining blockers: durable object storage and secure secret storage/provider selection are external deployment decisions.

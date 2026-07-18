@@ -89,3 +89,11 @@
 ## AI diagnostic hardening update
 
 - Diagnostic records now include user-provided goals/constraints inputs, editable reviewed recommendations, approved timestamp/user metadata, and an approval gate before diagnostic output can draft a proposal.
+
+## Project Discovery & Asset Milestone Update
+
+- Project onboarding records are now first-class server entities exposed through `/api/projects` and `/api/projects/:id`; they remain idempotent by workspace/customer so repeated lead conversion or accepted-proposal retries do not create duplicate onboarding projects.
+- Discovery data is persisted through `/api/projects/:id/discovery` and linked to the authenticated workspace, project, customer, source lead, and accepted proposal already stored on the project record.
+- Captured discovery fields include company profile, contacts, products, services, target audience, competitors, brand details, domain/current website, content status, technical requirements, notes, and project/discovery status.
+- Asset handling is metadata-only because this checkout has no durable object-storage provider; `/api/projects/:id/assets` validates metadata, rejects inline file bytes/base64 payloads, records `metadata_only` status, and audit logs the action.
+- Frontend navigation now includes a Projects page for onboarding discovery, status updates, and asset metadata capture through the shared `StorageService`/`ApiService` path.

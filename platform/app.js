@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         campaigns: [],
         proposals: [],
         diagnostics: [],
+        projects: [],
         filters: {
             leads: { search: '', status: 'all', sort: 'newest' },
             customers: { search: '', sort: 'newest' }
@@ -30,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.campaigns = await StorageService.loadCampaigns();
         state.proposals = await StorageService.loadProposals();
         state.diagnostics = await StorageService.loadDiagnostics();
+        state.projects = await StorageService.loadProjects();
     };
 
     const updateCurrentUser = () => {
@@ -101,6 +103,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             state.leads = [];
             state.customers = [];
             state.campaigns = [];
+            state.proposals = [];
+            state.diagnostics = [];
+            state.projects = [];
             showAuth();
         });
     }
@@ -150,6 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pageId === 'diagnostics') renderDiagnostics();
         if (pageId === 'proposals') renderProposals();
         if (pageId === 'customers') renderCustomers();
+        if (pageId === 'projects') renderProjects();
 
         if (window.lucide) window.lucide.createIcons();
     };
@@ -623,7 +629,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const index = state.proposals.findIndex(item => item.id === proposal.id);
             if (index !== -1) state.proposals[index] = proposal;
             if (response.customer && !state.customers.some(c => c.id === response.customer.id)) state.customers.push(response.customer);
-            if (status === 'Accepted') state.customers = await StorageService.loadCustomers();
+            if (status === 'Accepted') {
+                state.customers = await StorageService.loadCustomers();
+                state.projects = await StorageService.loadProjects();
+            }
             renderProposals();
             updateDashboard();
             alert(`Proposal ${status}. ${status === 'Sent' ? 'Email provider is not configured; this records a manual send state.' : ''}`);
@@ -649,6 +658,120 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert(`Proposal ${proposal.proposalNumber} created as Draft. Review before marking sent.`);
             } catch (error) {
                 alert(`Proposal creation failed: ${error.message}`);
+            }
+        });
+    }
+
+
+    // Projects and onboarding discovery
+    const renderProjects = () => {
+        const listContainer = document.getElementById('projects-list');
+        if (!listContainer) return;
+        if (!state.projects.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No onboarding projects yet. Accept a proposal or convert a lead to create one.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.projects.map(project => `
+            <tr>
+                <td><strong>${project.projectName || 'HAMIX Onboarding'}</strong><br><small>${project.scopeSummary || ''}</small></td>
+                <td>${project.customerId || '-'}</td>
+                <td>${project.acceptedProposalId || '-'}</td>
+                <td><span class="badge">${project.status || 'Onboarding'}</span></td>
+                <td>${project.discoveryStatus || 'Pending'}</td>
+                <td>${new Date(project.updatedAt || project.createdAt).toLocaleDateString()}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn btn-secondary btn-sm project-discovery" data-id="${project.id}">Discovery</button>
+                        <button class="btn btn-secondary btn-sm project-asset" data-id="${project.id}">Asset Metadata</button>
+                        <button class="btn btn-primary btn-sm project-complete" data-id="${project.id}">Mark Ready</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.project-discovery').forEach(btn => btn.addEventListener('click', () => editProjectDiscovery(btn.dataset.id, btn)));
+        document.querySelectorAll('.project-asset').forEach(btn => btn.addEventListener('click', () => addProjectAssetMetadata(btn.dataset.id, btn)));
+        document.querySelectorAll('.project-complete').forEach(btn => btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const updated = await StorageService.updateProject(btn.dataset.id, { status: 'Discovery Ready', discoveryStatus: 'Complete' });
+                const index = state.projects.findIndex(project => project.id === updated.id);
+                if (index !== -1) state.projects[index] = updated;
+                renderProjects();
+            } catch (error) {
+                alert(`Project update failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }));
+    };
+
+    const editProjectDiscovery = async (projectId, button) => {
+        button.disabled = true;
+        try {
+            const existing = await StorageService.loadProjectDiscovery(projectId);
+            const data = existing.data || {};
+            const companyInfo = prompt('Company profile / background:', data.companyInfo || '');
+            if (companyInfo === null) return;
+            const primaryContact = prompt('Primary contact:', data.primaryContact || (data.contacts || []).join(', '));
+            if (primaryContact === null) return;
+            const products = prompt('Products (comma separated):', (data.products || []).join(', '));
+            if (products === null) return;
+            const services = prompt('Services (comma separated):', (data.services || []).join(', '));
+            if (services === null) return;
+            const targetAudience = prompt('Target audience:', data.targetAudience || '');
+            if (targetAudience === null) return;
+            const competitors = prompt('Competitors (comma separated):', (data.competitors || []).join(', '));
+            if (competitors === null) return;
+            const domain = prompt('Domain / desired domain:', data.domain || data.existingWebsite || '');
+            if (domain === null) return;
+            const contentStatus = prompt('Content status:', data.contentStatus || 'Needs customer content review');
+            if (contentStatus === null) return;
+            const technicalRequirements = prompt('Technical requirements (do not enter passwords, tokens, or API keys):', data.technicalRequirements || '');
+            if (technicalRequirements === null) return;
+            const notes = prompt('Discovery notes (no secrets):', data.notes || '');
+            if (notes === null) return;
+            const saved = await StorageService.saveProjectDiscovery(projectId, { companyInfo, primaryContact, products, services, targetAudience, competitors, domain, contentStatus, technicalRequirements, notes, projectStatus: 'Discovery Ready' });
+            const index = state.projects.findIndex(project => project.id === projectId);
+            if (index !== -1) state.projects[index] = { ...state.projects[index], status: saved.projectStatus || 'Discovery Ready', discoveryStatus: 'Complete', updatedAt: new Date().toISOString() };
+            renderProjects();
+            alert('Project discovery saved to backend persistence. Secrets were intentionally blocked from ordinary notes.');
+        } catch (error) {
+            alert(`Discovery save failed: ${error.message}`);
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    const addProjectAssetMetadata = async (projectId, button) => {
+        button.disabled = true;
+        try {
+            alert('Durable object storage is not configured in this checkout. HAMIX will store metadata only and will not upload or persist the file bytes.');
+            const fileName = prompt('Asset file name (metadata only):');
+            if (!fileName) return;
+            const fileType = prompt('MIME type (image/png, image/jpeg, image/webp, image/svg+xml, application/pdf, text/plain):', 'image/png');
+            if (!fileType) return;
+            const fileSize = Number(prompt('File size in bytes:', '1024'));
+            const notes = prompt('Asset notes/tags (no secrets):', 'Customer-supplied discovery asset metadata only.');
+            const asset = await StorageService.addProjectAsset(projectId, { fileName, fileType, fileSize, notes, assetType: 'discovery' });
+            alert(`Asset metadata saved (${asset.storageStatus}). Object storage remains an external deployment dependency.`);
+        } catch (error) {
+            alert(`Asset metadata failed: ${error.message}`);
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    const btnRefreshProjects = document.getElementById('btn-refresh-projects');
+    if (btnRefreshProjects) {
+        btnRefreshProjects.addEventListener('click', async () => {
+            btnRefreshProjects.disabled = true;
+            try {
+                state.projects = await StorageService.loadProjects();
+                renderProjects();
+            } catch (error) {
+                alert(`Project refresh failed: ${error.message}`);
+            } finally {
+                btnRefreshProjects.disabled = false;
             }
         });
     }

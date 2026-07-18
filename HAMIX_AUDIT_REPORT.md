@@ -80,3 +80,12 @@ This audit follows `HAMIX_CONSTITUTION.md` v1.0 and records verified repository 
 
 - Diagnostic creation now rejects missing source records, stores diagnostic inputs, supports user-edited review output, and records explicit approval before proposal drafting.
 - Proposal drafting from diagnostics now requires an approved diagnostic and records diagnostic-to-proposal audit linkage.
+
+## Project Discovery & Asset Milestone Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Project discovery/onboarding UI was not connected to durable persistence. | Fixed | Added tenant-scoped project listing, discovery update, and status APIs plus a Projects UI connected through shared services. | Full project-management workflows remain out of scope until repository-supported modules exist. |
+| High | Customer assets could be implied as uploaded without durable object storage. | Fixed with limitation | Added metadata-only asset API that rejects file bytes/base64 and labels `storageStatus=metadata_only`. | Object storage provider selection/configuration is an external infrastructure blocker. |
+| Medium | Discovery notes could accidentally capture secrets. | Fixed with guardrail | Backend rejects obvious password/token/API-key/secret terms in ordinary discovery notes and asset metadata. | A dedicated secrets vault is still required before storing deployment credentials. |
+| Medium | Project/discovery cross-tenant authorization needed direct API enforcement. | Fixed | All project, discovery, and asset queries derive workspace from the authenticated session and return 404 for foreign project IDs. | Broader role-based permissions remain future hardening. |

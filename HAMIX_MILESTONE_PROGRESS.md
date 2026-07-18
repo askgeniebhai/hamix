@@ -87,3 +87,12 @@
 - After behavior: diagnostic creation validates source input, stores goals/constraints, supports edited review recommendations, captures approval timestamp/user, blocks diagnostic-backed proposals until approval, and audits diagnostic-to-proposal linkage.
 - Verification performed: invalid diagnostic input rejection, diagnostic creation with inputs, review/edit persistence, approval persistence, unapproved proposal rejection, approved diagnostic-to-proposal linkage, cross-tenant read/update rejection, backend restart persistence, logout invalidation, lint/build, and diff check.
 - Remaining risk: no external AI provider is configured; deterministic results remain labelled as estimates requiring user review.
+
+## Milestone: Project Discovery and Asset Metadata
+
+- Completed: project onboarding records can be listed, inspected, updated, and used to store customer discovery details through tenant-scoped backend APIs.
+- Completed: frontend Projects navigation now surfaces onboarding projects created by lead conversion or proposal acceptance and provides discovery/status/asset-metadata controls.
+- Completed: asset handling is intentionally metadata-only; the API rejects inline file bytes/base64 while recording file name/type/size/status metadata.
+- Completed: audit logs are created for project updates, discovery updates, and asset metadata actions.
+- Verification summary: project creation via accepted proposal, discovery update, invalid secret handling, metadata-only asset limitation, backend restart persistence, and cross-tenant rejection were tested locally.
+- Publishing blocker remains: no Git remote is configured in this checkout, branch `work` cannot currently be pushed, hosted pull-request status cannot be verified, local commits are preserved, and repository remote access must be restored before final delivery.
