@@ -64,3 +64,80 @@ This audit follows `HAMIX_CONSTITUTION.md` v1.0 and records verified repository 
 - PDF generation uses print-ready HTML rather than a binary PDF dependency.
 - Customer acceptance is an internal status action and is not an electronic signature.
 - Object storage for files/assets and secure secret vaulting are not configured; customer assets and credentials must not be stored in the source repository or ordinary notes.
+
+## Resolved in AI business diagnostic milestone
+
+- Business analysis is now persisted as a protected workspace-scoped diagnostic record instead of being only a local/mock customer mutation.
+- Diagnostic output explicitly separates verified information, inferred findings, recommendations, estimates, and unavailable data.
+- Reviewed diagnostics can be used as proposal-drafting guidance without allowing AI to silently control binding commercial totals.
+
+## Remaining AI diagnostic limitations
+
+- Diagnostics use deterministic repository logic, not a connected external AI provider.
+- All recommendations remain estimates and require user review before proposal sending or customer commitments.
+
+## Diagnostic milestone hardening update
+
+- Diagnostic creation now rejects missing source records, stores diagnostic inputs, supports user-edited review output, and records explicit approval before proposal drafting.
+- Proposal drafting from diagnostics now requires an approved diagnostic and records diagnostic-to-proposal audit linkage.
+
+## Project Discovery & Asset Milestone Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Project discovery/onboarding UI was not connected to durable persistence. | Fixed | Added tenant-scoped project listing, discovery update, and status APIs plus a Projects UI connected through shared services. | Full project-management workflows remain out of scope until repository-supported modules exist. |
+| High | Customer assets could be implied as uploaded without durable object storage. | Fixed with limitation | Added metadata-only asset API that rejects file bytes/base64 and labels `storageStatus=metadata_only`. | Object storage provider selection/configuration is an external infrastructure blocker. |
+| Medium | Discovery notes could accidentally capture secrets. | Fixed with guardrail | Backend rejects obvious password/token/API-key/secret terms in ordinary discovery notes and asset metadata. | A dedicated secrets vault is still required before storing deployment credentials. |
+| Medium | Project/discovery cross-tenant authorization needed direct API enforcement. | Fixed | All project, discovery, and asset queries derive workspace from the authenticated session and return 404 for foreign project IDs. | Broader role-based permissions remain future hardening. |
+
+## Website Generation Engine Milestone Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Project discovery was not connected to a durable website-generation request model. | Fixed | Added tenant-scoped website project and version APIs linked to onboarding projects/customers/proposals. | Actual AI content generation requires configured provider credentials and product approval. |
+| High | Website generation could be mistaken for complete AI output without a provider. | Fixed | Requests are persisted as `Pending AI Provider` when no provider is configured; no fake output is generated. | Provider selection, prompt governance, and model monitoring remain external blockers. |
+| Medium | Duplicate generation could create multiple active website projects for one onboarding project. | Fixed | Database uniqueness enforces one website project per workspace/project; regeneration creates version history instead. | Concurrent production hardening should be revisited if replacing SQLite. |
+| Medium | Website project approval/publish actions needed auditability. | Partially fixed | Generation, regeneration, edit, and approval actions create audit entries; publishing is blocked for the deployment milestone. | Deployment provider, repository target, and domain credentials remain unresolved. |
+
+## Website Deployment Workflow Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Deployment page was a placeholder and could not persist deployment requests. | Fixed | Added tenant-scoped deployment schema/API and frontend request/list/cancel controls. | Real publishing requires deployment provider and target configuration. |
+| High | Publishing could be implied without infrastructure. | Fixed | Requests are saved as `Pending Deployment Provider` when `HAMIX_DEPLOYMENT_PROVIDER`/`HAMIX_DEPLOYMENT_TARGET` are missing; no fake publish occurs. | DNS/domain, repository target, hosting credentials, and CI/CD approvals remain external blockers. |
+| Medium | Duplicate pending deployments could be requested for one website version. | Fixed | Backend returns existing active deployment request for the same workspace/website/version. | Provider-specific idempotency must be added when a real provider is selected. |
+
+## Customer Success Workflow Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Customer success records were absent after deployment/project handoff. | Fixed | Added tenant-scoped customer-success records linked to customer/project/proposal/website/deployment. | External success automation providers remain unconfigured. |
+| High | Support/follow-up history was not persisted for customers. | Fixed | Added customer-success activity history with authenticated user, notes, outcome, next action, and follow-up date. | Email/SMS/monitoring/analytics/feedback providers are still blocked and not faked. |
+| Medium | Duplicate success records could fragment customer history. | Fixed | Database uniqueness and API duplicate response enforce one record per workspace/customer/project. | More detailed SLA/escalation roles remain future product scope. |
+
+## Cleanup, Navigation, Responsive, Accessibility, and Visual-System Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| Medium | Website lint emitted an unused `clsx` warning. | Fixed | Removed the unused import from the shared website Button component. | None observed after lint rerun. |
+| Medium | Templates and Settings navigation rendered placeholder-only pages. | Fixed | Replaced placeholders with actionable status/limitation content so navigation does not dead-end. | Full template editor remains future approved scope. |
+| Medium | Internal and landing colour usage needed a consistent professional palette and mobile safeguards. | Fixed | Added shared platform tokens, focus-visible states, table overflow, and tablet/mobile layout rules without changing product scope. | Full visual QA in a real browser remains blocked by missing browser runtime in this environment. |
+
+## Platform Integration Milestone Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| High | Completed modules needed explicit cross-module transition controls. | Fixed | Added lead-to-diagnostic/proposal actions and verified API lifecycle from lead import through customer success. | Browser-based visual journey testing remains blocked by missing browser runtime. |
+| Medium | Dashboard did not expose downstream lifecycle health. | Fixed | Added lifecycle statistics for diagnostics, proposals, projects, websites, deployments, and customer success records. | Live KPI charts remain future product scope. |
+| Medium | Global search input referenced a missing handler and could produce console errors when used. | Fixed | Implemented `window.handleGlobalSearch` over persisted HAMIX lifecycle entities. | Full browser console verification requires a browser runtime. |
+| Medium | Customer table search input did not affect rendered rows. | Fixed | Customer rendering now applies search/sort filters and proper empty-state messaging. | Advanced pagination remains future scope. |
+
+## Production Hardening Milestone Findings
+
+| Severity | Issue | Status | Evidence / Fix | Remaining Risk |
+| --- | --- | --- | --- | --- |
+| Critical | Write APIs needed role-based authorization beyond tenant membership. | Fixed | Added Owner/Admin/Member roles with read-only Member enforcement and owner-managed membership creation. | Detailed per-feature RBAC matrices can be expanded after Product Owner role policy approval. |
+| High | Operational readiness/provider status was not machine-checkable. | Fixed | Added `/api/health`, `/api/ready`, and `/api/providers/status`. | Production readiness still depends on external provider credentials and infrastructure. |
+| High | Backend lacked centralized request security/rate-limit/error safeguards. | Fixed | Added security/CORS headers, request throttling, robust malformed JSON handling, and structured error logs. | A production reverse proxy/WAF should still be configured. |
+| High | No automated repo-owned lifecycle hardening test existed. | Fixed | Added `platform/backend/tests/integration-smoke.js`. | Browser E2E still requires browser runtime. |
+| Medium | SQLite backup/restore procedures were undocumented. | Fixed | Backend README now documents backup, integrity check, and restore workflow. | Actual backup storage/retention is an operations decision. |
