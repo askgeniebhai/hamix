@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install SQLite
+        run: sudo apt-get update && sudo apt-get install -y sqlite3
+
+      - name: Install website dependencies
+        run: npm ci --prefix website
+
+      - name: Validate git diff and conflict markers
+        run: |
+          git diff --check
+          ! git grep -n -E '^(<<<<<<<|=======($| )|>>>>>>>)'
+
+      - name: JavaScript syntax checks
+        run: |
+          find . \
+            -path './.git' -prune -o \
+            -path './website/node_modules' -prune -o \
+            -path './website/dist' -prune -o \
+            -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Validate JSON files
+        run: |
+          find . \
+            -path './.git' -prune -o \
+            -path './website/node_modules' -prune -o \
+            -path './website/dist' -prune -o \
+            -name '*.json' -print0 | xargs -0 -n1 node -e "const fs=require('fs'); for (const file of process.argv.slice(1)) JSON.parse(fs.readFileSync(file, 'utf8'));"
+
+      - name: Website lint
+        run: npm run lint --prefix website
+
+      - name: Website production build
+        run: npm run build --prefix website
+
+      - name: Backend startup and readiness check
+        run: |
+          DB_PATH="$RUNNER_TEMP/hamix-ci.sqlite"
+          HAMIX_DB_PATH="$DB_PATH" HAMIX_SESSION_SECRET="ci-secret-change-me" node platform/backend/server.js > "$RUNNER_TEMP/hamix-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true; cat "$RUNNER_TEMP/hamix-server.log"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8787/api/health && curl -fsS http://127.0.0.1:8787/api/ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Integration, RBAC, tenant isolation, XSS, static-host API routing, restart persistence, schema smoke tests
+        run: node platform/backend/tests/integration-smoke.js

@@ -17,6 +17,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         customers: [],
         campaigns: [],
         proposals: [],
+        diagnostics: [],
+        projects: [],
+        websites: [],
+        deployments: [],
+        successRecords: [],
         filters: {
             leads: { search: '', status: 'all', sort: 'newest' },
             customers: { search: '', sort: 'newest' }
@@ -28,6 +33,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.customers = await StorageService.loadCustomers();
         state.campaigns = await StorageService.loadCampaigns();
         state.proposals = await StorageService.loadProposals();
+        state.diagnostics = await StorageService.loadDiagnostics();
+        state.projects = await StorageService.loadProjects();
+        state.websites = await StorageService.loadWebsites();
+        state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
     };
 
     const updateCurrentUser = () => {
@@ -99,6 +109,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             state.leads = [];
             state.customers = [];
             state.campaigns = [];
+            state.proposals = [];
+            state.diagnostics = [];
+            state.projects = [];
+            state.websites = [];
+            state.deployments = [];
+            state.successRecords = [];
             showAuth();
         });
     }
@@ -145,6 +161,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pageId === 'dashboard') updateDashboard();
         if (pageId === 'leads') renderLeads();
         if (pageId === 'campaigns') renderCampaigns();
+        if (pageId === 'diagnostics') renderDiagnostics();
         if (pageId === 'proposals') renderProposals();
         if (pageId === 'customers') renderCustomers();
         if (pageId === 'projects') renderProjects();
@@ -401,6 +418,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td>
                     <div class="action-group">
                         <button class="btn-icon qualify-lead" data-id="${lead.id}" title="Qualify"><i data-lucide="sparkles"></i></button>
+                        <button class="btn-icon diagnostic-lead" data-id="${lead.id}" title="Create Diagnostic"><i data-lucide="brain-circuit"></i></button>
+                        <button class="btn-icon proposal-lead" data-id="${lead.id}" title="Create Proposal"><i data-lucide="file-text"></i></button>
                         <button class="btn-icon stage-lead" data-id="${lead.id}" title="Next stage"><i data-lucide="arrow-right-circle"></i></button>
                         <button class="btn-icon convert-lead" data-id="${lead.id}" title="Convert"><i data-lucide="user-check"></i></button>
                         <button class="btn-icon edit-lead" data-id="${lead.id}"><i data-lucide="edit-2"></i></button>
@@ -423,6 +442,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                     updateDashboard();
                 } catch (error) {
                     alert(`Qualification failed: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.diagnostic-lead').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                try {
+                    const diagnostic = await StorageService.createDiagnostic({ leadId: btn.dataset.id });
+                    state.diagnostics.unshift(diagnostic);
+                    alert('Diagnostic created from lead. Review and approve it before proposal drafting.');
+                    navigateTo('diagnostics');
+                } catch (error) {
+                    alert(`Diagnostic creation failed: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.proposal-lead').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                try {
+                    const proposal = await StorageService.createProposal({ leadId: btn.dataset.id, title: 'HAMIX Growth Proposal' });
+                    state.proposals.unshift(proposal);
+                    alert(`Proposal ${proposal.proposalNumber} created from lead. Review before marking sent.`);
+                    navigateTo('proposals');
+                } catch (error) {
+                    alert(`Proposal creation failed: ${error.message}`);
                 } finally {
                     btn.disabled = false;
                 }
@@ -518,6 +569,86 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
 
+
+    // Diagnostics
+    const renderDiagnostics = () => {
+        const listContainer = document.getElementById('diagnostics-list');
+        if (!listContainer) return;
+        if (!state.diagnostics.length) {
+            listContainer.innerHTML = `<tr><td colspan="6" class="empty-state">No diagnostics yet. Generate one from a qualified lead or customer.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.diagnostics.map(diagnostic => `
+            <tr>
+                <td><strong>${diagnostic.title}</strong><br><small>${diagnostic.aiLabel}</small></td>
+                <td>${diagnostic.leadId || diagnostic.customerId || '-'}</td>
+                <td>${diagnostic.estimates?.opportunityScore || '-'} / 100</td>
+                <td><span class="badge">${diagnostic.status}</span></td>
+                <td>${new Date(diagnostic.updatedAt || diagnostic.createdAt).toLocaleDateString()}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm diagnostic-review" data-id="${diagnostic.id}">Review/Edit</button>
+                    <button class="btn btn-secondary btn-sm diagnostic-approve" data-id="${diagnostic.id}">Approve</button>
+                    <button class="btn btn-primary btn-sm diagnostic-proposal" data-id="${diagnostic.id}">Draft Proposal</button>
+                </td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.diagnostic-review').forEach(btn => btn.addEventListener('click', async () => {
+            const diagnostic = state.diagnostics.find(item => item.id === btn.dataset.id);
+            if (!diagnostic) return;
+            const notes = prompt(`Verified: ${JSON.stringify(diagnostic.verifiedInformation)}\n\nInferred: ${JSON.stringify(diagnostic.inferredFindings)}\n\nRecommendations: ${diagnostic.recommendations.join('; ')}\n\nUnavailable: ${diagnostic.unavailableData.join('; ')}\n\nAdd review notes before saving:`, diagnostic.notes || 'Reviewed by user.');
+            if (notes === null) return;
+            const updated = await StorageService.updateDiagnostic(diagnostic.id, { status: 'Reviewed', notes });
+            state.diagnostics[state.diagnostics.findIndex(item => item.id === updated.id)] = updated;
+            renderDiagnostics();
+        }));
+        document.querySelectorAll('.diagnostic-approve').forEach(btn => btn.addEventListener('click', async () => {
+            const diagnostic = state.diagnostics.find(item => item.id === btn.dataset.id);
+            if (!diagnostic) return;
+            const updated = await StorageService.updateDiagnostic(diagnostic.id, { status: 'Approved', notes: diagnostic.notes || 'Approved for proposal drafting.' });
+            state.diagnostics[state.diagnostics.findIndex(item => item.id === updated.id)] = updated;
+            renderDiagnostics();
+            alert('Diagnostic approved for proposal drafting. This is not a customer approval or binding commercial decision.');
+        }));
+        document.querySelectorAll('.diagnostic-proposal').forEach(btn => btn.addEventListener('click', async () => {
+            const diagnostic = state.diagnostics.find(item => item.id === btn.dataset.id);
+            if (!diagnostic) return;
+            if (diagnostic.status !== 'Approved') {
+                alert('Approve the diagnostic before drafting a proposal from it.');
+                return;
+            }
+            try {
+                const proposal = await StorageService.createProposal({ leadId: diagnostic.leadId, customerId: diagnostic.customerId, diagnosticId: diagnostic.id, title: `HAMIX Proposal - ${diagnostic.verifiedInformation?.businessName || 'Business Diagnostic'}` });
+                state.proposals.unshift(proposal);
+                navigateTo('proposals');
+                alert(`Proposal ${proposal.proposalNumber} drafted from reviewed diagnostic. Commercial totals still require user review.`);
+            } catch (error) {
+                alert(`Proposal draft failed: ${error.message}`);
+            }
+        }));
+    };
+
+    const btnNewDiagnostic = document.getElementById('btn-new-diagnostic');
+    if (btnNewDiagnostic) {
+        btnNewDiagnostic.addEventListener('click', async () => {
+            const sourceType = prompt('Create diagnostic from "lead" or "customer"?', 'lead');
+            if (!sourceType) return;
+            const sourceId = prompt(`Enter ${sourceType} ID:`);
+            if (!sourceId) return;
+            try {
+                const body = sourceType.toLowerCase().startsWith('customer') ? { customerId: sourceId } : { leadId: sourceId };
+                btnNewDiagnostic.disabled = true;
+                const diagnostic = await StorageService.createDiagnostic(body);
+                state.diagnostics.unshift(diagnostic);
+                renderDiagnostics();
+                alert('Business diagnostic created as an estimate. Review before using it in a proposal.');
+            } catch (error) {
+                alert(`Diagnostic creation failed: ${error.message}`);
+            } finally {
+                btnNewDiagnostic.disabled = false;
+            }
+        });
+    }
+
     // Proposals
     const renderProposals = () => {
         const listContainer = document.getElementById('proposals-list');
@@ -544,7 +675,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </td>
             </tr>
         `).join('');
-        document.querySelectorAll('.proposal-print').forEach(btn => btn.addEventListener('click', () => window.open(`/api/proposals/${encodeURIComponent(btn.dataset.id)}/print`, '_blank')));
+        document.querySelectorAll('.proposal-print').forEach(btn => btn.addEventListener('click', () => window.open(ApiService.urlFor(`/api/proposals/${encodeURIComponent(btn.dataset.id)}/print`), '_blank')));
         document.querySelectorAll('.proposal-send').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Sent', 'Marked sent manually; email provider not configured.')));
         document.querySelectorAll('.proposal-accept').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Accepted', 'Accepted internally on behalf of customer; no e-signature captured.')));
         document.querySelectorAll('.proposal-reject').forEach(btn => btn.addEventListener('click', () => updateProposalStatus(btn.dataset.id, 'Rejected', prompt('Rejection reason (optional):') || 'Rejected internally.')));
@@ -557,7 +688,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const index = state.proposals.findIndex(item => item.id === proposal.id);
             if (index !== -1) state.proposals[index] = proposal;
             if (response.customer && !state.customers.some(c => c.id === response.customer.id)) state.customers.push(response.customer);
-            if (status === 'Accepted') state.customers = await StorageService.loadCustomers();
+            if (status === 'Accepted') {
+                state.customers = await StorageService.loadCustomers();
+                state.projects = await StorageService.loadProjects();
+        state.websites = await StorageService.loadWebsites();
+        state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
+            }
             renderProposals();
             updateDashboard();
             alert(`Proposal ${status}. ${status === 'Sent' ? 'Email provider is not configured; this records a manual send state.' : ''}`);
@@ -583,6 +720,420 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert(`Proposal ${proposal.proposalNumber} created as Draft. Review before marking sent.`);
             } catch (error) {
                 alert(`Proposal creation failed: ${error.message}`);
+            }
+        });
+    }
+
+
+    // Projects and onboarding discovery
+    const renderProjects = () => {
+        const listContainer = document.getElementById('projects-list');
+        if (!listContainer) return;
+        if (!state.projects.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No onboarding projects yet. Accept a proposal or convert a lead to create one.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.projects.map(project => `
+            <tr>
+                <td><strong>${project.projectName || 'HAMIX Onboarding'}</strong><br><small>${project.scopeSummary || ''}</small></td>
+                <td>${project.customerId || '-'}</td>
+                <td>${project.acceptedProposalId || '-'}</td>
+                <td><span class="badge">${project.status || 'Onboarding'}</span></td>
+                <td>${project.discoveryStatus || 'Pending'}</td>
+                <td>${new Date(project.updatedAt || project.createdAt).toLocaleDateString()}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn btn-secondary btn-sm project-discovery" data-id="${project.id}">Discovery</button>
+                        <button class="btn btn-secondary btn-sm project-asset" data-id="${project.id}">Asset Metadata</button>
+                        <button class="btn btn-primary btn-sm project-complete" data-id="${project.id}">Mark Ready</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.project-discovery').forEach(btn => btn.addEventListener('click', () => editProjectDiscovery(btn.dataset.id, btn)));
+        document.querySelectorAll('.project-asset').forEach(btn => btn.addEventListener('click', () => addProjectAssetMetadata(btn.dataset.id, btn)));
+        document.querySelectorAll('.project-complete').forEach(btn => btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const updated = await StorageService.updateProject(btn.dataset.id, { status: 'Discovery Ready', discoveryStatus: 'Complete' });
+                const index = state.projects.findIndex(project => project.id === updated.id);
+                if (index !== -1) state.projects[index] = updated;
+                renderProjects();
+            } catch (error) {
+                alert(`Project update failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }));
+    };
+
+    const editProjectDiscovery = async (projectId, button) => {
+        button.disabled = true;
+        try {
+            const existing = await StorageService.loadProjectDiscovery(projectId);
+            const data = existing.data || {};
+            const companyInfo = prompt('Company profile / background:', data.companyInfo || '');
+            if (companyInfo === null) return;
+            const primaryContact = prompt('Primary contact:', data.primaryContact || (data.contacts || []).join(', '));
+            if (primaryContact === null) return;
+            const products = prompt('Products (comma separated):', (data.products || []).join(', '));
+            if (products === null) return;
+            const services = prompt('Services (comma separated):', (data.services || []).join(', '));
+            if (services === null) return;
+            const targetAudience = prompt('Target audience:', data.targetAudience || '');
+            if (targetAudience === null) return;
+            const competitors = prompt('Competitors (comma separated):', (data.competitors || []).join(', '));
+            if (competitors === null) return;
+            const domain = prompt('Domain / desired domain:', data.domain || data.existingWebsite || '');
+            if (domain === null) return;
+            const contentStatus = prompt('Content status:', data.contentStatus || 'Needs customer content review');
+            if (contentStatus === null) return;
+            const technicalRequirements = prompt('Technical requirements (do not enter passwords, tokens, or API keys):', data.technicalRequirements || '');
+            if (technicalRequirements === null) return;
+            const notes = prompt('Discovery notes (no secrets):', data.notes || '');
+            if (notes === null) return;
+            const saved = await StorageService.saveProjectDiscovery(projectId, { companyInfo, primaryContact, products, services, targetAudience, competitors, domain, contentStatus, technicalRequirements, notes, projectStatus: 'Discovery Ready' });
+            const index = state.projects.findIndex(project => project.id === projectId);
+            if (index !== -1) state.projects[index] = { ...state.projects[index], status: saved.projectStatus || 'Discovery Ready', discoveryStatus: 'Complete', updatedAt: new Date().toISOString() };
+            renderProjects();
+            alert('Project discovery saved to backend persistence. Secrets were intentionally blocked from ordinary notes.');
+        } catch (error) {
+            alert(`Discovery save failed: ${error.message}`);
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    const addProjectAssetMetadata = async (projectId, button) => {
+        button.disabled = true;
+        try {
+            alert('Durable object storage is not configured in this checkout. HAMIX will store metadata only and will not upload or persist the file bytes.');
+            const fileName = prompt('Asset file name (metadata only):');
+            if (!fileName) return;
+            const fileType = prompt('MIME type (image/png, image/jpeg, image/webp, image/svg+xml, application/pdf, text/plain):', 'image/png');
+            if (!fileType) return;
+            const fileSize = Number(prompt('File size in bytes:', '1024'));
+            const notes = prompt('Asset notes/tags (no secrets):', 'Customer-supplied discovery asset metadata only.');
+            const asset = await StorageService.addProjectAsset(projectId, { fileName, fileType, fileSize, notes, assetType: 'discovery' });
+            alert(`Asset metadata saved (${asset.storageStatus}). Object storage remains an external deployment dependency.`);
+        } catch (error) {
+            alert(`Asset metadata failed: ${error.message}`);
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    const btnRefreshProjects = document.getElementById('btn-refresh-projects');
+    if (btnRefreshProjects) {
+        btnRefreshProjects.addEventListener('click', async () => {
+            btnRefreshProjects.disabled = true;
+            try {
+                state.projects = await StorageService.loadProjects();
+        state.websites = await StorageService.loadWebsites();
+        state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
+                renderProjects();
+            } catch (error) {
+                alert(`Project refresh failed: ${error.message}`);
+            } finally {
+                btnRefreshProjects.disabled = false;
+            }
+        });
+    }
+
+
+    // Website generation engine
+    const renderWebsites = () => {
+        const listContainer = document.getElementById('websites-list');
+        if (!listContainer) return;
+        if (!state.websites.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No website projects yet. Create one from a discovery-ready onboarding project.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.websites.map(site => `
+            <tr>
+                <td><strong>${site.businessName || site.projectName || 'HAMIX Website'}</strong><br><small>${site.aiProviderStatus === 'missing' ? 'Pending configured AI provider' : 'AI provider configured'}</small></td>
+                <td>${site.projectId}</td>
+                <td><span class="badge">${site.status || site.generationStatus}</span></td>
+                <td>v${site.currentVersion || 1}</td>
+                <td>${(site.pages || []).join(', ')}</td>
+                <td>${new Date(site.updatedAt || site.createdAt).toLocaleDateString()}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn btn-secondary btn-sm website-regenerate" data-project="${site.projectId}">Regenerate</button>
+                        <button class="btn btn-secondary btn-sm website-versions" data-id="${site.id}">Versions</button>
+                        <button class="btn btn-primary btn-sm website-approve" data-id="${site.id}">Approve</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.website-regenerate').forEach(btn => btn.addEventListener('click', () => requestWebsiteGeneration(btn.dataset.project, true, btn)));
+        document.querySelectorAll('.website-versions').forEach(btn => btn.addEventListener('click', async () => {
+            try {
+                const response = await StorageService.loadWebsiteVersions(btn.dataset.id);
+                alert(`Website versions:\n${response.data.map(v => `v${v.version} · ${v.status} · ${new Date(v.createdAt).toLocaleString()}`).join('\n') || 'No versions found.'}`);
+            } catch (error) {
+                alert(`Version history failed: ${error.message}`);
+            }
+        }));
+        document.querySelectorAll('.website-approve').forEach(btn => btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const updated = await StorageService.updateWebsiteProjectStatus(btn.dataset.id, 'Approved');
+                const index = state.websites.findIndex(site => site.id === updated.id);
+                if (index !== -1) state.websites[index] = updated;
+                renderWebsites();
+                alert('Website project approved internally. Publishing is handled by the deployment workflow and is not simulated here.');
+            } catch (error) {
+                alert(`Website approval failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }));
+    };
+
+    const requestWebsiteGeneration = async (projectId, regenerate = false, button = null) => {
+        if (button) button.disabled = true;
+        try {
+            const notes = prompt(regenerate ? 'Regeneration notes:' : 'Generation request notes:', regenerate ? 'Regenerate as a new preserved version.' : 'Generate from approved project discovery.');
+            if (notes === null) return;
+            const pages = prompt('Pages (comma separated):', 'Home, About, Services, Contact');
+            if (pages === null) return;
+            const payload = { notes, pages: pages.split(',').map(page => page.trim()).filter(Boolean) };
+            const result = regenerate ? await StorageService.regenerateWebsiteProject(projectId, payload) : await StorageService.createWebsiteProject({ ...payload, projectId });
+            const website = result.website || result;
+            if (result.duplicate) {
+                alert(result.message);
+            } else if (regenerate) {
+                const index = state.websites.findIndex(site => site.id === website.id);
+                if (index !== -1) state.websites[index] = website;
+                alert(`Website regeneration saved as version ${website.currentVersion}. Status: ${website.status}.`);
+            } else {
+                state.websites.unshift(website);
+                alert(`Website generation request persisted. Status: ${website.status}. Configure an AI provider before generated content is produced.`);
+            }
+            renderWebsites();
+        } catch (error) {
+            alert(`Website generation failed: ${error.message}`);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    };
+
+    const btnGenerateWebsite = document.getElementById('btn-generate-website');
+    if (btnGenerateWebsite) {
+        btnGenerateWebsite.addEventListener('click', async () => {
+            const projectId = prompt('Enter discovery-ready project ID:');
+            if (!projectId) return;
+            await requestWebsiteGeneration(projectId, false, btnGenerateWebsite);
+        });
+    }
+    const btnRefreshWebsites = document.getElementById('btn-refresh-websites');
+    if (btnRefreshWebsites) {
+        btnRefreshWebsites.addEventListener('click', async () => {
+            btnRefreshWebsites.disabled = true;
+            try {
+                state.websites = await StorageService.loadWebsites();
+        state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
+                renderWebsites();
+            } catch (error) {
+                alert(`Website refresh failed: ${error.message}`);
+            } finally {
+                btnRefreshWebsites.disabled = false;
+            }
+        });
+    }
+
+
+    // Website deployment workflow
+    const renderDeployments = () => {
+        const listContainer = document.getElementById('deployments-list');
+        if (!listContainer) return;
+        if (!state.deployments.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No deployment requests yet. Approve a website project before requesting deployment.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.deployments.map(deployment => `
+            <tr>
+                <td><strong>${deployment.id}</strong><br><small>${deployment.providerStatus === 'missing' ? 'Provider not configured' : 'Provider configured'}</small></td>
+                <td>${deployment.websiteProjectId}</td>
+                <td>v${deployment.version}</td>
+                <td><span class="badge">${deployment.status}</span></td>
+                <td>${deployment.requestedDomain || '-'}</td>
+                <td>${new Date(deployment.updatedAt || deployment.createdAt).toLocaleDateString()}</td>
+                <td><button class="btn btn-secondary btn-sm deployment-cancel" data-id="${deployment.id}">Cancel</button></td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.deployment-cancel').forEach(btn => btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const updated = await StorageService.updateDeploymentStatus(btn.dataset.id, 'Cancelled');
+                const index = state.deployments.findIndex(item => item.id === updated.id);
+                if (index !== -1) state.deployments[index] = updated;
+                renderDeployments();
+            } catch (error) {
+                alert(`Deployment update failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }));
+    };
+
+    const requestDeployment = async (button = null) => {
+        if (button) button.disabled = true;
+        try {
+            const websiteProjectId = prompt('Approved website project ID:');
+            if (!websiteProjectId) return;
+            const domain = prompt('Requested domain (optional):', '');
+            const notes = prompt('Deployment notes:', 'Deployment request; provider configuration required before publishing.');
+            const result = await StorageService.createDeployment({ websiteProjectId, domain, notes });
+            const deployment = result.deployment || result;
+            if (result.duplicate) alert(result.message);
+            else {
+                state.deployments.unshift(deployment);
+                alert(`Deployment request saved. Status: ${deployment.status}. Configure a deployment provider before publishing.`);
+            }
+            renderDeployments();
+        } catch (error) {
+            alert(`Deployment request failed: ${error.message}`);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    };
+
+    const btnRequestDeployment = document.getElementById('btn-request-deployment');
+    if (btnRequestDeployment) btnRequestDeployment.addEventListener('click', () => requestDeployment(btnRequestDeployment));
+    const btnRefreshDeployments = document.getElementById('btn-refresh-deployments');
+    if (btnRefreshDeployments) {
+        btnRefreshDeployments.addEventListener('click', async () => {
+            btnRefreshDeployments.disabled = true;
+            try {
+                state.deployments = await StorageService.loadDeployments();
+        state.successRecords = await StorageService.loadCustomerSuccess();
+                renderDeployments();
+            } catch (error) {
+                alert(`Deployment refresh failed: ${error.message}`);
+            } finally {
+                btnRefreshDeployments.disabled = false;
+            }
+        });
+    }
+
+
+    // Customer success workflow
+    const renderCustomerSuccess = () => {
+        const listContainer = document.getElementById('success-list');
+        if (!listContainer) return;
+        if (!state.successRecords.length) {
+            listContainer.innerHTML = `<tr><td colspan="7" class="empty-state">No customer-success records yet. Create one from an active customer/project.</td></tr>`;
+            return;
+        }
+        listContainer.innerHTML = state.successRecords.map(record => `
+            <tr>
+                <td><strong>${record.customerSnapshot?.businessName || record.customerId}</strong><br><small>${record.deploymentStatus || 'No deployment request'}</small></td>
+                <td>${record.projectName || record.projectId || '-'}</td>
+                <td><span class="badge">${record.status}</span></td>
+                <td>${record.onboardingCompletion || 0}%</td>
+                <td>${record.satisfaction || 'Not captured'}</td>
+                <td>${(record.nextActions || []).join(', ') || '-'}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn btn-secondary btn-sm success-update" data-id="${record.id}">Update</button>
+                        <button class="btn btn-secondary btn-sm success-activity" data-id="${record.id}">Add Activity</button>
+                        <button class="btn btn-primary btn-sm success-history" data-id="${record.id}">History</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        document.querySelectorAll('.success-update').forEach(btn => btn.addEventListener('click', () => updateSuccessRecord(btn.dataset.id, btn)));
+        document.querySelectorAll('.success-activity').forEach(btn => btn.addEventListener('click', () => addSuccessActivity(btn.dataset.id, btn)));
+        document.querySelectorAll('.success-history').forEach(btn => btn.addEventListener('click', async () => {
+            try {
+                const response = await StorageService.loadCustomerSuccessActivities(btn.dataset.id);
+                alert(`Activity history:\n${response.data.map(item => `${item.created_at} · ${item.activity_type}: ${item.notes}`).join('\n') || 'No activities yet.'}`);
+            } catch (error) {
+                alert(`Activity load failed: ${error.message}`);
+            }
+        }));
+    };
+
+    const createSuccessRecord = async (button = null) => {
+        if (button) button.disabled = true;
+        try {
+            const customerId = prompt('Customer ID:');
+            if (!customerId) return;
+            const projectId = prompt('Project ID (optional, latest customer project is used if blank):', '');
+            const created = await StorageService.createCustomerSuccess({ customerId, projectId: projectId || undefined, status: 'Onboarding', nextActions: ['Complete onboarding review'] });
+            const record = created.success || created;
+            if (created.duplicate) alert(created.message);
+            else {
+                state.successRecords.unshift(record);
+                alert('Customer-success record created. Provider-dependent email/SMS/monitoring/analytics actions remain blocked until configured.');
+            }
+            renderCustomerSuccess();
+        } catch (error) {
+            alert(`Customer success creation failed: ${error.message}`);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    };
+
+    const updateSuccessRecord = async (id, button) => {
+        button.disabled = true;
+        try {
+            const current = state.successRecords.find(record => record.id === id);
+            const status = prompt('Status (Onboarding, Active, At Risk, Renewal Due, Growth Opportunity, Closed):', current?.status || 'Active');
+            if (!status) return;
+            const onboardingCompletion = prompt('Onboarding completion %:', current?.onboardingCompletion ?? 50);
+            if (onboardingCompletion === null) return;
+            const satisfaction = prompt('Satisfaction 1-5 (blank if not captured):', current?.satisfaction || '');
+            if (satisfaction === null) return;
+            const nextActions = prompt('Next actions (comma separated):', (current?.nextActions || []).join(', '));
+            if (nextActions === null) return;
+            const updated = await StorageService.updateCustomerSuccess(id, { status, onboardingCompletion, satisfaction, nextActions });
+            const index = state.successRecords.findIndex(record => record.id === updated.id);
+            if (index !== -1) state.successRecords[index] = updated;
+            renderCustomerSuccess();
+        } catch (error) {
+            alert(`Customer success update failed: ${error.message}`);
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    const addSuccessActivity = async (id, button) => {
+        button.disabled = true;
+        try {
+            const activityType = prompt('Activity type (note, call, meeting, follow_up, support_issue, renewal_review, growth_review):', 'note');
+            if (!activityType) return;
+            const notes = prompt('Activity notes:');
+            if (!notes) return;
+            const outcome = prompt('Outcome:', 'Recorded');
+            const nextAction = prompt('Next action:', 'Follow up');
+            const followUpAt = prompt('Follow-up date/time (optional ISO/date):', '');
+            await StorageService.addCustomerSuccessActivity(id, { activityType, notes, outcome, nextAction, followUpAt: followUpAt || null });
+            alert('Customer-success activity saved. Provider-dependent notifications were not sent.');
+        } catch (error) {
+            alert(`Customer success activity failed: ${error.message}`);
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    const btnCreateSuccess = document.getElementById('btn-create-success');
+    if (btnCreateSuccess) btnCreateSuccess.addEventListener('click', () => createSuccessRecord(btnCreateSuccess));
+    const btnRefreshSuccess = document.getElementById('btn-refresh-success');
+    if (btnRefreshSuccess) {
+        btnRefreshSuccess.addEventListener('click', async () => {
+            btnRefreshSuccess.disabled = true;
+            try {
+                state.successRecords = await StorageService.loadCustomerSuccess();
+                renderCustomerSuccess();
+            } catch (error) {
+                alert(`Customer success refresh failed: ${error.message}`);
+            } finally {
+                btnRefreshSuccess.disabled = false;
             }
         });
     }
@@ -796,11 +1347,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         ocrFileInput.addEventListener('change', async () => {
             const ocrStatus = document.getElementById('ocr-status');
             if (ocrStatus) ocrStatus.style.display = 'block';
-            const leads = await AcquisitionService.importFromSource('ocr', 'image_data');
-            setTimeout(() => {
-                if (ocrStatus) ocrStatus.style.display = 'none';
+            try {
+                const leads = await AcquisitionService.importFromSource('ocr', 'image_data');
                 processImport(leads);
-            }, 1500);
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                if (ocrStatus) ocrStatus.style.display = 'none';
+            }
         });
     }
 
@@ -1021,7 +1575,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnApproveMsg = document.getElementById('btn-approve-msg');
     if (btnApproveMsg) {
         btnApproveMsg.addEventListener('click', () => {
-            alert('Message approved! (Demo Mode: WhatsApp integration will be available in the next phase)');
+            alert('Message review saved locally. WhatsApp sending is blocked until an approved provider is configured.');
             closeModal('review');
         });
     }
