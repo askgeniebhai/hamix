@@ -11,7 +11,6 @@ const AcquisitionService = (() => {
      */
     const registerConnector = (id, handler) => {
         connectors[id] = handler;
-        console.log(`Connector registered: ${id}`);
     };
 
     /**
@@ -71,15 +70,9 @@ const AcquisitionService = (() => {
         return LeadEngine.parseGMapsData(rawData);
     });
 
-    // OCR Connector Simulation
-    registerConnector('ocr', (imageData) => {
-        // In a real app, this would call an AI OCR API
-        // For now, we simulate extraction
-        return [{
-            businessName: 'OCR Extracted Business',
-            phone: '555-OCR-123',
-            notes: 'AI OCR Extraction'
-        }];
+    // OCR Connector: blocked until a real OCR/AI provider is configured.
+    registerConnector('ocr', () => {
+        throw new Error('OCR import requires a configured OCR/AI provider. No simulated leads were created.');
     });
 
     return {

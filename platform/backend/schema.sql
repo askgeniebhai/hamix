@@ -180,3 +180,104 @@ CREATE TABLE IF NOT EXISTS project_discovery (
   updated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS business_diagnostics (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL,
+  customer_id TEXT REFERENCES customers(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  data TEXT NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS project_assets (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  customer_id TEXT REFERENCES customers(id) ON DELETE SET NULL,
+  proposal_id TEXT REFERENCES proposals(id) ON DELETE SET NULL,
+  file_name TEXT NOT NULL,
+  file_type TEXT NOT NULL,
+  file_size INTEGER NOT NULL DEFAULT 0,
+  asset_type TEXT NOT NULL DEFAULT 'metadata',
+  storage_status TEXT NOT NULL DEFAULT 'metadata_only',
+  data TEXT NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS website_projects (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  proposal_id TEXT REFERENCES proposals(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'Pending AI Provider',
+  current_version INTEGER NOT NULL DEFAULT 1,
+  data TEXT NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (workspace_id, project_id)
+);
+
+CREATE TABLE IF NOT EXISTS website_project_versions (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  website_project_id TEXT NOT NULL REFERENCES website_projects(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  data TEXT NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE (workspace_id, website_project_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS website_deployments (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  website_project_id TEXT NOT NULL REFERENCES website_projects(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Pending Deployment Provider',
+  data TEXT NOT NULL,
+  requested_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS customer_success_records (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+  proposal_id TEXT REFERENCES proposals(id) ON DELETE SET NULL,
+  website_project_id TEXT REFERENCES website_projects(id) ON DELETE SET NULL,
+  deployment_id TEXT REFERENCES website_deployments(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'Onboarding',
+  data TEXT NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (workspace_id, customer_id, project_id)
+);
+
+CREATE TABLE IF NOT EXISTS customer_success_activities (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  success_id TEXT NOT NULL REFERENCES customer_success_records(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  activity_type TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  outcome TEXT,
+  next_action TEXT,
+  follow_up_at TEXT,
+  provider_status TEXT NOT NULL DEFAULT 'manual',
+  created_at TEXT NOT NULL
+);

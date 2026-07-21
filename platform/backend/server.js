@@ -11,7 +11,10 @@ const DB_PATH = path.resolve(process.env.HAMIX_DB_PATH || path.join(__dirname, '
 const SESSION_SECRET = process.env.HAMIX_SESSION_SECRET || 'development-secret-change-me';
 const COOKIE_SECURE = String(process.env.HAMIX_COOKIE_SECURE || 'false') === 'true';
 const SESSION_DAYS = 7;
+const ALLOWED_ORIGIN = process.env.HAMIX_ALLOWED_ORIGIN || '*';
+const NODE_ENV = process.env.NODE_ENV || 'development';
 const loginAttempts = new Map();
+const requestAttempts = new Map();
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 execFileSync('sqlite3', [DB_PATH], { input: fs.readFileSync(path.join(__dirname, 'schema.sql')) });
@@ -27,12 +30,24 @@ for (const statement of [
 
 const now = () => new Date().toISOString();
 const id = (prefix) => `${prefix}_${crypto.randomUUID()}`;
+const securityHeaders = () => ({
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'no-referrer',
+  'cache-control': 'no-store',
+  'access-control-allow-origin': ALLOWED_ORIGIN,
+  'access-control-allow-credentials': 'true',
+  'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
+  'access-control-allow-headers': 'content-type'
+});
 const json = (res, status, body) => {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
+  res.writeHead(status, { ...securityHeaders(), 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(body));
 };
-const safeError = (res, status, message) => json(res, status, { error: message });
+const logEvent = (level, event, metadata = {}) => console.log(JSON.stringify({ level, event, timestamp: now(), ...metadata }));
+const safeError = (res, status, message, code = 'request_error') => json(res, status, { error: message, code });
 const sqlString = (value) => value === null || value === undefined ? 'NULL' : `'${String(value).replace(/'/g, "''")}'`;
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const db = (sql) => execFileSync('sqlite3', ['-json', DB_PATH, sql], { encoding: 'utf8' }).trim();
 const run = (sql) => execFileSync('sqlite3', [DB_PATH, sql]);
 const all = (sql) => { const out = db(sql); return out ? JSON.parse(out) : []; };
@@ -42,7 +57,7 @@ const parseCookies = (req) => Object.fromEntries(String(req.headers.cookie || ''
   return [decodeURIComponent(v.slice(0, index).trim()), decodeURIComponent(v.slice(index + 1).trim())];
 }));
 const setSessionCookie = (res, token, maxAge) => {
-  const parts = [`hamix_session=${encodeURIComponent(token)}`, 'HttpOnly', 'Path=/', 'SameSite=Lax', `Max-Age=${maxAge}`];
+  const parts = [`hamix_session=${encodeURIComponent(token)}`, 'HttpOnly', 'Path=/', 'SameSite=Lax', 'Priority=High', `Max-Age=${maxAge}`];
   if (COOKIE_SECURE) parts.push('Secure');
   res.setHeader('set-cookie', parts.join('; '));
 };
@@ -50,9 +65,12 @@ const readBody = async (req) => new Promise((resolve, reject) => {
   let body = '';
   req.on('data', chunk => {
     body += chunk;
-    if (body.length > 1_000_000) reject(new Error('Request body too large'));
+    if (body.length > 1_000_000) reject(Object.assign(new Error('Request body too large'), { statusCode: 413 }));
   });
-  req.on('end', () => resolve(body ? JSON.parse(body) : {}));
+  req.on('end', () => {
+    try { resolve(body ? JSON.parse(body) : {}); }
+    catch { reject(Object.assign(new Error('Malformed JSON request body.'), { statusCode: 400 })); }
+  });
   req.on('error', reject);
 });
 const hashPassword = (password, salt) => crypto.scryptSync(password, salt, 64).toString('hex');
@@ -73,6 +91,45 @@ const requireSession = (req, res) => {
   if (!session) safeError(res, 401, 'Authentication required.');
   return session;
 };
+const ROLE_RANK = { Member: 1, Admin: 2, Owner: 3 };
+const hasRole = (session, role) => (ROLE_RANK[session?.role] || 0) >= (ROLE_RANK[role] || 0);
+const requireRole = (session, res, role) => {
+  if (!hasRole(session, role)) {
+    safeError(res, 403, `${role} role required.`, 'permission_denied');
+    return false;
+  }
+  return true;
+};
+const rateLimit = (req, res, { limit = 120, windowMs = 60_000 } = {}) => {
+  const key = `${req.socket.remoteAddress || 'local'}:${new URL(req.url, 'http://localhost').pathname}`;
+  const current = requestAttempts.get(key) || { count: 0, resetAt: Date.now() + windowMs };
+  if (current.resetAt < Date.now()) { current.count = 0; current.resetAt = Date.now() + windowMs; }
+  current.count += 1;
+  requestAttempts.set(key, current);
+  if (current.count > limit) {
+    safeError(res, 429, 'Too many requests. Try again later.', 'rate_limited');
+    return false;
+  }
+  return true;
+};
+const providerStatus = () => ({
+  ai: { configured: Boolean(process.env.HAMIX_AI_PROVIDER && process.env.HAMIX_AI_API_KEY), required: ['HAMIX_AI_PROVIDER', 'HAMIX_AI_API_KEY'] },
+  deployment: { configured: Boolean(process.env.HAMIX_DEPLOYMENT_PROVIDER && process.env.HAMIX_DEPLOYMENT_TARGET), required: ['HAMIX_DEPLOYMENT_PROVIDER', 'HAMIX_DEPLOYMENT_TARGET'] },
+  storage: { configured: Boolean(process.env.HAMIX_STORAGE_PROVIDER && process.env.HAMIX_STORAGE_BUCKET), required: ['HAMIX_STORAGE_PROVIDER', 'HAMIX_STORAGE_BUCKET'] },
+  email: { configured: Boolean(process.env.HAMIX_EMAIL_PROVIDER && process.env.HAMIX_EMAIL_API_KEY), required: ['HAMIX_EMAIL_PROVIDER', 'HAMIX_EMAIL_API_KEY'] },
+  sms: { configured: Boolean(process.env.HAMIX_SMS_PROVIDER && process.env.HAMIX_SMS_API_KEY), required: ['HAMIX_SMS_PROVIDER', 'HAMIX_SMS_API_KEY'] },
+  monitoring: { configured: Boolean(process.env.HAMIX_MONITORING_PROVIDER), required: ['HAMIX_MONITORING_PROVIDER'] },
+  analytics: { configured: Boolean(process.env.HAMIX_ANALYTICS_PROVIDER), required: ['HAMIX_ANALYTICS_PROVIDER'] },
+  secretStorage: { configured: Boolean(process.env.HAMIX_SECRET_PROVIDER), required: ['HAMIX_SECRET_PROVIDER'] }
+});
+const readiness = () => {
+  const issues = [];
+  if (SESSION_SECRET === 'development-secret-change-me') issues.push('HAMIX_SESSION_SECRET must be changed for production.');
+  if (NODE_ENV === 'production' && !COOKIE_SECURE) issues.push('HAMIX_COOKIE_SECURE=true is required in production HTTPS deployments.');
+  try { run('PRAGMA quick_check;'); } catch { issues.push('SQLite quick_check failed.'); }
+  return { ok: issues.length === 0, issues, providers: providerStatus() };
+};
+
 const PIPELINE_STAGES = ['New Lead', 'Contact Attempted', 'Interested', 'Meeting Scheduled', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'];
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase() || null;
 const normalizeMobile = (value) => {
@@ -160,6 +217,64 @@ const saveEntity = (table, workspaceId, payload) => {
 };
 const listEntities = (table, workspaceId) => all(`SELECT data FROM ${table} WHERE workspace_id=${sqlString(workspaceId)} ORDER BY created_at DESC`).map(row => JSON.parse(row.data));
 
+
+const DIAGNOSTIC_STATUSES = ['Draft', 'Reviewed', 'Approved', 'Archived'];
+const buildBusinessDiagnostic = (body, source = {}) => {
+  const hasWebsite = Boolean(source.website);
+  const hasMobile = Boolean(source.normalizedMobile || source.mobileDetected || source.phone);
+  const reviews = Number(source.reviews || 0);
+  const rating = Number(source.rating || 0);
+  const opportunityScore = Math.min(100, (hasMobile ? 25 : 0) + (hasWebsite ? 15 : 25) + Math.min(20, rating * 4) + Math.min(20, Math.floor(reviews / 10)) + (source.leadScore ? Math.floor(Number(source.leadScore) / 5) : 10));
+  return {
+    title: body.title || `Business Diagnostic for ${source.businessName || 'HAMIX Prospect'}`,
+    status: 'Draft',
+    verifiedInformation: {
+      businessName: source.businessName || null,
+      contact: source.normalizedMobile || source.phone || source.email || null,
+      category: source.category || source.industry || null,
+      website: source.website || null,
+      rating: source.rating || null,
+      reviews: source.reviews || null
+    },
+    inferredFindings: {
+      digitalPresence: hasWebsite ? 'Has web presence' : 'Website gap identified',
+      outreachReadiness: hasMobile ? 'Mobile outreach possible; WhatsApp not verified' : 'Mobile outreach not ready',
+      marketSignal: reviews > 100 ? 'Strong review footprint' : 'Limited public review footprint'
+    },
+    recommendations: [
+      hasWebsite ? 'Review current website conversion path' : 'Create a conversion-focused landing page',
+      'Use HAMIX CRM stages to track lead-to-customer progression',
+      'Review proposal scope and pricing before sending to customer'
+    ],
+    estimates: {
+      opportunityScore,
+      confidenceScore: Math.min(100, (source.businessName ? 25 : 0) + (source.category ? 25 : 0) + (source.phone || source.email ? 25 : 0) + (source.address ? 25 : 0)),
+      suggestedBudgetBand: opportunityScore >= 75 ? 'Premium' : opportunityScore >= 45 ? 'Standard' : 'Starter'
+    },
+    unavailableData: [
+      ...(source.whatsappVerified ? [] : ['WhatsApp verification unavailable']),
+      ...(source.website ? [] : ['Existing website unavailable']),
+      'Customer-approved budget unavailable',
+      'Decision-maker confirmation unavailable'
+    ],
+    proposalDraftGuidance: {
+      suggestedScope: hasWebsite ? 'Website optimization, CRM setup, and growth automation' : 'Website generation, CRM setup, and growth automation',
+      suggestedDeliverables: ['Business analysis summary', 'Proposal-ready scope', 'Onboarding checklist'],
+      pricingGuidance: 'Estimate only; user must review and approve commercial totals.'
+    },
+    aiLabel: 'Deterministic HAMIX diagnostic estimate - user review required',
+    inputs: {
+      goals: body.goals || [],
+      constraints: body.constraints || [],
+      sourceType: body.leadId ? 'lead' : body.customerId ? 'customer' : 'manual'
+    },
+    notes: body.notes || '',
+    approvedAt: null,
+    approvedBy: null
+  };
+};
+const diagnosticRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, leadId: row.lead_id, customerId: row.customer_id, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+
 const PROPOSAL_STATUSES = ['Draft', 'Under Review', 'Sent', 'Revision Requested', 'Accepted', 'Rejected', 'Expired', 'Cancelled'];
 const PROPOSAL_TRANSITIONS = {
   Draft: ['Under Review', 'Sent', 'Cancelled'],
@@ -208,7 +323,14 @@ const buildProposalData = (body, source = {}) => {
     exclusions: body.exclusions || ['Paid ad spend', 'Third-party subscription fees', 'Customer-supplied credentials'],
     timeline: body.timeline || '2-4 weeks after onboarding discovery completion.',
     paymentTerms: body.paymentTerms || '50% advance and 50% before final handover.',
+    inputs: {
+      goals: body.goals || [],
+      constraints: body.constraints || [],
+      sourceType: body.leadId ? 'lead' : body.customerId ? 'customer' : 'manual'
+    },
     notes: body.notes || '',
+    approvedAt: null,
+    approvedBy: null,
     validityDate: body.validityDate || new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
     currency: body.currency || 'INR',
     aiSuggestionLabel: 'Suggested draft - user review required before sending.',
@@ -253,6 +375,103 @@ const upsertProjectForProposal = (session, proposal) => {
   else run(`INSERT INTO projects (id, workspace_id, customer_id, source_lead_id, data, created_at, updated_at) VALUES (${sqlString(projectData.id)}, ${sqlString(session.workspace_id)}, ${sqlString(customerId)}, ${sqlString(proposal.lead_id)}, ${sqlString(JSON.stringify(projectData))}, ${sqlString(now())}, ${sqlString(now())})`);
   return projectData;
 };
+
+const projectRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, customerId: row.customer_id, sourceLeadId: row.source_lead_id, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+const getOwnedProject = (workspaceId, projectId) => one(`SELECT * FROM projects WHERE id=${sqlString(projectId)} AND workspace_id=${sqlString(workspaceId)}`);
+const containsSecret = (value) => /\b(password|secret|token|api[_ -]?key|private[_ -]?key|credential)\b/i.test(String(value || ''));
+const normalizeList = (value) => Array.isArray(value) ? value.map(item => String(item).trim()).filter(Boolean) : String(value || '').split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+const validateDiscoveryPayload = (body) => {
+  const sensitiveFields = [body.notes, body.technicalRequirements, body.hostingPassword, body.apiKey, body.secret];
+  if (sensitiveFields.some(containsSecret)) throw new Error('Do not store passwords, API keys, tokens, or secrets in project discovery notes. Use approved secret storage when available.');
+  return {
+    companyInfo: String(body.companyInfo || '').trim(),
+    contacts: normalizeList(body.contacts || body.primaryContact),
+    primaryContact: String(body.primaryContact || '').trim(),
+    products: normalizeList(body.products),
+    services: normalizeList(body.services),
+    targetAudience: String(body.targetAudience || '').trim(),
+    competitors: normalizeList(body.competitors),
+    brandDetails: body.brandDetails && typeof body.brandDetails === 'object' ? body.brandDetails : { logo: body.logo || '', brandColours: normalizeList(body.brandColours) },
+    logo: String(body.logo || body.brandDetails?.logo || '').trim(),
+    brandColours: normalizeList(body.brandColours || body.brandDetails?.brandColours),
+    existingWebsite: String(body.existingWebsite || '').trim(),
+    domain: String(body.domain || '').trim(),
+    contentStatus: String(body.contentStatus || '').trim(),
+    images: normalizeList(body.images),
+    videos: normalizeList(body.videos),
+    technicalRequirements: String(body.technicalRequirements || '').trim(),
+    notes: String(body.notes || '').trim(),
+    projectStatus: body.projectStatus || 'Onboarding',
+    updatedAt: now()
+  };
+};
+const AI_PROVIDER_CONFIGURED = Boolean(process.env.HAMIX_AI_PROVIDER && process.env.HAMIX_AI_API_KEY);
+const DEPLOYMENT_PROVIDER_CONFIGURED = Boolean(process.env.HAMIX_DEPLOYMENT_PROVIDER && process.env.HAMIX_DEPLOYMENT_TARGET);
+const successRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, customerId: row.customer_id, projectId: row.project_id, proposalId: row.proposal_id, websiteProjectId: row.website_project_id, deploymentId: row.deployment_id, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+const getOwnedSuccess = (workspaceId, successId) => one(`SELECT * FROM customer_success_records WHERE id=${sqlString(successId)} AND workspace_id=${sqlString(workspaceId)}`);
+const validateSuccessData = (body, existing = {}) => {
+  const allowedStatuses = ['Onboarding', 'Active', 'At Risk', 'Renewal Due', 'Growth Opportunity', 'Closed'];
+  const status = body.status || existing.status || 'Onboarding';
+  if (!allowedStatuses.includes(status)) throw new Error('Unsupported customer-success status.');
+  const satisfaction = body.satisfaction === undefined || body.satisfaction === '' ? existing.satisfaction || null : Number(body.satisfaction);
+  if (satisfaction !== null && (!Number.isFinite(satisfaction) || satisfaction < 1 || satisfaction > 5)) throw new Error('Satisfaction must be a number from 1 to 5.');
+  return {
+    onboardingCompletion: Math.max(0, Math.min(100, Number(body.onboardingCompletion ?? existing.onboardingCompletion ?? 0))),
+    projectStatus: body.projectStatus || existing.projectStatus || 'Onboarding',
+    supportIssues: Array.isArray(body.supportIssues) ? body.supportIssues : existing.supportIssues || [],
+    followUps: Array.isArray(body.followUps) ? body.followUps : existing.followUps || [],
+    renewals: body.renewals || existing.renewals || { status: 'Not Due', nextRenewalDate: null },
+    growthOpportunities: Array.isArray(body.growthOpportunities) ? body.growthOpportunities : existing.growthOpportunities || [],
+    satisfaction,
+    nextActions: Array.isArray(body.nextActions) ? body.nextActions : String(body.nextActions || existing.nextActions || '').split(/[\n,]/).map(item => item.trim()).filter(Boolean),
+    providerBlocks: body.providerBlocks || existing.providerBlocks || { email: 'Provider not configured', sms: 'Provider not configured', monitoring: 'Provider not configured', analytics: 'Provider not configured', feedback: 'Provider not configured' },
+    notes: body.notes ?? existing.notes ?? '',
+    updatedAt: now()
+  };
+};
+const deploymentRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, websiteProjectId: row.website_project_id, projectId: row.project_id, customerId: row.customer_id, version: row.version, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+const websiteRowToJson = (row) => row ? { ...JSON.parse(row.data), id: row.id, projectId: row.project_id, customerId: row.customer_id, proposalId: row.proposal_id, status: row.status, currentVersion: row.current_version, createdAt: row.created_at, updatedAt: row.updated_at } : null;
+const buildWebsiteProjectData = (body, project, discovery = {}, customer = {}) => {
+  const projectData = JSON.parse(project.data);
+  const businessName = discovery.companyInfo || customer.businessName || projectData.projectName || 'HAMIX Customer Website';
+  return {
+    projectName: projectData.projectName || businessName,
+    businessName,
+    generationStatus: AI_PROVIDER_CONFIGURED ? 'Queued' : 'Pending AI Provider',
+    aiProviderStatus: AI_PROVIDER_CONFIGURED ? 'configured' : 'missing',
+    pages: body.pages || ['Home', 'About', 'Services', 'Contact'],
+    sitemap: body.sitemap || ['/', '/about', '/services', '/contact'],
+    navigation: body.navigation || ['Home', 'About', 'Services', 'Contact'],
+    branding: body.branding || discovery.brandDetails || { logo: discovery.logo || '', brandColours: discovery.brandColours || [] },
+    colorPalette: body.colorPalette || discovery.brandColours || ['#1e3a8a', '#4f46e5', '#14b8a6'],
+    typography: body.typography || { heading: 'Inter', body: 'Inter' },
+    sections: body.sections || ['hero', 'about', 'services', 'contact'],
+    generatedContent: AI_PROVIDER_CONFIGURED ? (body.generatedContent || {}) : {},
+    images: body.images || discovery.images || [],
+    prompts: body.prompts || { source: 'Project discovery', instruction: 'Generate a business website from approved discovery data.' },
+    discoverySnapshot: discovery,
+    requestNotes: body.notes || '',
+    versionHistory: [],
+    approvedAt: null,
+    publishedAt: null,
+    createdAt: now(),
+    updatedAt: now()
+  };
+};
+
+const validateAssetMetadata = (body) => {
+  if (body.content || body.base64 || body.dataUrl || body.fileData) throw new Error('Durable object storage is not configured; submit asset metadata only.');
+  const fileName = String(body.fileName || '').trim();
+  const fileType = String(body.fileType || '').trim().toLowerCase();
+  const fileSize = Number(body.fileSize || 0);
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'application/pdf', 'text/plain'];
+  if (!fileName) throw new Error('Asset fileName is required.');
+  if (!allowedTypes.includes(fileType)) throw new Error('Unsupported asset file type.');
+  if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > 25 * 1024 * 1024) throw new Error('Asset fileSize must be between 1 byte and 25 MB.');
+  if (containsSecret(body.notes) || containsSecret(fileName)) throw new Error('Asset metadata must not contain secrets.');
+  return { fileName, fileType, fileSize, assetType: body.assetType || 'discovery', storageStatus: 'metadata_only', notes: body.notes || '', tags: normalizeList(body.tags), createdAt: now() };
+};
+
 const convertLeadToCustomer = (session, leadId, extra = {}) => {
   const lead = one(`SELECT * FROM leads WHERE id=${sqlString(leadId)} AND workspace_id=${sqlString(session.workspace_id)}`);
   if (!lead) throw new Error('Lead not found.');
@@ -281,8 +500,14 @@ const serveStatic = (req, res) => {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, securityHeaders());
+      return res.end();
+    }
     if (!url.pathname.startsWith('/api/')) return serveStatic(req, res);
-    if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { ok: true });
+    if (!rateLimit(req, res, { limit: url.pathname.startsWith('/api/auth/login') ? 20 : 240 })) return;
+    if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { ok: true, uptime: process.uptime(), timestamp: now() });
+    if (req.method === 'GET' && url.pathname === '/api/ready') return json(res, 200, readiness());
 
     if (req.method === 'POST' && url.pathname === '/api/auth/register') {
       const body = await readBody(req);
@@ -335,6 +560,33 @@ const server = http.createServer(async (req, res) => {
     const session = requireSession(req, res);
     if (!session) return;
     if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: publicUser(session) });
+    if (req.method === 'GET' && url.pathname === '/api/providers/status') return json(res, 200, { data: providerStatus() });
+    if (req.method === 'GET' && url.pathname === '/api/workspace/members') {
+      if (!requireRole(session, res, 'Admin')) return;
+      const members = all(`SELECT users.id, users.email, users.name, workspace_memberships.role, workspace_memberships.created_at FROM workspace_memberships JOIN users ON users.id = workspace_memberships.user_id WHERE workspace_memberships.workspace_id=${sqlString(session.workspace_id)} ORDER BY workspace_memberships.created_at ASC`);
+      return json(res, 200, { data: members });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/workspace/members') {
+      if (!requireRole(session, res, 'Owner')) return;
+      const body = await readBody(req);
+      const role = body.role || 'Member';
+      if (!['Admin', 'Member'].includes(role)) return safeError(res, 400, 'Owner can create Admin or Member users only.', 'invalid_role');
+      const email = String(body.email || '').trim().toLowerCase();
+      if (!email || !body.name || !body.password || String(body.password).length < 8) return safeError(res, 400, 'Name, email, role, and 8+ character password are required.', 'validation_error');
+      let user = one(`SELECT * FROM users WHERE email=${sqlString(email)}`);
+      if (!user) {
+        const userId = id('user');
+        const salt = crypto.randomBytes(16).toString('hex');
+        run(`INSERT INTO users VALUES (${sqlString(userId)}, ${sqlString(email)}, ${sqlString(body.name)}, ${sqlString(hashPassword(body.password, salt))}, ${sqlString(salt)}, ${sqlString(now())})`);
+        user = one(`SELECT * FROM users WHERE id=${sqlString(userId)}`);
+      }
+      const existing = one(`SELECT user_id FROM workspace_memberships WHERE user_id=${sqlString(user.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (existing) return safeError(res, 409, 'User is already a member of this workspace.', 'duplicate_member');
+      run(`INSERT INTO workspace_memberships VALUES (${sqlString(user.id)}, ${sqlString(session.workspace_id)}, ${sqlString(role)}, ${sqlString(now())})`);
+      audit(session, 'workspace_member_created', 'user', user.id, { role, email });
+      return json(res, 201, { id: user.id, email: user.email, name: user.name, role });
+    }
+    if (req.method !== 'GET' && !requireRole(session, res, 'Admin')) return;
 
 
     if (req.method === 'POST' && url.pathname === '/api/leads/import') {
@@ -437,12 +689,66 @@ const server = http.createServer(async (req, res) => {
     }
 
 
+
+    if (url.pathname === '/api/diagnostics' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM business_diagnostics WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY created_at DESC`);
+      return json(res, 200, { data: rows.map(diagnosticRowToJson) });
+    }
+    if (url.pathname === '/api/diagnostics' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.leadId && !body.customerId) return safeError(res, 400, 'Diagnostic requires a leadId or customerId.');
+      let source = {};
+      if (body.leadId) {
+        const lead = getOwnedLead(session.workspace_id, body.leadId);
+        if (!lead) return safeError(res, 404, 'Lead not found.');
+        source = JSON.parse(lead.data);
+      }
+      if (body.customerId) {
+        const customer = getOwnedCustomer(session.workspace_id, body.customerId);
+        if (!customer) return safeError(res, 404, 'Customer not found.');
+        source = { ...source, ...JSON.parse(customer.data) };
+      }
+      const diagnosticId = id('diagnostic');
+      const data = buildBusinessDiagnostic(body, source);
+      run(`INSERT INTO business_diagnostics (id, workspace_id, lead_id, customer_id, status, data, created_by, created_at, updated_at) VALUES (${sqlString(diagnosticId)}, ${sqlString(session.workspace_id)}, ${sqlString(body.leadId || null)}, ${sqlString(body.customerId || null)}, 'Draft', ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(now())}, ${sqlString(now())})`);
+      audit(session, 'business_diagnostic_created', 'diagnostic', diagnosticId, { leadId: body.leadId || null, customerId: body.customerId || null, opportunityScore: data.estimates.opportunityScore, aiLabel: data.aiLabel });
+      return json(res, 201, diagnosticRowToJson(one(`SELECT * FROM business_diagnostics WHERE id=${sqlString(diagnosticId)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const diagnosticMatch = url.pathname.match(/^\/api\/diagnostics\/([^/]+)$/);
+    if (diagnosticMatch && req.method === 'GET') {
+      const row = one(`SELECT * FROM business_diagnostics WHERE id=${sqlString(diagnosticMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Diagnostic not found.');
+      return json(res, 200, diagnosticRowToJson(row));
+    }
+    if (diagnosticMatch && req.method === 'POST') {
+      const row = one(`SELECT * FROM business_diagnostics WHERE id=${sqlString(diagnosticMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Diagnostic not found.');
+      const body = await readBody(req);
+      if (body.status && !DIAGNOSTIC_STATUSES.includes(body.status)) return safeError(res, 400, 'Unsupported diagnostic status.');
+      const existingData = JSON.parse(row.data);
+      const data = {
+        ...existingData,
+        verifiedInformation: body.verifiedInformation || existingData.verifiedInformation,
+        inferredFindings: body.inferredFindings || existingData.inferredFindings,
+        recommendations: body.recommendations || existingData.recommendations,
+        estimates: body.estimates || existingData.estimates,
+        unavailableData: body.unavailableData || existingData.unavailableData,
+        notes: body.notes ?? existingData.notes,
+        userReviewedAt: now()
+      };
+      if (body.status === 'Approved') { data.approvedAt = now(); data.approvedBy = session.user_id; }
+      run(`UPDATE business_diagnostics SET data=${sqlString(JSON.stringify(data))}, status=${sqlString(body.status || row.status)}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, body.status === 'Approved' ? 'business_diagnostic_approved' : 'business_diagnostic_updated', 'diagnostic', row.id, { status: body.status || row.status });
+      return json(res, 200, diagnosticRowToJson(one(`SELECT * FROM business_diagnostics WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+
     if (url.pathname === '/api/proposals' && req.method === 'GET') {
       const rows = all(`SELECT * FROM proposals WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY created_at DESC`);
       return json(res, 200, { data: rows.map(proposalRowToJson) });
     }
     if (url.pathname === '/api/proposals' && req.method === 'POST') {
       const body = await readBody(req);
+      if (!body.leadId && !body.customerId) return safeError(res, 400, 'Diagnostic requires a leadId or customerId.');
       let source = {};
       if (body.leadId) {
         const lead = getOwnedLead(session.workspace_id, body.leadId);
@@ -456,12 +762,23 @@ const server = http.createServer(async (req, res) => {
       }
       const proposalId = id('proposal');
       const proposalNumber = nextProposalNumber(session.workspace_id);
+      if (body.diagnosticId) {
+        const diagnostic = one(`SELECT status, data FROM business_diagnostics WHERE id=${sqlString(body.diagnosticId)} AND workspace_id=${sqlString(session.workspace_id)}`);
+        if (!diagnostic) return safeError(res, 404, 'Diagnostic not found.');
+        const diagnosticData = JSON.parse(diagnostic.data);
+        if (diagnostic.status !== 'Approved') return safeError(res, 400, 'Diagnostic must be approved before proposal drafting.');
+        body.businessAnalysis = diagnosticData;
+        body.scope = body.scope || diagnosticData.proposalDraftGuidance?.suggestedScope;
+        body.deliverables = body.deliverables || diagnosticData.proposalDraftGuidance?.suggestedDeliverables;
+        body.diagnosticId = body.diagnosticId;
+      }
       const data = buildProposalData(body, source);
       const timestamp = now();
       run(`INSERT INTO proposals (id, workspace_id, lead_id, customer_id, proposal_number, status, version, currency, data, subtotal, tax, discount, total, created_by, created_at, updated_at) VALUES (${sqlString(proposalId)}, ${sqlString(session.workspace_id)}, ${sqlString(body.leadId || null)}, ${sqlString(body.customerId || null)}, ${sqlString(proposalNumber)}, 'Draft', 1, ${sqlString(data.currency)}, ${sqlString(JSON.stringify(data))}, ${data.subtotal}, ${data.tax}, ${data.discount}, ${data.total}, ${sqlString(session.user_id)}, ${sqlString(timestamp)}, ${sqlString(timestamp)})`);
       saveProposalVersion(session, proposalId, 1, data);
       run(`INSERT INTO proposal_events VALUES (${sqlString(id('proposal_event'))}, ${sqlString(session.workspace_id)}, ${sqlString(proposalId)}, ${sqlString(session.user_id)}, NULL, 'Draft', 'Proposal created', ${sqlString(timestamp)})`);
-      audit(session, 'proposal_created', 'proposal', proposalId, { proposalNumber, leadId: body.leadId || null, customerId: body.customerId || null, total: data.total });
+      audit(session, 'proposal_created', 'proposal', proposalId, { proposalNumber, leadId: body.leadId || null, customerId: body.customerId || null, diagnosticId: body.diagnosticId || null, total: data.total });
+      if (body.diagnosticId) audit(session, 'diagnostic_linked_to_proposal', 'diagnostic', body.diagnosticId, { proposalId });
       return json(res, 201, proposalRowToJson(getOwnedProposal(session.workspace_id, proposalId)));
     }
     const proposalMatch = url.pathname.match(/^\/api\/proposals\/([^/]+)$/);
@@ -512,25 +829,270 @@ const server = http.createServer(async (req, res) => {
       const row = getOwnedProposal(session.workspace_id, printMatch[1]);
       if (!row) return safeError(res, 404, 'Proposal not found.');
       const proposal = proposalRowToJson(row);
-      const html = `<!doctype html><html><head><title>${proposal.proposalNumber}</title><style>body{font-family:Inter,Arial,sans-serif;margin:40px;color:#0f172a}table{width:100%;border-collapse:collapse}td,th{border:1px solid #e5e7eb;padding:8px;text-align:left}.total{text-align:right;font-weight:700}</style></head><body><h1>HAMIX Proposal</h1><h2>${proposal.proposalNumber} · v${proposal.version}</h2><p>Status: ${proposal.status}</p><h3>${proposal.title}</h3><p>${proposal.scope}</p><h4>Deliverables</h4><ul>${proposal.deliverables.map(item => `<li>${item}</li>`).join('')}</ul><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Tax</th><th>Discount</th><th>Total</th></tr></thead><tbody>${proposal.lineItems.map(item => `<tr><td>${item.description}</td><td>${item.quantity}</td><td>${item.unitPrice}</td><td>${item.tax}</td><td>${item.discount}</td><td>${item.lineTotal}</td></tr>`).join('')}</tbody></table><p class="total">Total ${proposal.currency} ${proposal.total}</p><p>Validity: ${proposal.validityDate}</p><p>Terms: ${proposal.paymentTerms}</p><script>window.print()</script></body></html>`;
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      const deliverables = Array.isArray(proposal.deliverables) ? proposal.deliverables : [];
+      const lineItems = Array.isArray(proposal.lineItems) ? proposal.lineItems : [];
+      const html = `<!doctype html><html><head><title>${escapeHtml(proposal.proposalNumber)}</title><style>body{font-family:Inter,Arial,sans-serif;margin:40px;color:#0f172a}table{width:100%;border-collapse:collapse}td,th{border:1px solid #e5e7eb;padding:8px;text-align:left}.total{text-align:right;font-weight:700}.print-note{color:#475569}</style></head><body><h1>HAMIX Proposal</h1><h2>${escapeHtml(proposal.proposalNumber)} · v${escapeHtml(proposal.version)}</h2><p>Status: ${escapeHtml(proposal.status)}</p><h3>${escapeHtml(proposal.title)}</h3><p>${escapeHtml(proposal.scope)}</p><h4>Deliverables</h4><ul>${deliverables.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Tax</th><th>Discount</th><th>Total</th></tr></thead><tbody>${lineItems.map(item => `<tr><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.quantity)}</td><td>${escapeHtml(item.unitPrice)}</td><td>${escapeHtml(item.tax)}</td><td>${escapeHtml(item.discount)}</td><td>${escapeHtml(item.lineTotal)}</td></tr>`).join('')}</tbody></table><p class="total">Total ${escapeHtml(proposal.currency)} ${escapeHtml(proposal.total)}</p><p>Validity: ${escapeHtml(proposal.validityDate)}</p><p>Terms: ${escapeHtml(proposal.paymentTerms)}</p><p class="print-note">Use your browser print dialog to save or print this reviewed proposal. This view does not include e-signature or email delivery.</p></body></html>`;
+      res.writeHead(200, { ...securityHeaders(), 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" });
       return res.end(html);
+    }
+    if (url.pathname === '/api/projects' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM projects WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY updated_at DESC`);
+      return json(res, 200, { data: rows.map(projectRowToJson) });
+    }
+    const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/);
+    if (projectMatch && req.method === 'GET') {
+      const row = getOwnedProject(session.workspace_id, projectMatch[1]);
+      if (!row) return safeError(res, 404, 'Project not found.');
+      return json(res, 200, projectRowToJson(row));
+    }
+    if (projectMatch && req.method === 'POST') {
+      const row = getOwnedProject(session.workspace_id, projectMatch[1]);
+      if (!row) return safeError(res, 404, 'Project not found.');
+      const body = await readBody(req);
+      const data = { ...JSON.parse(row.data) };
+      for (const key of ['projectName', 'status', 'expectedStartDate', 'expectedCompletionDate', 'scopeSummary', 'discoveryStatus']) {
+        if (body[key] !== undefined) data[key] = body[key];
+      }
+      if (!data.projectName) return safeError(res, 400, 'Project name is required.');
+      data.updatedAt = now();
+      run(`UPDATE projects SET data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'project_updated', 'project', row.id, { status: data.status, discoveryStatus: data.discoveryStatus });
+      return json(res, 200, projectRowToJson(getOwnedProject(session.workspace_id, row.id)));
     }
     const discoveryMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/discovery$/);
     if (discoveryMatch && req.method === 'GET') {
-      const project = one(`SELECT id FROM projects WHERE id=${sqlString(discoveryMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      const project = getOwnedProject(session.workspace_id, discoveryMatch[1]);
       if (!project) return safeError(res, 404, 'Project not found.');
       const row = one(`SELECT data FROM project_discovery WHERE project_id=${sqlString(discoveryMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
       return json(res, 200, { data: row ? JSON.parse(row.data) : {} });
     }
     if (discoveryMatch && req.method === 'POST') {
       const body = await readBody(req);
-      const project = one(`SELECT id FROM projects WHERE id=${sqlString(discoveryMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      const project = getOwnedProject(session.workspace_id, discoveryMatch[1]);
       if (!project) return safeError(res, 404, 'Project not found.');
-      const data = { companyInfo: body.companyInfo || '', primaryContact: body.primaryContact || '', logo: body.logo || '', brandColours: body.brandColours || [], products: body.products || [], services: body.services || [], targetAudience: body.targetAudience || '', competitors: body.competitors || [], existingWebsite: body.existingWebsite || '', domain: body.domain || '', contentStatus: body.contentStatus || '', images: body.images || [], videos: body.videos || [], technicalRequirements: body.technicalRequirements || '', notes: body.notes || '' };
+      let data;
+      try { data = validateDiscoveryPayload(body); } catch (error) { return safeError(res, 400, error.message); }
       run(`INSERT INTO project_discovery (project_id, workspace_id, data, updated_by, updated_at) VALUES (${sqlString(discoveryMatch[1])}, ${sqlString(session.workspace_id)}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(now())}) ON CONFLICT(project_id) DO UPDATE SET data=excluded.data, updated_by=excluded.updated_by, updated_at=excluded.updated_at`);
-      audit(session, 'onboarding_updated', 'project', discoveryMatch[1]);
+      const projectData = JSON.parse(project.data);
+      projectData.discoveryStatus = 'Complete';
+      projectData.status = data.projectStatus || projectData.status || 'Onboarding';
+      projectData.updatedAt = now();
+      run(`UPDATE projects SET data=${sqlString(JSON.stringify(projectData))}, updated_at=${sqlString(now())} WHERE id=${sqlString(project.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'project_discovery_updated', 'project', discoveryMatch[1], { contentStatus: data.contentStatus, projectStatus: data.projectStatus });
       return json(res, 200, data);
+    }
+    const assetMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/assets$/);
+    if (assetMatch && req.method === 'GET') {
+      const project = getOwnedProject(session.workspace_id, assetMatch[1]);
+      if (!project) return safeError(res, 404, 'Project not found.');
+      const rows = all(`SELECT * FROM project_assets WHERE project_id=${sqlString(assetMatch[1])} AND workspace_id=${sqlString(session.workspace_id)} ORDER BY created_at DESC`);
+      return json(res, 200, { data: rows.map(row => ({ ...JSON.parse(row.data), id: row.id, projectId: row.project_id, customerId: row.customer_id, proposalId: row.proposal_id, fileName: row.file_name, fileType: row.file_type, fileSize: row.file_size, assetType: row.asset_type, storageStatus: row.storage_status, createdAt: row.created_at })) });
+    }
+    if (assetMatch && req.method === 'POST') {
+      const project = getOwnedProject(session.workspace_id, assetMatch[1]);
+      if (!project) return safeError(res, 404, 'Project not found.');
+      const body = await readBody(req);
+      let metadata;
+      try { metadata = validateAssetMetadata(body); } catch (error) { return safeError(res, 400, error.message); }
+      const projectData = JSON.parse(project.data);
+      const assetId = id('asset');
+      run(`INSERT INTO project_assets (id, workspace_id, project_id, customer_id, proposal_id, file_name, file_type, file_size, asset_type, storage_status, data, created_by, created_at) VALUES (${sqlString(assetId)}, ${sqlString(session.workspace_id)}, ${sqlString(project.id)}, ${sqlString(project.customer_id)}, ${sqlString(projectData.acceptedProposalId || null)}, ${sqlString(metadata.fileName)}, ${sqlString(metadata.fileType)}, ${metadata.fileSize}, ${sqlString(metadata.assetType)}, 'metadata_only', ${sqlString(JSON.stringify(metadata))}, ${sqlString(session.user_id)}, ${sqlString(metadata.createdAt)})`);
+      audit(session, 'project_asset_metadata_created', 'project_asset', assetId, { projectId: project.id, fileName: metadata.fileName, storageStatus: 'metadata_only' });
+      return json(res, 201, { ...metadata, id: assetId, projectId: project.id, customerId: project.customer_id, proposalId: projectData.acceptedProposalId || null });
+    }
+
+    if (url.pathname === '/api/websites' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM website_projects WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY updated_at DESC`);
+      return json(res, 200, { data: rows.map(websiteRowToJson) });
+    }
+    if (url.pathname === '/api/websites' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.projectId) return safeError(res, 400, 'Website generation requires a projectId.');
+      const project = getOwnedProject(session.workspace_id, body.projectId);
+      if (!project) return safeError(res, 404, 'Project not found.');
+      const existing = one(`SELECT * FROM website_projects WHERE workspace_id=${sqlString(session.workspace_id)} AND project_id=${sqlString(project.id)}`);
+      if (existing && !body.regenerate) return json(res, 200, { website: websiteRowToJson(existing), duplicate: true, message: 'Website project already exists for this onboarding project.' });
+      const projectData = JSON.parse(project.data);
+      const discoveryRow = one(`SELECT data FROM project_discovery WHERE workspace_id=${sqlString(session.workspace_id)} AND project_id=${sqlString(project.id)}`);
+      const customerRow = getOwnedCustomer(session.workspace_id, project.customer_id);
+      const discovery = discoveryRow ? JSON.parse(discoveryRow.data) : {};
+      const customer = customerRow ? JSON.parse(customerRow.data) : {};
+      const timestamp = now();
+      if (existing && body.regenerate) {
+        const nextVersion = Number(existing.current_version || 1) + 1;
+        const data = buildWebsiteProjectData(body, project, discovery, customer);
+        data.versionHistory = [...(JSON.parse(existing.data).versionHistory || []), { version: existing.current_version, status: existing.status, archivedAt: timestamp }];
+        run(`UPDATE website_projects SET status=${sqlString(data.generationStatus)}, current_version=${nextVersion}, data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(timestamp)} WHERE id=${sqlString(existing.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+        run(`INSERT INTO website_project_versions (id, workspace_id, website_project_id, version, status, data, created_by, created_at) VALUES (${sqlString(id('website_version'))}, ${sqlString(session.workspace_id)}, ${sqlString(existing.id)}, ${nextVersion}, ${sqlString(data.generationStatus)}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)})`);
+        audit(session, 'website_regeneration_requested', 'website_project', existing.id, { projectId: project.id, version: nextVersion, status: data.generationStatus });
+        return json(res, 200, websiteRowToJson(one(`SELECT * FROM website_projects WHERE id=${sqlString(existing.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+      }
+      const websiteId = id('website');
+      const data = buildWebsiteProjectData(body, project, discovery, customer);
+      run(`INSERT INTO website_projects (id, workspace_id, project_id, customer_id, proposal_id, status, current_version, data, created_by, created_at, updated_at) VALUES (${sqlString(websiteId)}, ${sqlString(session.workspace_id)}, ${sqlString(project.id)}, ${sqlString(project.customer_id)}, ${sqlString(projectData.acceptedProposalId || null)}, ${sqlString(data.generationStatus)}, 1, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)}, ${sqlString(timestamp)})`);
+      run(`INSERT INTO website_project_versions (id, workspace_id, website_project_id, version, status, data, created_by, created_at) VALUES (${sqlString(id('website_version'))}, ${sqlString(session.workspace_id)}, ${sqlString(websiteId)}, 1, ${sqlString(data.generationStatus)}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)})`);
+      audit(session, 'website_generation_requested', 'website_project', websiteId, { projectId: project.id, status: data.generationStatus, aiProviderConfigured: AI_PROVIDER_CONFIGURED });
+      return json(res, 201, websiteRowToJson(one(`SELECT * FROM website_projects WHERE id=${sqlString(websiteId)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const websiteMatch = url.pathname.match(/^\/api\/websites\/([^/]+)$/);
+    if (websiteMatch && req.method === 'GET') {
+      const row = one(`SELECT * FROM website_projects WHERE id=${sqlString(websiteMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Website project not found.');
+      return json(res, 200, websiteRowToJson(row));
+    }
+    if (websiteMatch && req.method === 'POST') {
+      const row = one(`SELECT * FROM website_projects WHERE id=${sqlString(websiteMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Website project not found.');
+      const body = await readBody(req);
+      const data = { ...JSON.parse(row.data), ...body, updatedAt: now() };
+      delete data.id; delete data.workspaceId;
+      run(`UPDATE website_projects SET data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'website_project_edited', 'website_project', row.id, { fields: Object.keys(body) });
+      return json(res, 200, websiteRowToJson(one(`SELECT * FROM website_projects WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const websiteVersionsMatch = url.pathname.match(/^\/api\/websites\/([^/]+)\/versions$/);
+    if (websiteVersionsMatch && req.method === 'GET') {
+      const row = one(`SELECT id FROM website_projects WHERE id=${sqlString(websiteVersionsMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Website project not found.');
+      const versions = all(`SELECT version, status, data, created_at FROM website_project_versions WHERE workspace_id=${sqlString(session.workspace_id)} AND website_project_id=${sqlString(row.id)} ORDER BY version DESC`).map(v => ({ version: v.version, status: v.status, data: JSON.parse(v.data), createdAt: v.created_at }));
+      return json(res, 200, { data: versions });
+    }
+    const websiteStatusMatch = url.pathname.match(/^\/api\/websites\/([^/]+)\/status$/);
+    if (websiteStatusMatch && req.method === 'POST') {
+      const row = one(`SELECT * FROM website_projects WHERE id=${sqlString(websiteStatusMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Website project not found.');
+      const body = await readBody(req);
+      const allowed = ['Pending AI Provider', 'Draft', 'Approved', 'Published', 'Cancelled'];
+      if (!allowed.includes(body.status)) return safeError(res, 400, 'Unsupported website project status.');
+      if (body.status === 'Published') return safeError(res, 400, 'Website deployment is not configured in this milestone. Use the deployment workflow after provider configuration.');
+      const data = { ...JSON.parse(row.data), generationStatus: body.status, updatedAt: now() };
+      if (body.status === 'Approved') data.approvedAt = now();
+      run(`UPDATE website_projects SET status=${sqlString(body.status)}, data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, body.status === 'Approved' ? 'website_project_approved' : 'website_project_status_changed', 'website_project', row.id, { status: body.status });
+      return json(res, 200, websiteRowToJson(one(`SELECT * FROM website_projects WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+
+    if (url.pathname === '/api/deployments' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM website_deployments WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY updated_at DESC`);
+      return json(res, 200, { data: rows.map(deploymentRowToJson) });
+    }
+    if (url.pathname === '/api/deployments' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.websiteProjectId) return safeError(res, 400, 'Deployment requires a websiteProjectId.');
+      const website = one(`SELECT * FROM website_projects WHERE id=${sqlString(body.websiteProjectId)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!website) return safeError(res, 404, 'Website project not found.');
+      if (website.status !== 'Approved') return safeError(res, 400, 'Website project must be Approved before deployment can be requested.');
+      const duplicate = one(`SELECT * FROM website_deployments WHERE workspace_id=${sqlString(session.workspace_id)} AND website_project_id=${sqlString(website.id)} AND version=${Number(website.current_version)} AND status IN ('Pending Deployment Provider','Queued','Deploying') ORDER BY created_at DESC LIMIT 1`);
+      if (duplicate) return json(res, 200, { deployment: deploymentRowToJson(duplicate), duplicate: true, message: 'Deployment request already exists for this website version.' });
+      const websiteData = JSON.parse(website.data);
+      const status = DEPLOYMENT_PROVIDER_CONFIGURED ? 'Queued' : 'Pending Deployment Provider';
+      const deploymentId = id('deployment');
+      const timestamp = now();
+      const data = {
+        websiteProjectId: website.id,
+        projectId: website.project_id,
+        customerId: website.customer_id,
+        version: website.current_version,
+        status,
+        providerStatus: DEPLOYMENT_PROVIDER_CONFIGURED ? 'configured' : 'missing',
+        target: process.env.HAMIX_DEPLOYMENT_TARGET || null,
+        requestedDomain: body.domain || websiteData.discoverySnapshot?.domain || '',
+        manifest: {
+          pages: websiteData.pages || [],
+          sitemap: websiteData.sitemap || [],
+          navigation: websiteData.navigation || [],
+          branding: websiteData.branding || {},
+          generatorStatus: website.status
+        },
+        notes: body.notes || '',
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+      run(`INSERT INTO website_deployments (id, workspace_id, website_project_id, project_id, customer_id, version, status, data, requested_by, created_at, updated_at) VALUES (${sqlString(deploymentId)}, ${sqlString(session.workspace_id)}, ${sqlString(website.id)}, ${sqlString(website.project_id)}, ${sqlString(website.customer_id)}, ${Number(website.current_version)}, ${sqlString(status)}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)}, ${sqlString(timestamp)})`);
+      audit(session, 'website_deployment_requested', 'website_deployment', deploymentId, { websiteProjectId: website.id, version: website.current_version, status, providerConfigured: DEPLOYMENT_PROVIDER_CONFIGURED });
+      return json(res, 201, deploymentRowToJson(one(`SELECT * FROM website_deployments WHERE id=${sqlString(deploymentId)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const deploymentMatch = url.pathname.match(/^\/api\/deployments\/([^/]+)$/);
+    if (deploymentMatch && req.method === 'GET') {
+      const row = one(`SELECT * FROM website_deployments WHERE id=${sqlString(deploymentMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Deployment not found.');
+      return json(res, 200, deploymentRowToJson(row));
+    }
+    const deploymentStatusMatch = url.pathname.match(/^\/api\/deployments\/([^/]+)\/status$/);
+    if (deploymentStatusMatch && req.method === 'POST') {
+      const row = one(`SELECT * FROM website_deployments WHERE id=${sqlString(deploymentStatusMatch[1])} AND workspace_id=${sqlString(session.workspace_id)}`);
+      if (!row) return safeError(res, 404, 'Deployment not found.');
+      const body = await readBody(req);
+      const allowed = ['Pending Deployment Provider', 'Queued', 'Cancelled'];
+      if (!allowed.includes(body.status)) return safeError(res, 400, 'Unsupported deployment status for local workflow.');
+      if (body.status === 'Queued' && !DEPLOYMENT_PROVIDER_CONFIGURED) return safeError(res, 400, 'Deployment provider is not configured.');
+      const data = { ...JSON.parse(row.data), status: body.status, updatedAt: now(), note: body.note || '' };
+      run(`UPDATE website_deployments SET status=${sqlString(body.status)}, data=${sqlString(JSON.stringify(data))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'website_deployment_status_changed', 'website_deployment', row.id, { status: body.status });
+      return json(res, 200, deploymentRowToJson(one(`SELECT * FROM website_deployments WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+
+    if (url.pathname === '/api/customer-success' && req.method === 'GET') {
+      const rows = all(`SELECT * FROM customer_success_records WHERE workspace_id=${sqlString(session.workspace_id)} ORDER BY updated_at DESC`);
+      return json(res, 200, { data: rows.map(successRowToJson) });
+    }
+    if (url.pathname === '/api/customer-success' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.customerId) return safeError(res, 400, 'Customer success record requires a customerId.');
+      const customer = getOwnedCustomer(session.workspace_id, body.customerId);
+      if (!customer) return safeError(res, 404, 'Customer not found.');
+      const project = body.projectId ? getOwnedProject(session.workspace_id, body.projectId) : one(`SELECT * FROM projects WHERE workspace_id=${sqlString(session.workspace_id)} AND customer_id=${sqlString(body.customerId)} ORDER BY updated_at DESC LIMIT 1`);
+      if (body.projectId && !project) return safeError(res, 404, 'Project not found.');
+      const projectData = project ? JSON.parse(project.data) : {};
+      const website = project ? one(`SELECT * FROM website_projects WHERE workspace_id=${sqlString(session.workspace_id)} AND project_id=${sqlString(project.id)} ORDER BY updated_at DESC LIMIT 1`) : null;
+      const deployment = website ? one(`SELECT * FROM website_deployments WHERE workspace_id=${sqlString(session.workspace_id)} AND website_project_id=${sqlString(website.id)} ORDER BY updated_at DESC LIMIT 1`) : null;
+      const existing = project ? one(`SELECT * FROM customer_success_records WHERE workspace_id=${sqlString(session.workspace_id)} AND customer_id=${sqlString(body.customerId)} AND project_id=${sqlString(project.id)}`) : null;
+      if (existing) return json(res, 200, { success: successRowToJson(existing), duplicate: true, message: 'Customer success record already exists for this customer/project.' });
+      let successData;
+      try { successData = validateSuccessData(body); } catch (error) { return safeError(res, 400, error.message); }
+      const timestamp = now();
+      const successId = id('success');
+      const data = { ...successData, customerSnapshot: JSON.parse(customer.data), projectName: projectData.projectName || '', deploymentStatus: deployment ? deployment.status : 'No deployment request', createdAt: timestamp };
+      run(`INSERT INTO customer_success_records (id, workspace_id, customer_id, project_id, proposal_id, website_project_id, deployment_id, status, data, created_by, created_at, updated_at) VALUES (${sqlString(successId)}, ${sqlString(session.workspace_id)}, ${sqlString(body.customerId)}, ${sqlString(project?.id || null)}, ${sqlString(projectData.acceptedProposalId || null)}, ${sqlString(website?.id || null)}, ${sqlString(deployment?.id || null)}, ${sqlString(body.status || 'Onboarding')}, ${sqlString(JSON.stringify(data))}, ${sqlString(session.user_id)}, ${sqlString(timestamp)}, ${sqlString(timestamp)})`);
+      audit(session, 'customer_success_created', 'customer_success', successId, { customerId: body.customerId, projectId: project?.id || null, websiteProjectId: website?.id || null, deploymentId: deployment?.id || null });
+      return json(res, 201, successRowToJson(one(`SELECT * FROM customer_success_records WHERE id=${sqlString(successId)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const successMatch = url.pathname.match(/^\/api\/customer-success\/([^/]+)$/);
+    if (successMatch && req.method === 'GET') {
+      const row = getOwnedSuccess(session.workspace_id, successMatch[1]);
+      if (!row) return safeError(res, 404, 'Customer success record not found.');
+      return json(res, 200, successRowToJson(row));
+    }
+    if (successMatch && req.method === 'POST') {
+      const row = getOwnedSuccess(session.workspace_id, successMatch[1]);
+      if (!row) return safeError(res, 404, 'Customer success record not found.');
+      const body = await readBody(req);
+      let merged;
+      try { merged = { ...JSON.parse(row.data), ...validateSuccessData(body, JSON.parse(row.data)) }; } catch (error) { return safeError(res, 400, error.message); }
+      const status = body.status || row.status;
+      run(`UPDATE customer_success_records SET status=${sqlString(status)}, data=${sqlString(JSON.stringify(merged))}, updated_at=${sqlString(now())} WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`);
+      audit(session, 'customer_success_updated', 'customer_success', row.id, { status, onboardingCompletion: merged.onboardingCompletion, satisfaction: merged.satisfaction });
+      return json(res, 200, successRowToJson(one(`SELECT * FROM customer_success_records WHERE id=${sqlString(row.id)} AND workspace_id=${sqlString(session.workspace_id)}`)));
+    }
+    const successActivitiesMatch = url.pathname.match(/^\/api\/customer-success\/([^/]+)\/activities$/);
+    if (successActivitiesMatch && req.method === 'GET') {
+      const row = getOwnedSuccess(session.workspace_id, successActivitiesMatch[1]);
+      if (!row) return safeError(res, 404, 'Customer success record not found.');
+      const activities = all(`SELECT * FROM customer_success_activities WHERE workspace_id=${sqlString(session.workspace_id)} AND success_id=${sqlString(row.id)} ORDER BY created_at DESC`);
+      return json(res, 200, { data: activities });
+    }
+    if (successActivitiesMatch && req.method === 'POST') {
+      const row = getOwnedSuccess(session.workspace_id, successActivitiesMatch[1]);
+      if (!row) return safeError(res, 404, 'Customer success record not found.');
+      const body = await readBody(req);
+      const type = body.activityType || 'note';
+      const providerTypes = ['email', 'sms', 'monitoring_alert', 'analytics_report', 'feedback_request'];
+      if (providerTypes.includes(type)) return safeError(res, 400, `${type} provider is not configured. Record a manual note or configure the provider first.`);
+      if (!String(body.notes || '').trim()) return safeError(res, 400, 'Activity notes are required.');
+      const activityId = id('success_activity');
+      run(`INSERT INTO customer_success_activities (id, workspace_id, success_id, customer_id, project_id, user_id, activity_type, notes, outcome, next_action, follow_up_at, provider_status, created_at) VALUES (${sqlString(activityId)}, ${sqlString(session.workspace_id)}, ${sqlString(row.id)}, ${sqlString(row.customer_id)}, ${sqlString(row.project_id)}, ${sqlString(session.user_id)}, ${sqlString(type)}, ${sqlString(body.notes)}, ${sqlString(body.outcome || '')}, ${sqlString(body.nextAction || '')}, ${sqlString(body.followUpAt || null)}, 'manual', ${sqlString(now())})`);
+      audit(session, 'customer_success_activity_created', 'customer_success_activity', activityId, { successId: row.id, activityType: type });
+      return json(res, 201, one(`SELECT * FROM customer_success_activities WHERE id=${sqlString(activityId)} AND workspace_id=${sqlString(session.workspace_id)}`));
     }
 
     if (url.pathname === '/api/settings') {
@@ -560,8 +1122,9 @@ const server = http.createServer(async (req, res) => {
 
     return safeError(res, 404, 'Not found.');
   } catch (error) {
-    console.error(error);
-    return safeError(res, 500, 'Request failed.');
+    const status = error.statusCode || 500;
+    logEvent(status >= 500 ? 'error' : 'warn', 'api_request_failed', { method: req.method, path: req.url, status, message: error.message });
+    return safeError(res, status, status >= 500 ? 'Request failed.' : error.message, status >= 500 ? 'internal_error' : 'request_error');
   }
 });
 

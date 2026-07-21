@@ -17,3 +17,65 @@ Open `http://localhost:8787/platform/index.html`.
 - Set `HAMIX_COOKIE_SECURE=true` behind HTTPS.
 - Set `HAMIX_DB_PATH` to a persistent volume.
 - Do not use the client local auth fallback for production data.
+
+## Project discovery and asset metadata
+
+The backend exposes tenant-scoped project onboarding APIs at `/api/projects`, `/api/projects/:id`, `/api/projects/:id/discovery`, and `/api/projects/:id/assets`.
+
+Asset handling is metadata-only in this repository checkout. The API validates file name, MIME type, and size, records `storageStatus: metadata_only`, and rejects inline file bytes/base64 payloads because no durable object-storage provider is configured. Configure an approved object-storage service before handling production customer files.
+
+Discovery notes and asset metadata must not contain passwords, tokens, API keys, hosting credentials, or other secrets. A dedicated secret store is required before HAMIX can collect deployment credentials.
+
+## Website generation engine
+
+Website-generation requests are stored through `/api/websites` and linked to onboarding projects. The database allows one website project per workspace/project and stores regeneration requests as new versions.
+
+If `HAMIX_AI_PROVIDER` and `HAMIX_AI_API_KEY` are not configured, the backend records website projects as `Pending AI Provider` and does not fabricate generated content. Configure an approved AI provider and review prompt/model governance before enabling generated website content.
+
+## Website deployment workflow
+
+Deployment requests are stored through `/api/deployments` and require an approved website project. If `HAMIX_DEPLOYMENT_PROVIDER` and `HAMIX_DEPLOYMENT_TARGET` are not configured, requests are saved as `Pending Deployment Provider` and no publishing is simulated.
+
+Configure approved hosting/repository targets, DNS/domain access, and secure secret storage before enabling real website publishing.
+
+## Customer success workflow
+
+Customer-success records are stored through `/api/customer-success` and linked to customer, project, proposal, website project, and deployment data inside the authenticated workspace. Activity history is stored through `/api/customer-success/:id/activities`.
+
+Provider-dependent actions such as email, SMS, monitoring alerts, analytics reports, and customer feedback requests are blocked unless approved providers are configured. HAMIX records manual activity history but does not fake customer communications or monitoring.
+
+## Production hardening and deployment
+
+Before production, set `NODE_ENV=production`, `HAMIX_SESSION_SECRET` to a long random value, `HAMIX_COOKIE_SECURE=true`, `HAMIX_ALLOWED_ORIGIN` to the public HTTPS origin, and `HAMIX_DB_PATH` to a persistent volume. Run the backend behind HTTPS and a reverse proxy that preserves cookies.
+
+Health and readiness:
+
+```bash
+curl http://localhost:8787/api/health
+curl http://localhost:8787/api/ready
+```
+
+Provider status is available for authenticated users at `/api/providers/status`. Unconfigured AI, deployment, storage, email, SMS, monitoring, analytics, and secret-storage providers remain blocked; HAMIX records pending states rather than simulating provider success.
+
+## Roles and permissions
+
+Workspace roles are `Owner`, `Admin`, and `Member`. Owners can create Admin/Member users through `/api/workspace/members`. Owner/Admin users can write records; Members are read-only within their workspace.
+
+## SQLite backup and restore
+
+Use SQLite online backup commands against the configured `HAMIX_DB_PATH`:
+
+```bash
+sqlite3 "$HAMIX_DB_PATH" ".backup '/secure/backups/hamix-$(date +%F).sqlite'"
+sqlite3 "$HAMIX_DB_PATH" "PRAGMA integrity_check;"
+```
+
+To restore, stop the Node process, copy the selected backup over `HAMIX_DB_PATH`, run `sqlite3 "$HAMIX_DB_PATH" "PRAGMA integrity_check;"`, and restart the backend. Do not restore across tenants without Product Owner approval and a tested rollback plan.
+
+## Automated integration smoke test
+
+```bash
+node platform/backend/tests/integration-smoke.js
+```
+
+The smoke test covers role restrictions, full lifecycle persistence, cross-tenant attacks, provider blocking, and backend restart persistence.
