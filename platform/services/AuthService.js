@@ -6,8 +6,24 @@
  */
 
 const AuthService = (() => {
-    const useBackend = () => window.ApiService && window.location.protocol !== 'file:';
-    let currentSession = null;
+    const REVIEW_MODE = true;
+    const REVIEW_SESSION = {
+        userId: 'review_owner',
+        email: 'review@hamix.local',
+        name: 'Product Owner',
+        role: 'Owner',
+        tenantId: 'tenant_review_build',
+        tenantName: 'HAMIX Review Build',
+        reviewMode: true
+    };
+    const useBackend = () => !REVIEW_MODE && window.ApiService && window.location.protocol !== 'file:';
+    let currentSession = REVIEW_MODE ? { ...REVIEW_SESSION } : null;
+
+    const createReviewSession = () => {
+        currentSession = { ...REVIEW_SESSION, createdAt: new Date().toISOString() };
+        localStorage.setItem(KEYS.SESSION, JSON.stringify(currentSession));
+        return currentSession;
+    };
 
     const normalizeBackendUser = (user) => ({
         userId: user.id,
@@ -63,6 +79,7 @@ const AuthService = (() => {
     };
 
     const getSession = () => {
+        if (REVIEW_MODE) return currentSession || createReviewSession();
         if (currentSession) return currentSession;
         const data = localStorage.getItem(KEYS.SESSION);
         if (!data) return null;
@@ -71,6 +88,7 @@ const AuthService = (() => {
     };
 
     const refreshSession = async () => {
+        if (REVIEW_MODE) return createReviewSession();
         if (!useBackend()) return getSession();
         try {
             const response = await ApiService.get('/api/session');
@@ -85,6 +103,7 @@ const AuthService = (() => {
     };
 
     const register = async ({ name, email, password, tenantName }) => {
+        if (REVIEW_MODE) return createReviewSession();
         if (useBackend()) {
             const response = await ApiService.post('/api/auth/register', { name, email, password, tenantName });
             currentSession = normalizeBackendUser(response.user);
@@ -122,6 +141,7 @@ const AuthService = (() => {
     };
 
     const login = async ({ email, password }) => {
+        if (REVIEW_MODE) return createReviewSession();
         if (useBackend()) {
             const response = await ApiService.post('/api/auth/login', { email, password });
             currentSession = normalizeBackendUser(response.user);
@@ -141,6 +161,10 @@ const AuthService = (() => {
     };
 
     const logout = async () => {
+        if (REVIEW_MODE) {
+            createReviewSession();
+            return;
+        }
         if (useBackend()) {
             await ApiService.post('/api/auth/logout', {});
         }
@@ -161,6 +185,7 @@ const AuthService = (() => {
         logout,
         refreshSession,
         requireSession,
+        isReviewMode: () => REVIEW_MODE,
         isAuthenticated: () => Boolean(getSession())
     };
 })();
