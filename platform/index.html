@@ -41,11 +41,10 @@
                 <i data-lucide="shield" class="logo-icon"></i>
                 <span class="logo-text">HAMIX</span>
             </div>
-            <h1>Secure HAMIX Workspace</h1>
-            <p class="auth-subtitle">Sign in or create a tenant workspace to access CRM, leads, customers, campaigns, and deployment tools.</p>
-            <div class="auth-tabs">
-                <button type="button" class="auth-tab active" data-auth-mode="login">Login</button>
-                <button type="button" class="auth-tab" data-auth-mode="register">Register</button>
+            <h1>HAMIX Review Workspace</h1>
+            <p class="auth-subtitle">Password access is disabled for product-owner build review. Launch CRM to inspect leads, customers, campaigns, and deployment tools.</p>
+            <div class="auth-tabs" aria-hidden="true">
+                <button type="button" class="auth-tab active" data-auth-mode="login">Review Mode</button>
             </div>
             <form id="form-auth" class="auth-form">
                 <div class="form-group auth-register-only">
@@ -57,17 +56,17 @@
                     <input type="text" id="auth-tenant" autocomplete="organization">
                 </div>
                 <div class="form-group">
-                    <label for="auth-email">Email</label>
-                    <input type="email" id="auth-email" autocomplete="email" required>
+                    <label for="auth-email">Review Email</label>
+                    <input type="email" id="auth-email" autocomplete="email" value="review@hamix.local" readonly>
                 </div>
                 <div class="form-group">
                     <label for="auth-password">Password</label>
-                    <input type="password" id="auth-password" autocomplete="current-password" minlength="8" required>
+                    <input type="password" id="auth-password" autocomplete="off" value="review-mode-disabled" readonly>
                 </div>
                 <p id="auth-error" class="auth-error" role="alert"></p>
-                <button type="submit" class="btn btn-primary btn-lg auth-submit">Login</button>
+                <button type="submit" class="btn btn-primary btn-lg auth-submit">Enter Review Build</button>
             </form>
-            <p class="auth-note">Static deployment note: this local auth boundary scopes browser data by tenant. Replace the adapter with server-backed auth before handling production customer data.</p>
+            <p class="auth-note">Review mode note: CRM passwords are disabled for this build review. Re-enable server-backed authentication before handling production customer data.</p>
         </div>
     </div>
     <!-- Landing Page Section -->

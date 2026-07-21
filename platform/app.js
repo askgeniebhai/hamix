@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         authMode = mode;
         document.body.classList.toggle('auth-register-mode', mode === 'register');
         authTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.authMode === mode));
-        if (authSubmit) authSubmit.textContent = mode === 'register' ? 'Create Workspace' : 'Login';
+        if (authSubmit) authSubmit.textContent = AuthService.isReviewMode?.() ? 'Enter Review Build' : (mode === 'register' ? 'Create Workspace' : 'Login');
         if (authError) authError.textContent = '';
     };
 
