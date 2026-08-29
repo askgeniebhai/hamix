@@ -96,6 +96,38 @@ threshold instead of disabling — still needed a signal to distinguish
 "CI's own test traffic" from a real production deployment, so it
 doesn't remove the need for this same env check.
 
+## D3-005 — Call `headers()` before `getAuth()` in every session lookup
+
+**Date:** 2026-08-29
+**Decision:** In `lib/auth/session.ts`, both `getSession()` and
+`requireActiveOrganization()` now `await nextHeaders()` into a local
+variable *before* calling `getAuth()`, instead of inlining
+`getAuth().api.getSession({ headers: await nextHeaders() })`.
+**Why:** CI's Tier 2 build (a clean checkout with zero environment
+variables, per D2-001) failed prerendering `/onboarding`:
+`getEnv()` threw `ZodError` for missing `DATABASE_URL`/
+`BETTER_AUTH_SECRET`. Root cause was JS call-evaluation order, not a
+missing env var — `getAuth()` (the left-hand callee of
+`getAuth().api.getSession(...)`) evaluates before its argument
+expression, so the lazy auth/env singleton was being constructed
+*before* `next/headers`'s `headers()` was ever called. Next.js only
+learns a route needs to be rendered dynamically (and so must skip
+static generation) once a dynamic API like `headers()` is actually
+invoked; with the old ordering, the build reached `getEnv()` first and
+failed outright instead of correctly deferring the page to request
+time. This had been masked locally because `.env.local` always
+supplied real values, so `getEnv()` never threw during local builds.
+**Verified:** `next build` passes with `.env.local` renamed away
+(zero env vars, matching CI exactly) — `/onboarding`, `/dashboard`,
+`/settings`, `/login`, `/signup` all render as dynamic (`ƒ`) routes,
+none prerendered; full Playwright suite still 34/34 with `CI=true`.
+**Rejected:** Adding `export const dynamic = "force-dynamic"` to each
+affected page — treats the symptom per-route instead of the shared
+root cause in `lib/auth/session.ts`, and a future page built on the
+same helpers would silently reintroduce the bug; setting dummy
+build-time env var defaults — would weaken `lib/env.ts`'s fail-closed
+validation (D2-001) for no real benefit.
+
 ## D2-001 — Lazily construct env/db/auth so the build never requires live secrets
 
 **Date:** 2026-08-29

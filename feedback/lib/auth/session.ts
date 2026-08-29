@@ -20,9 +20,14 @@ export type Session = NonNullable<
  * session lookups within the same request.
  */
 export const getSession = cache(async (): Promise<Session | null> => {
-  const session = await getAuth().api.getSession({
-    headers: await nextHeaders(),
-  });
+  // `headers()` must be called (and its dynamic-usage signal registered)
+  // before `getAuth()` constructs the lazy auth/env singleton — reversing
+  // this order lets `next build`'s static-generation pass reach `getEnv()`
+  // before Next has any reason to treat the route as dynamic, so a page
+  // with no env vars set at build time fails instead of correctly
+  // deferring to request time.
+  const headers = await nextHeaders();
+  const session = await getAuth().api.getSession({ headers });
   return session ?? null;
 });
 
@@ -81,8 +86,9 @@ export const requireActiveOrganization = cache(async (): Promise<{
       redirect("/onboarding");
     }
 
+    const headers = await nextHeaders();
     await getAuth().api.setActiveOrganization({
-      headers: await nextHeaders(),
+      headers,
       body: { organizationId: mostRecent.organizationId },
     });
     activeOrganizationId = mostRecent.organizationId;

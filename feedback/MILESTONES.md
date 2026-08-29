@@ -106,7 +106,7 @@ features.
   unauthenticated rejection, invalid login, session persistence,
   signup validation, secret non-exposure, and a genuine cross-tenant
   negative test against a real Postgres database
-- Decision log entries `DECISIONS.md` D3-001–D3-004
+- Decision log entries `DECISIONS.md` D3-001–D3-005
 
 **Explicitly out of scope for M3:** feedback posts, voting, comments,
 roadmap, changelog, billing, AI/intelligence, CRM/integrations, and

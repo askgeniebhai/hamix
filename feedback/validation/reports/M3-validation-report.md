@@ -91,7 +91,7 @@ container.
 | Check | Result |
 |---|---|
 | Clean install (`npm ci`) | PASS |
-| Production build (`npm run build`) | PASS — with **zero environment variables set**, confirming `lib/env`/`lib/db`/`lib/auth` remain lazily constructed even with the new session/tenant module |
+| Production build (`npm run build`) | PASS — with **zero environment variables set** (`.env.local` removed for this check), confirming `lib/env`/`lib/db`/`lib/auth` remain lazily constructed even with the new session/tenant module; this exact check failed on the PR's first CI run and was fixed — see "Failures discovered" #9 / `DECISIONS.md` D3-005 |
 | `drizzle-kit check` | PASS — schema/migration consistent |
 | Unit tests (`npm run test`, Vitest) | PASS — 20/20 (env schema, `EmptyState`, and new validation-schema/slugify tests) |
 
@@ -177,6 +177,22 @@ total.
    returning, making an immediately-following accessibility scan
    flaky (it could catch the root loading skeleton mid-transition) —
    fixed to wait for the dashboard heading first.
+9. **CI's Tier 2 build (zero env vars) failed prerendering
+   `/onboarding`** with a `ZodError` from `getEnv()` for missing
+   `DATABASE_URL`/`BETTER_AUTH_SECRET` — a real bug this PR's own CI
+   run caught after the milestone's initial local validation, since
+   local builds always had `.env.local` present and never exercised
+   this path. Root cause: JS call-evaluation order —
+   `getAuth().api.getSession({ headers: await nextHeaders() })`
+   evaluates `getAuth()` (which lazily constructs the env-validated
+   auth singleton) *before* its `headers()` argument, so Next never
+   got the chance to see the dynamic-API call that would have told it
+   to skip static generation for that route. **Fix:** `headers()` is
+   now awaited into a variable before `getAuth()` is called, in both
+   `getSession()` and `requireActiveOrganization()` (`DECISIONS.md`
+   D3-005). Verified: `next build` passes with `.env.local` removed
+   entirely (all five auth/workspace routes render dynamic, none
+   prerendered), and the full 34/34 Playwright suite still passes.
 
 No test, guard, or check was skipped, weakened, or marked `NOT
 APPLICABLE` to obtain a passing result.
