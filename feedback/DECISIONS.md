@@ -68,6 +68,30 @@ scope for M2.
 require building the account/session UI M2 explicitly excludes; the
 route exists as a foundation to gate in a future milestone.
 
+## D2-004 — Record proactive-acquisition, evidence-driven product direction
+
+**Date:** 2026-08-29
+**Decision:** Added
+[`docs/PRODUCT_DIRECTION.md`](./docs/PRODUCT_DIRECTION.md): the
+business is acquired both self-serve and via proactive outreach (the
+company approaching suitable businesses to offer feedback capture),
+and any future demand-intelligence feature must be grounded in real
+customer feedback signal — categorization, deduplication, sentiment,
+recurring-demand detection — never in scanning a prospect's site or
+product and asserting the company's own opinion of what's wrong.
+Cross-referenced from `README.md`, `PROJECT_CONSTITUTION.md` Rule 1,
+and `MILESTONES.md`.
+**Why:** Explicit, permanent Product Owner instruction. Recording it
+now, as documentation, means future milestones (including the
+proactive-acquisition and demand-intelligence features themselves,
+whenever authorized) inherit the constraint instead of it being
+re-explained or drifting.
+**Scope note:** Documentation only. No categorization, deduplication,
+sentiment-analysis, demand-detection, or recommendation-generation
+feature was implemented or authorized by this entry. Canny-style
+capture/organize/roadmap/changelog remains the first product
+foundation per `MILESTONES.md`.
+
 ## D1-001 — Next.js + PostgreSQL(Neon) + Drizzle as the core stack
 
 **Date:** 2026-08-29

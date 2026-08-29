@@ -104,3 +104,16 @@ These are documentation now, per Constitution Rules 11–12; they take
 effect on implementation starting with the next approved milestone, not
 retroactively and not as justification to start building ahead of
 authorization.
+
+Recorded 2026-08-29 (`DECISIONS.md` D2-004), positioning guidance for
+whenever demand-intelligence/acquisition-related milestones are
+authorized (not yet — Canny-style capture/organize/roadmap remains
+first):
+
+- **Two acquisition paths, evidence-driven proactive outreach.** See
+  [`docs/PRODUCT_DIRECTION.md`](./docs/PRODUCT_DIRECTION.md) — design
+  decisions should keep both self-serve and proactive-outreach
+  acquisition viable, and any future demand-intelligence feature must
+  be grounded in real customer feedback signal, never in scanning a
+  prospect's site/product and asserting our own opinion of what's
+  wrong (explicitly not a website-audit/SEO-scanning product).
