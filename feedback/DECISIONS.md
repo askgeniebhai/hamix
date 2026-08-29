@@ -7,6 +7,58 @@ for the current state.
 
 ---
 
+## D1-001 — Next.js + PostgreSQL(Neon) + Drizzle as the core stack
+
+**Date:** 2026-08-29
+**Decision:** Next.js (App Router, TypeScript), one deployable unit,
+backed by PostgreSQL hosted on Neon, accessed via Drizzle ORM.
+**Why:** Matches `ARCHITECTURE.md`'s "one deployable unit, simplest
+architecture" principle; Postgres fits this product's inherently
+relational data (tenants, posts, votes); Drizzle's SQL-visible queries
+make tenant-scoping auditable, directly serving the tenant-isolation
+requirement in `SECURITY.md`. Full comparison in `docs/TECH_STACK.md`.
+**Rejected:** Separate SPA + API backend (unneeded second deployable);
+Prisma (less query transparency for tenant-scoping, though a close
+call after Prisma 7's performance rewrite); MongoDB (fights this
+product's relational shape); self-managed Postgres (more ops burden
+than warranted yet).
+
+## D1-002 — Better Auth for authentication and multi-tenancy
+
+**Date:** 2026-08-29
+**Decision:** Better Auth, using its `organization()` plugin as the
+workspace/tenant/membership/RBAC model.
+**Why:** Ships a documented, typed organizations model — this
+product's core "workspace" concept — instead of requiring that schema
+and access-control layer to be hand-built (Rule 11, reuse before
+rewrite). MIT-licensed, no per-user fee, and acquired by Vercel in
+early 2026 as the maintained successor to Auth.js, pairing naturally
+with the Next.js/Vercel choice above. Full comparison in
+`docs/TECH_STACK.md`.
+**Rejected:** Auth.js/NextAuth (no built-in tenant/org model — would
+mean building exactly the plumbing Better Auth already provides);
+Clerk (per-MAU pricing works against a free-entry, expansion-driven
+business model before revenue exists); Supabase Auth (would only make
+sense paired with Supabase as the database, which was not selected).
+
+## D1-003 — Tailwind + shadcn/ui (owned components) for the design system
+
+**Date:** 2026-08-29
+**Decision:** Tailwind CSS for styling tokens; shadcn/ui-generated
+components (Radix/Base UI primitives, copied into the repo) as the
+base component set, restyled to the premium standard in
+`docs/DESIGN_PRINCIPLES.md`.
+**Why:** Components live in our own codebase so they can be fully
+restyled to a distinct, premium visual identity while inheriting
+accessible primitives (keyboard nav, focus management, ARIA) rather
+than rebuilding them. Directly serves Constitution Rule 12 (Premium
+Design Standard) and Rule 11 (reuse before rewrite) simultaneously.
+Full comparison in `docs/TECH_STACK.md`.
+**Rejected:** MUI/Ant Design/Chakra (opinionated look that reads as a
+generic admin dashboard — the anti-pattern `DESIGN_PRINCIPLES.md`
+explicitly warns against); a fully custom component library
+(reinvents solved accessibility work).
+
 ## D0-001 — Host this project inside the HAMIX repository, isolated under `feedback/`
 
 **Date:** 2026-08-29
