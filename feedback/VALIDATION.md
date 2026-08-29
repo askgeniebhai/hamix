@@ -72,6 +72,15 @@ Security-sensitive functionality always requires negative testing
 (what happens when the wrong tenant/user tries it) in addition to
 happy-path testing.
 
+Once user-facing screens exist, Tier 3 also includes visual and
+interaction verification per
+[`docs/DESIGN_PRINCIPLES.md`](./docs/DESIGN_PRINCIPLES.md) §"Tier 3
+extension: UI validation" — navigation, responsive layouts, forms,
+dialogs, loading/empty/error states, keyboard interactions, primary
+user journeys, layout overflow, and obvious visual regressions.
+Screenshots/browser inspection may serve as evidence. A passing
+backend test never substitutes for this.
+
 **M0 interpretation (bootstrap only):** there is no application runtime
 in M0. Tier 3 for M0 means:
 

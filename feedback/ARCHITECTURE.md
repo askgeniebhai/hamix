@@ -42,6 +42,15 @@ enforces this mechanically.
    and the three-tier validation framework (see
    [`VALIDATION.md`](./VALIDATION.md)) are first-class, permanent parts
    of this project, not optional tooling bolted on later.
+7. **Reuse mature public resources before building custom.** See
+   [`docs/ENGINEERING_PRINCIPLES.md`](./docs/ENGINEERING_PRINCIPLES.md).
+   This applies to framework/library selection once the stack is
+   chosen, not just to product features.
+8. **User-facing surfaces meet a premium design standard from day
+   one.** See [`docs/DESIGN_PRINCIPLES.md`](./docs/DESIGN_PRINCIPLES.md).
+   UI/component library selection (once the stack is chosen) is
+   evaluated against that standard, not against novelty or popularity
+   alone.
 
 ## What this milestone does NOT define
 

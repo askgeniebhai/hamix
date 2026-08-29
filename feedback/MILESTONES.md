@@ -37,3 +37,22 @@ visible; each will be scoped in detail, one at a time, when authorized.
 
 Do not begin design or implementation work on any future milestone until
 it is explicitly authorized.
+
+## Standing directives for every future milestone
+
+Recorded 2026-08-29 (`DECISIONS.md` D0-005), binding on M1 onward:
+
+- **Reuse before rewrite, deliberately.** See
+  [`docs/ENGINEERING_PRINCIPLES.md`](./docs/ENGINEERING_PRINCIPLES.md) —
+  discover mature public resources before writing custom code; every
+  dependency still has to justify itself.
+- **Premium, Apple-inspired design standard.** See
+  [`docs/DESIGN_PRINCIPLES.md`](./docs/DESIGN_PRINCIPLES.md) — applies
+  to any user-facing screen from its first usable version, including
+  accessibility, responsiveness, and the Tier 3 UI-validation
+  extension.
+
+These are documentation now, per Constitution Rules 11–12; they take
+effect on implementation starting with the next approved milestone, not
+retroactively and not as justification to start building ahead of
+authorization.

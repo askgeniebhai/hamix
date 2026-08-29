@@ -80,3 +80,34 @@ evidence is treated as false.
 
 Broken code never merges into `main`. Red CI blocks merge, without
 exception — see the CI rules in [`VALIDATION.md`](./VALIDATION.md).
+
+## 11. Reuse & Tooling Discipline
+
+Before writing significant original code, check whether a mature,
+reputable, actively maintained public/open-source resource already
+solves the requirement, and prefer discover → inspect → reuse →
+configure → integrate over generating everything from scratch. Custom
+engineering effort concentrates on this product's real business value
+(feedback workflow, tenant/customer model, prioritization, tracked-user
+economics, product intelligence) — not commodity plumbing. Use
+available tools and authoritative documentation to establish facts
+rather than reasoning from memory. Every dependency must still justify
+itself (maintenance, license, security history, cost) — reuse
+intelligently, not indiscriminately. Full detail:
+[`docs/ENGINEERING_PRINCIPLES.md`](./docs/ENGINEERING_PRINCIPLES.md).
+
+## 12. Premium Design Standard
+
+User-facing work must meet a premium, Apple-inspired standard of
+design quality (philosophy and polish — never their exact UI, assets,
+or branding) from its earliest usable version: simplicity, generous
+whitespace, strong typography, calm visual language, subtle depth,
+consistent rounded geometry, smooth purposeful interaction, and
+precision. This is a product requirement, not optional polish, and it
+does not excuse skipping accessibility, responsive design, or
+performance — nor does visual polish excuse broken functionality (the
+priority order is correct workflow → reliable functionality →
+excellent usability → premium polish). Once user-facing screens exist,
+Tier 3 validation (`VALIDATION.md`) must include visual and interaction
+verification. Full detail:
+[`docs/DESIGN_PRINCIPLES.md`](./docs/DESIGN_PRINCIPLES.md).

@@ -44,6 +44,27 @@ instruction — M0 is governance and tooling only.
 **Rejected:** Pre-selecting a stack "to save time later" — explicitly
 against the milestone scope.
 
+## D0-005 — Adopt permanent reuse-first and premium-design directives
+
+**Date:** 2026-08-29
+**Decision:** Record two Product Owner directives as permanent
+Constitution rules (11 and 12) with supporting detail documents:
+[`docs/ENGINEERING_PRINCIPLES.md`](./docs/ENGINEERING_PRINCIPLES.md)
+(prefer mature public/open-source resources over custom code;
+discover → inspect → reuse → configure → integrate; dependency and
+license discipline) and
+[`docs/DESIGN_PRINCIPLES.md`](./docs/DESIGN_PRINCIPLES.md) (a premium,
+Apple-inspired UI/UX standard — philosophy and polish, never Apple's or
+Canny's exact UI/assets/branding — plus a design-system requirement and
+a Tier 3 UI-validation extension).
+**Why:** Explicit, permanent Product Owner instruction, applying to all
+`feedback/**` work beginning with the next approved milestone.
+**Scope note:** This is documentation only — no product implementation,
+technology-stack selection, or UI work was started to produce it. It
+was added to the still-open M0 pull request as a follow-up commit
+rather than a new PR, since it is governance material of the same kind
+as the rest of M0's foundation and the branch had not yet merged.
+
 ## D0-004 — Three-tier validation gets a bootstrap interpretation for M0
 
 **Date:** 2026-08-29
