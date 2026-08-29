@@ -47,25 +47,31 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: feedback/package-lock.json
 
       - name: RepoGuard (scope, conflict, secret, dangerous-file, hygiene, governance, boundary)
         run: node feedback/scripts/repo-guard.js --base origin/${{ github.event.repository.default_branch }}
 
       - name: JavaScript syntax check
         run: |
-          find feedback -name '*.js' -print0 | xargs -0 -n1 node --check
+          find feedback -path 'feedback/node_modules' -prune -o -path 'feedback/.next' -prune -o -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: JSON validation
         run: |
-          find feedback -name '*.json' -print0 > /tmp/feedback-json-files
-          if [ -s /tmp/feedback-json-files ]; then
-            xargs -0 -n1 -a /tmp/feedback-json-files node -e "const fs=require('fs'); JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));"
-          else
-            echo "No JSON files under feedback/ yet — NOT APPLICABLE."
-          fi
+          find feedback -path 'feedback/node_modules' -prune -o -path 'feedback/.next' -prune -o -name '*.json' -print0 > /tmp/feedback-json-files
+          xargs -0 -n1 -a /tmp/feedback-json-files node -e "const fs=require('fs'); JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));"
 
-  tier2-bootstrap-integration:
-    name: Tier 2 — Build / Integration (bootstrap)
+      - name: Install dependencies
+        working-directory: feedback
+        run: npm ci
+
+      - name: Lint
+        working-directory: feedback
+        run: npm run lint
+
+  tier2-build-integration:
+    name: Tier 2 — Build / Integration
     needs: tier1-static-quality
     runs-on: ubuntu-latest
     steps:
@@ -78,6 +84,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: feedback/package-lock.json
 
       - name: RepoGuard executes
         run: node feedback/scripts/repo-guard.js --base origin/${{ github.event.repository.default_branch }}
@@ -90,9 +98,31 @@ jobs:
           python3 -m pip install --quiet --disable-pip-version-check pyyaml
           python3 -c "import yaml; yaml.safe_load(open('.github/workflows/feedback-ci.yml')); print('feedback-ci.yml: valid YAML')"
 
-  tier3-bootstrap-e2e:
-    name: Tier 3 — Runtime / E2E (bootstrap)
-    needs: tier2-bootstrap-integration
+      - name: Install dependencies (clean, from lockfile)
+        working-directory: feedback
+        run: npm ci
+
+      - name: Production build
+        working-directory: feedback
+        run: npm run build
+
+      - name: Type check
+        working-directory: feedback
+        run: npm run typecheck
+
+      - name: Unit tests (Vitest)
+        working-directory: feedback
+        run: npm run test
+
+      - name: Validate drizzle.config.ts loads (no schema/migrations yet)
+        working-directory: feedback
+        run: npx drizzle-kit check --config drizzle.config.ts
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+
+  tier3-runtime-e2e:
+    name: Tier 3 — Runtime / E2E
+    needs: tier2-build-integration
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (clean checkout reproduction)
@@ -104,8 +134,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: feedback/package-lock.json
 
-      - name: Full validation pipeline (RepoGuard self-test + real run)
+      - name: RepoGuard self-test + real run (full validation pipeline)
         run: |
           node feedback/scripts/repo-guard.js --self-test
           node feedback/scripts/repo-guard.js --base origin/${{ github.event.repository.default_branch }}
@@ -121,3 +153,29 @@ jobs:
             exit 1
           fi
           echo "Boundary verified: all changed files are within feedback/** or feedback-*.yml workflows."
+
+      - name: Install dependencies
+        working-directory: feedback
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('feedback/package-lock.json') }}
+
+      - name: Install Playwright Chromium
+        working-directory: feedback
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests (build, launch, and verify the real app shell)
+        working-directory: feedback
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: feedback/playwright-report/
+          retention-days: 7
