@@ -1,10 +1,10 @@
 # Security Baseline
 
-This document establishes **requirements**, not implementation. No
-technology stack has been selected yet (see `ARCHITECTURE.md`), so
-nothing here should be read as endorsing a specific library, framework,
-or provider. Every future milestone that touches these areas must show
-how it satisfies the relevant requirement in its validation report.
+This document establishes **requirements**; see "Current status" below
+for what is actually implemented as of the most recent milestone and
+where the evidence lives. Every milestone that touches these areas
+must show how it satisfies the relevant requirement in its validation
+report.
 
 ## Secrets
 
@@ -81,11 +81,55 @@ how it satisfies the relevant requirement in its validation report.
   a database exists — no undocumented manual schema changes against
   production.
 
-## Current status (M0)
+## Current status (as of M3)
 
-There is no application runtime, no data store, and no authentication
-yet, so most of the above are forward-looking requirements rather than
-implemented controls. What M0 *does* enforce today: no secrets or
-dangerous files are committed (RepoGuard), and this document exists so
-every future milestone is held to these requirements from its first
-commit rather than retrofitted later.
+- **Secrets:** enforced since M0 — RepoGuard's Secret Guard and
+  Dangerous File Guard run on every change. `lib/env.ts` fails closed
+  (throws) if required secrets are missing/invalid when actually used.
+- **Authentication:** implemented — Better Auth email/password, with
+  Zod validation on the client and Better Auth's own server-side
+  validation behind it. Passwords are hashed by Better Auth (never
+  stored or logged in plaintext); real signup/login/logout are covered
+  by `e2e/auth.spec.ts` against a real database.
+- **Authorization / default-deny:** implemented — protected routes
+  (`/dashboard`, `/settings`, `/onboarding`) redirect unauthenticated
+  requests to `/login`; `proxy.ts` provides a fast cookie-presence
+  check, but the real boundary is the server-side session check in
+  `lib/auth/session.ts`, which every protected page calls. Verified by
+  `e2e/auth.spec.ts`'s "unauthenticated requests to protected routes
+  are rejected" test.
+- **Tenant isolation:** implemented for the auth/workspace data that
+  exists so far — `requireActiveOrganization()` re-verifies the
+  session's active organization against the `member` table rather
+  than trusting the session cookie, and Better Auth's own
+  `organization/set-active` endpoint rejects switching into an
+  organization the caller isn't a member of. Covered by a genuine
+  cross-tenant negative test (`e2e/auth.spec.ts`, "tenant isolation")
+  against a real Postgres database — not yet exercised against product
+  data, since none exists until a future milestone.
+- **Session & transport:** implemented — Better Auth's session cookie
+  is `HttpOnly`, `SameSite=Lax`, with CSRF protection via Better Auth's
+  trusted-origin check on state-changing requests (verified directly:
+  a request with a missing/mismatched `Origin` header is rejected).
+  `Secure` is applied automatically over HTTPS in production; local
+  dev/CI runs over plain HTTP.
+- **Rate limiting:** implemented via Better Auth's built-in limiter,
+  enabled by default in production; disabled only when `CI=true` so
+  the E2E suite's own legitimate rapid signups aren't throttled as
+  abuse (`DECISIONS.md` D3-004) — a real deployment keeps it on.
+- **Input handling:** implemented for what exists — Zod schemas
+  (`lib/validation/auth.ts`) validate signup/login/workspace-creation
+  input; Drizzle's parameterized queries are used throughout, no
+  string-built SQL anywhere in the codebase.
+- **Dependency review:** applied — e.g. the `neon-http` → `node-postgres`
+  driver switch and the account-schema patch were each reviewed and
+  recorded (`DECISIONS.md` D3-001, D3-002) rather than adopted blindly;
+  the drizzle-kit dev-only advisory noted in the M2 report remains a
+  documented, accepted risk (no fixed release exists yet).
+- **Not yet applicable:** auditability (no sensitive actions beyond
+  auth/workspace creation exist yet), backups/migration discipline
+  beyond `drizzle-kit`'s own migration files (no production database
+  provisioned yet), and XSS-specific review (no user-generated content
+  is rendered yet — React's default escaping covers the UI that exists
+  today, but this needs explicit re-verification once product content
+  like feedback posts/comments exists).

@@ -7,6 +7,95 @@ for the current state.
 
 ---
 
+## D3-001 — Switch from `neon-http` to standard `node-postgres`
+
+**Date:** 2026-08-29
+**Decision:** `lib/db/index.ts` now uses `drizzle-orm/node-postgres` +
+the `pg` package, dropping `@neondatabase/serverless`'s `neon-http`
+driver picked in M1 (`docs/TECH_STACK.md`).
+**Why:** Discovered while wiring real DB-backed testing for M3:
+`neon-http`'s HTTP/WebSocket driver can only reach actual Neon/Vercel/
+Supabase endpoints — attempting `drizzle-kit migrate` against local
+Postgres hung indefinitely (confirmed via the driver's own console
+warning: "can only connect to remote Neon/Vercel Postgres/Supabase
+instances through a websocket"). That made it impossible to test real
+auth/tenant flows locally or in CI. `node-postgres` connects over the
+standard Postgres wire protocol, which Neon fully supports via the
+same `DATABASE_URL` (`sslmode=require` enables TLS automatically) — so
+one client now works unmodified against local Postgres, a CI
+`postgres:` service container, and real Neon in production.
+**Rejected:** Keeping `neon-http` and only testing against a real
+provisioned Neon database — would require live Neon credentials in
+every contributor's environment and in CI secrets for a foundation
+milestone that shouldn't need real cloud infrastructure yet.
+
+## D3-002 — Hand-patch `account.issuer`, missing from the CLI-generated schema
+
+**Date:** 2026-08-29
+**Decision:** Added an `issuer` column (+ a unique `(issuer, accountId)`
+index) to the `account` table in `lib/db/auth-schema.ts`, on top of
+what `@better-auth/cli generate` produced.
+**Why:** `@better-auth/cli` resolved to version 1.4.21 (flagged
+deprecated on npm) while our installed `better-auth` core is 1.7.2.
+Signing up against the CLI's generated schema failed at runtime:
+`"The field issuer does not exist in the account Drizzle schema"` —
+better-auth core ≥1.7 scopes account identity by issuer
+(better-auth.com/docs/guides/1-7-upgrade-guide), a schema change the
+older CLI doesn't know about. The exact field (`type: string,
+required: true`) and its unique index were taken from
+`node_modules/@better-auth/core`'s own schema source — the ground
+truth for the installed version — not guessed.
+**Rejected:** Pinning to an older `better-auth` core matching the CLI —
+would give up the current, actively-maintained version (and its
+Vercel backing, per `docs/TECH_STACK.md`) to work around a stale
+scaffolding tool; patching the one missing field is smaller and keeps
+the dependency current.
+
+## D3-003 — Carry the active workspace forward across a fresh login
+
+**Date:** 2026-08-29
+**Decision:** `requireActiveOrganization()` (`lib/auth/session.ts`), on
+finding a session with no `activeOrganizationId`, now looks up the
+user's most recent organization membership and, if one exists,
+activates it via Better Auth's own `setActiveOrganization` server API
+before proceeding — rather than immediately treating "no active org on
+this session" as "no workspace."
+**Why:** A fresh login creates a brand-new session row with
+`activeOrganizationId: null`, even for a user who already owns a
+workspace from a previous session — Better Auth doesn't carry it
+forward automatically. Without this, the M3-required flow ("workspace
+persists" across logout/login) sent returning users through
+`/onboarding` again on every login, discovered by the M3 Playwright
+lifecycle test.
+**Rejected:** Handling this per call site (e.g. in the login form,
+redirect based on `organization.list()`) — would need every future
+entry point (login, direct navigation, a future "magic link", etc.) to
+remember the same logic; putting it in the single tenant-resolution
+function is the one place `docs/M1_ARCHITECTURE_DECISION.md`'s
+data-access model already designates for this kind of decision.
+
+## D3-004 — Disable Better Auth's rate limiter only when `CI=true`
+
+**Date:** 2026-08-29
+**Decision:** `lib/auth/index.ts` passes `rateLimit: { enabled: false }`
+to `betterAuth()` only when `process.env.CI` is set; otherwise Better
+Auth's own default applies (enabled only when `NODE_ENV=production`).
+**Why:** Better Auth's default is "rate limiting on in production" —
+and `next build && next start` (what both the E2E suite's Playwright
+`webServer` and a real deployment run) is a production build either
+way. The M3 Playwright suite's legitimate rapid-fire signups (multiple
+tests, two device projects, several workers) tripped the limiter with
+"Too many requests," failing tests that had nothing to do with abuse.
+`CI=true` is set automatically by GitHub Actions and was exported by
+hand for local validation runs; a real production deployment (no `CI`
+env var) keeps Better Auth's default protection.
+**Rejected:** Disabling rate limiting unconditionally — would remove a
+real production protection `SECURITY.md` calls for ("rate limiting
+where justified") for no reason beyond convenience; raising the
+threshold instead of disabling — still needed a signal to distinguish
+"CI's own test traffic" from a real production deployment, so it
+doesn't remove the need for this same env check.
+
 ## D2-001 — Lazily construct env/db/auth so the build never requires live secrets
 
 **Date:** 2026-08-29

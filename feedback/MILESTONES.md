@@ -49,8 +49,8 @@ migration, any dependency installation, any UI implementation, any
 
 ## M2 — Running Application Foundation
 
-**Status:** Complete (pending PR merge — see
-`validation/reports/M2-validation-report.md`).
+**Status:** Complete. Merged to `main` via PR #24. See
+`validation/reports/M2-validation-report.md`.
 
 **Scope:** Implement the M1 stack as a real, running application shell.
 No product features.
@@ -74,12 +74,50 @@ No product features.
 roadmap, changelog, billing, AI, CRM integrations, and any full
 database schema or account workflow.
 
+## M3 — Workspace & Authentication Foundation
+
+**Status:** Complete (pending PR merge — see
+`validation/reports/M3-validation-report.md`).
+
+**Scope:** Real authentication, session handling, workspace/organization
+creation and membership, protected routes, and a tenant-aware
+data-access foundation, using the M1-selected stack. No product
+features.
+
+- Signup, login/logout, secure cookie-based sessions (Better Auth)
+- Workspace/organization creation (`/onboarding`) and membership,
+  built on Better Auth's `organization()` plugin
+- Current-workspace selection and switching (multi-organization
+  aware), with a fresh-login carry-forward fix so the active workspace
+  persists across logout/login
+- Protected workspace routes: `proxy.ts` (Next 16's renamed
+  `middleware.ts`) for a fast cookie-presence redirect, backed by the
+  real server-side check in `lib/auth/session.ts`
+- Tenant-aware data-access foundation: `requireActiveOrganization()`
+  re-verifies the session's active organization against the `member`
+  table rather than trusting the session cookie alone — the single
+  place every future tenant-scoped query goes through
+- Basic user profile (`/settings`): name, email, workspace, role
+- Schema/migrations for users/auth, organizations/workspaces, and
+  membership only — generated via the official Better Auth CLI, no
+  domain tables
+- Playwright coverage of the full lifecycle (signup → workspace →
+  logout → protected-route rejection → login → workspace persists),
+  unauthenticated rejection, invalid login, session persistence,
+  signup validation, secret non-exposure, and a genuine cross-tenant
+  negative test against a real Postgres database
+- Decision log entries `DECISIONS.md` D3-001–D3-004
+
+**Explicitly out of scope for M3:** feedback posts, voting, comments,
+roadmap, changelog, billing, AI/intelligence, CRM/integrations, and
+any invite-teammate / multi-user-per-organization UI beyond the
+creator's own membership.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M3 — Workspace & authentication foundation**
 - **M4 — Feedback submission & voting**
 - **M5+** — to be defined as the product proves itself
 
