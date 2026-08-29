@@ -7,6 +7,67 @@ for the current state.
 
 ---
 
+## D2-001 — Lazily construct env/db/auth so the build never requires live secrets
+
+**Date:** 2026-08-29
+**Decision:** `lib/env.ts`, `lib/db/index.ts`, and `lib/auth/index.ts`
+each expose a memoized `get*()` function instead of a module-level
+constant, and `app/api/auth/[...all]/route.ts` calls `getAuth()` inside
+its `GET`/`POST` function bodies, not at module top level.
+**Why:** A first attempt (`export const { GET, POST } =
+toNextJsHandler(getAuth())` at module top level) failed `next build`
+with a `ZodError` for missing `DATABASE_URL`/`BETTER_AUTH_SECRET` —
+Next.js executes a route module's top-level code during build-time
+"Collecting page data", not only at request time. Deferring the call
+into the exported functions fixed it: confirmed with a clean `next
+build` and no environment variables set, and the route only touches
+env/db/auth when an actual request to `/api/auth/*` arrives.
+**Rejected:** Requiring `DATABASE_URL`/`BETTER_AUTH_SECRET` in CI/build
+just to satisfy this — would contradict M2's "foundation only, no live
+database" scope for no real benefit, since nothing in M2 reads from the
+database yet.
+
+## D2-002 — shadcn/ui Base UI + Nova preset, with token fixes
+
+**Date:** 2026-08-29
+**Decision:** Initialized shadcn/ui with the Base UI primitive library
+and the "Nova" preset (Lucide icons, Geist font), then made two
+deliberate token edits: (1) added a restrained indigo accent
+(`oklch(0.32 0.09 264)` light / `oklch(0.75 0.1 264)` dark) for
+`--primary`/`--ring` instead of shipping pure grayscale, and (2)
+darkened `--muted-foreground` from `oklch(0.556 0 0)` to
+`oklch(0.47 0 0)` after an automated accessibility scan (axe, via
+Playwright) found the shipped default failed WCAG AA contrast
+(4.34:1, needs 4.5:1) against `--muted`.
+**Why:** Base UI is shadcn/ui's current recommended default (per
+`docs/TECH_STACK.md`'s research); Nova's neutral palette matches
+`docs/DESIGN_PRINCIPLES.md`'s "calm visual language," but needed one
+original accent to avoid reading as generic, and the contrast fix is a
+direct instance of `docs/DESIGN_PRINCIPLES.md`'s "accessibility is
+part of premium design" being enforced by evidence, not assumption.
+**Rejected:** Leaving the default token contrast as shipped — would
+have been "ship now, fix if someone notices," which
+`PROJECT_CONSTITUTION.md` Rule 9 (Evidence-Based Completion) doesn't
+allow once the evidence (a failing automated check) exists.
+
+## D2-003 — Route-group split: public shell vs. authenticated workspace
+
+**Date:** 2026-08-29
+**Decision:** `app/page.tsx` is the public entry shell; `app/(workspace)/`
+is a route group holding the authenticated-app layout (sidebar +
+topbar) and its pages (currently just `dashboard/`). Neither route is
+actually access-controlled yet — Better Auth isn't wired into any page
+in M2.
+**Why:** Matches `docs/M1_ARCHITECTURE_DECISION.md`'s application
+layout, and gives the two UI contexts described by the M2 task
+("public entry shell" and "authenticated-app layout foundation")
+distinct, real routes to render — rather than one undifferentiated
+page — without requiring the auth wiring that's explicitly out of
+scope for M2.
+**Rejected:** Gating `/dashboard` behind a real auth check now — would
+require building the account/session UI M2 explicitly excludes; the
+route exists as a foundation to gate in a future milestone.
+
 ## D1-001 — Next.js + PostgreSQL(Neon) + Drizzle as the core stack
 
 **Date:** 2026-08-29

@@ -27,8 +27,8 @@ CRM-style views, landing page) and any technology stack selection.
 
 ## M1 — Architecture & Tech Stack Selection
 
-**Status:** Complete (pending PR merge — see
-`validation/reports/M1-validation-report.md`).
+**Status:** Complete. Merged to `main` via PR #23. See
+`validation/reports/M1-validation-report.md`.
 
 **Scope:** Research and decide the technology stack and high-level
 architecture only. No product code, no schema, no dependency
@@ -47,14 +47,38 @@ installed.
 migration, any dependency installation, any UI implementation, any
 "minimal skeleton" app. Research and decision only.
 
+## M2 — Running Application Foundation
+
+**Status:** Complete (pending PR merge — see
+`validation/reports/M2-validation-report.md`).
+
+**Scope:** Implement the M1 stack as a real, running application shell.
+No product features.
+
+- Next.js (App Router, TypeScript) + Tailwind + shadcn/ui, with an
+  original, premium-calm design token system
+- Public entry shell (`app/page.tsx`) and an authenticated-app layout
+  foundation (`app/(workspace)/`: sidebar + topbar), with reusable
+  loading/error/empty-state primitives
+- Drizzle ORM + Neon connection foundation, intentionally empty schema
+- Better Auth foundation (`organization()` plugin configured, no
+  account UI wired in)
+- Zod-validated environment config, `.env.example`, `/api/health`
+- Vitest unit tests and a Playwright E2E suite (load, navigation,
+  responsive smoke, zero overflow, automated accessibility scans)
+  exercised against the real built-and-launched app
+- `feedback-ci.yml` extended with real lint/typecheck/build/test/e2e
+- Decision log entries `DECISIONS.md` D2-001–D2-003
+
+**Explicitly out of scope for M2:** feedback boards, voting, comments,
+roadmap, changelog, billing, AI, CRM integrations, and any full
+database schema or account workflow.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M2 — Repository scaffold & minimal running skeleton** (apply the
-  M1 stack decision: initialize the app, database connection, and
-  Better Auth wiring — still no product features)
 - **M3 — Workspace & authentication foundation**
 - **M4 — Feedback submission & voting**
 - **M5+** — to be defined as the product proves itself
