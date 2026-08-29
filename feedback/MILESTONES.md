@@ -76,8 +76,8 @@ database schema or account workflow.
 
 ## M3 — Workspace & Authentication Foundation
 
-**Status:** Complete (pending PR merge — see
-`validation/reports/M3-validation-report.md`).
+**Status:** Complete. Merged to `main` via PR #25. See
+`validation/reports/M3-validation-report.md`.
 
 **Scope:** Real authentication, session handling, workspace/organization
 creation and membership, protected routes, and a tenant-aware
@@ -113,12 +113,65 @@ roadmap, changelog, billing, AI/intelligence, CRM/integrations, and
 any invite-teammate / multi-user-per-organization UI beyond the
 creator's own membership.
 
+## M4 — Feedback Submission & Voting
+
+**Status:** Complete (pending PR merge — see
+`validation/reports/M4-validation-report.md`).
+
+**Scope:** The smallest complete Canny-style public workflow: a public
+feedback portal, submission, voting/unvoting, and a minimal admin
+view — the first real product feature, on top of M3's tenant-scoped
+foundation. `Feedback`/`Post` and `Comment` remain distinct entities;
+no comment table or UI is introduced here.
+
+- Domain schema: `board`, `post`, `vote`, `participant` (the external
+  feedback participant/customer identity — deliberately distinct from
+  the internal `user`/`member` Better Auth model), every row carrying
+  its own `organization_id`
+- Exactly one board is created atomically with every organization, via
+  Better Auth's `organizationHooks.afterCreateOrganization` hook —
+  the public URL is `/b/[organization-slug]`, the simplest
+  well-justified equivalent to a separate board slug for this
+  milestone
+- Public portal (`/b/[slug]`): feedback list with vote counts,
+  submit-feedback form (title, description, name, email — the
+  minimum needed to attribute a submission/vote safely), vote/unvote
+  control, empty/loading/error states, responsive, accessible
+- Participant identity (`lib/feedback/participant.ts`): an
+  HttpOnly, per-organization cookie carrying an opaque token, so a
+  returning visitor doesn't re-enter their email; created via the
+  submit-feedback form, or inline the first time an unidentified
+  visitor votes
+- Voting: one vote per (post, participant), enforced by a database
+  unique index (`vote_post_participant_uidx`) — not just application
+  logic — verified race-safe under real concurrent requests
+  (`tests/integration/vote-race.test.ts`, a new integration-test tier
+  with a real database, run in Tier 3)
+- Tenant-scoped data access (`lib/feedback/data.ts`): every read/write
+  either takes an already-resolved `organizationId` or is the one
+  place that resolves it (the public board-by-slug lookup); a post's
+  organization is re-verified before a vote is recorded, so a
+  cross-tenant `postId` can never be voted on
+- Minimal admin view (`/feedback`, protected): real submitted posts,
+  vote counts, and submitter identity, for the active organization's
+  board only
+- Playwright coverage of the full public flow (submit → vote → persist
+  on reload → unvote → admin sees it), the inline-identify voting
+  path, invalid-submission rejection (server-side, bypassing client
+  validation), unauthenticated admin-route rejection, and a genuine
+  cross-tenant negative test (a second organization's board/admin view
+  never shows the first organization's post)
+- Decision log entries `DECISIONS.md` D4-001–D4-002
+
+**Explicitly out of scope for M4:** comments, semantic deduplication,
+AI/prioritization, roadmap, changelog, billing, CRM, revenue
+weighting, moderation, and post categories/tags.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M4 — Feedback submission & voting**
 - **M5+** — to be defined as the product proves itself
 
 Do not begin design or implementation work on any future milestone until
