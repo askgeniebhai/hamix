@@ -21,6 +21,10 @@ of the top-level governance files (`README.md`, `PROJECT_CONSTITUTION.md`,
 - [`M1_ARCHITECTURE_DECISION.md`](./M1_ARCHITECTURE_DECISION.md) — how
   that stack fits together: the multi-tenancy model, conceptual domain
   shape, application layout, and deployment topology.
+- [`PRODUCT_DIRECTION.md`](./PRODUCT_DIRECTION.md) — the two customer-
+  acquisition paths (self-serve and proactive outreach) and the
+  evidence-driven demand-intelligence positioning the product should
+  grow into. Positioning only — not an implementation authorization.
 
 Populated further as future milestones produce documentation worth
 keeping (e.g. API references, ADRs too detailed for `DECISIONS.md`,

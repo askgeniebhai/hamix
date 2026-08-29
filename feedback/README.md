@@ -3,7 +3,9 @@
 An independent, original SaaS project reproducing the proven **customer
 feedback management** business model (public/private feedback boards,
 voting, roadmap, changelog) as a standalone product — free entry,
-paid subscription tiers, expansion to enterprise.
+paid subscription tiers, expansion to enterprise. Customers are
+acquired both self-serve and through proactive outreach; see
+[`docs/PRODUCT_DIRECTION.md`](./docs/PRODUCT_DIRECTION.md).
 
 This is **not** a fork, clone, or reuse of any competitor's code, design,
 copy, or branding. It reproduces a proven *product category and business

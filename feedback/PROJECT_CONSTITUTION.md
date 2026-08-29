@@ -10,7 +10,10 @@ recorded in [`DECISIONS.md`](./DECISIONS.md).
 Every feature must contribute toward creating a commercially viable
 recurring SaaS business: acquisition, activation, retention, expansion,
 or monetization. Work that does not serve one of these is out of scope
-until justified.
+until justified. Acquisition is not assumed to be self-serve-only —
+see [`docs/PRODUCT_DIRECTION.md`](./docs/PRODUCT_DIRECTION.md) for the
+proactive-outreach path and the evidence-driven principle that governs
+it.
 
 ## 2. Original Implementation
 

@@ -35,7 +35,10 @@ const GOVERNANCE_FILES = [
 ];
 
 const DANGEROUS_FILENAME_PATTERNS = [
-  /(^|\/)\.env(\..+)?$/,
+  // .env / .env.local / .env.production etc. are dangerous — but a
+  // committed, secret-free template (.env.example/.sample/.template)
+  // is expected and safe, so it's explicitly excluded.
+  /(^|\/)\.env(?!\.(?:example|sample|template)$)(\..+)?$/,
   /(^|\/)\.env\.local$/,
   /(^|\/)id_rsa(\.\w+)?$/,
   /(^|\/)id_ed25519(\.\w+)?$/,
@@ -381,6 +384,8 @@ function selfTest() {
   // Dangerous filename detection
   assert(!isDangerousFilename('feedback/README.md'), 'Dangerous File Guard: ordinary doc file is not flagged', failures);
   assert(isDangerousFilename('feedback/.env'), 'Dangerous File Guard: intentional .env fixture is detected', failures);
+  assert(isDangerousFilename('feedback/.env.local'), 'Dangerous File Guard: intentional .env.local fixture is detected', failures);
+  assert(!isDangerousFilename('feedback/.env.example'), 'Dangerous File Guard: committed .env.example template is not flagged', failures);
   assert(isDangerousFilename('feedback/scripts/id_rsa'), 'Dangerous File Guard: intentional private-key filename fixture is detected', failures);
 
   // Scope check
