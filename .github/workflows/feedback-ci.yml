@@ -190,6 +190,10 @@ jobs:
         working-directory: feedback
         run: npx drizzle-kit migrate --config drizzle.config.ts
 
+      - name: Integration tests (database-enforced vote-uniqueness race safety)
+        working-directory: feedback
+        run: npm run test:integration
+
       - name: End-to-end tests (build, launch, and verify real signup/login/workspace/tenant-isolation flows)
         working-directory: feedback
         run: npm run test:e2e

@@ -48,7 +48,7 @@ test.describe("security", () => {
   test("unauthenticated requests to protected routes are rejected", async ({
     page,
   }) => {
-    for (const path of ["/dashboard", "/settings", "/onboarding"]) {
+    for (const path of ["/dashboard", "/settings", "/onboarding", "/feedback"]) {
       await page.goto(path);
       await expect(page).toHaveURL(/\/login/);
     }

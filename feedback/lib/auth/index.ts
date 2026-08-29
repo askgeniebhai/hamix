@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 
 import { getDb } from "@/lib/db";
+import { board } from "@/lib/db/schema";
 import { getEnv } from "@/lib/env";
 
 /**
@@ -31,7 +32,26 @@ function createAuth() {
     emailAndPassword: {
       enabled: true,
     },
-    plugins: [organization()],
+    plugins: [
+      organization({
+        organizationHooks: {
+          // Every organization gets exactly one feedback board,
+          // created atomically alongside it — see
+          // docs/M1_ARCHITECTURE_DECISION.md's Board entity and
+          // DECISIONS.md D4-001. Reuses the organization's own
+          // (already globally unique) slug so the public portal URL
+          // is simply /b/[organization-slug], with no separate board
+          // slug for the user to name.
+          afterCreateOrganization: async ({ organization: org }) => {
+            await getDb().insert(board).values({
+              organizationId: org.id,
+              slug: org.slug,
+              name: org.name,
+            });
+          },
+        },
+      }),
+    ],
     // Better Auth enables rate limiting by default only in production
     // — which is exactly what `next build && next start` is, including
     // when that's the E2E test suite's own webServer. Real users never
