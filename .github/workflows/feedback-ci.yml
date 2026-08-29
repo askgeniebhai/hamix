@@ -114,7 +114,7 @@ jobs:
         working-directory: feedback
         run: npm run test
 
-      - name: Validate drizzle.config.ts loads (no schema/migrations yet)
+      - name: Validate Drizzle schema/migration consistency
         working-directory: feedback
         run: npx drizzle-kit check --config drizzle.config.ts
         env:
@@ -124,6 +124,24 @@ jobs:
     name: Tier 3 — Runtime / E2E
     needs: tier2-build-integration
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: feedback_ci
+          POSTGRES_PASSWORD: feedback_ci
+          POSTGRES_DB: feedback_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feedback_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://feedback_ci:feedback_ci@localhost:5432/feedback_ci
+      BETTER_AUTH_SECRET: feedback-ci-e2e-secret-not-used-anywhere-else-000
+      BETTER_AUTH_URL: http://localhost:3000
     steps:
       - name: Checkout (clean checkout reproduction)
         uses: actions/checkout@v4
@@ -168,7 +186,11 @@ jobs:
         working-directory: feedback
         run: npx playwright install --with-deps chromium
 
-      - name: End-to-end tests (build, launch, and verify the real app shell)
+      - name: Apply database migrations
+        working-directory: feedback
+        run: npx drizzle-kit migrate --config drizzle.config.ts
+
+      - name: End-to-end tests (build, launch, and verify real signup/login/workspace/tenant-isolation flows)
         working-directory: feedback
         run: npm run test:e2e
 

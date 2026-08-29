@@ -2,8 +2,10 @@ import { defineConfig } from "drizzle-kit";
 
 /**
  * drizzle-kit config for `npm run db:generate` / `db:push` / `db:studio`.
- * Points at an intentionally empty schema (see lib/db/schema.ts) — the
- * domain schema is introduced in a future milestone.
+ * `./drizzle` holds the committed migration history (generated from
+ * lib/db/schema.ts, currently the Better Auth core + organization
+ * schema only — no domain tables yet) — it is real, permanent source,
+ * not a build artifact; never delete it as part of "cleanup".
  */
 export default defineConfig({
   out: "./drizzle",

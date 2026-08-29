@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Inbox,
   LayoutGrid,
@@ -8,16 +11,22 @@ import {
   Settings,
 } from "lucide-react";
 
-const primaryNav = [{ label: "Dashboard", href: "/dashboard", icon: LayoutGrid }];
+import { cn } from "@/lib/utils";
+
+const primaryNav = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
+  { label: "Settings", href: "/settings", icon: Settings },
+];
 
 const upcomingNav = [
   { label: "Feedback", icon: Inbox },
   { label: "Roadmap", icon: Milestone },
   { label: "Changelog", icon: ScrollText },
-  { label: "Settings", icon: Settings },
 ];
 
 export function AppSidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-sidebar px-3 py-4 text-sidebar-foreground md:flex">
       <Link
@@ -29,16 +38,23 @@ export function AppSidebar() {
       </Link>
 
       <nav aria-label="Workspace" className="flex flex-col gap-1">
-        {primaryNav.map(({ label, href, icon: Icon }) => (
-          <Link
-            key={label}
-            href={href}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Icon className="size-4" aria-hidden="true" />
-            {label}
-          </Link>
-        ))}
+        {primaryNav.map(({ label, href, icon: Icon }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={label}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                active && "bg-sidebar-accent text-sidebar-accent-foreground",
+              )}
+            >
+              <Icon className="size-4" aria-hidden="true" />
+              {label}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="mt-4 flex flex-col gap-1 border-t border-sidebar-border pt-4">
