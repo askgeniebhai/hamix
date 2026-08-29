@@ -1,10 +1,13 @@
-# Architecture (Milestone 0)
+# Architecture
 
-This document describes only high-level boundaries and engineering
-principles. **No technology stack has been chosen yet.** It will be
-selected deliberately, with justification recorded in
-[`DECISIONS.md`](./DECISIONS.md), before product implementation (M1+)
-begins.
+This document describes high-level boundaries and engineering
+principles. It is stack-agnostic by design — see
+[`docs/TECH_STACK.md`](./docs/TECH_STACK.md) for the M1 technology
+stack decision and
+[`docs/M1_ARCHITECTURE_DECISION.md`](./docs/M1_ARCHITECTURE_DECISION.md)
+for how that stack fits these principles (multi-tenancy model, domain
+shape, deployment topology). Implementation against that decision is
+M2's work, not started here.
 
 ## Project boundary
 
@@ -52,14 +55,13 @@ enforces this mechanically.
    evaluated against that standard, not against novelty or popularity
    alone.
 
-## What this milestone does NOT define
+## What is decided vs. still deferred
 
-- Programming language / framework choice
-- Database choice
-- Hosting / deployment target
-- Authentication mechanism
-- Billing provider
-- API shape or data model
-
-These are deliberately deferred until the Product Owner authorizes the
-milestone that selects the stack.
+As of M1 (`docs/TECH_STACK.md`, `docs/M1_ARCHITECTURE_DECISION.md`):
+programming language/framework, database, ORM, auth mechanism, UI
+primitives, validation, testing, billing provider, email, hosting, and
+observability are **decided**. Concrete API shape and database
+schema/migrations are still deferred — that is M2's implementation
+work, not this research milestone's. Vendor/tool choices for future AI
+features and third-party integrations remain deliberately undecided
+until a milestone defines the specific feature.

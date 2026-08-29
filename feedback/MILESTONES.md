@@ -6,8 +6,8 @@ authorization, even if it seems obvious.
 
 ## M0 — Foundation & Governance
 
-**Status:** In progress (see `validation/reports/` for the current
-report; final status is recorded there).
+**Status:** Complete. Merged to `main` via PR #22. See
+`validation/reports/M0-validation-report.md`.
 
 **Scope:**
 
@@ -25,15 +25,39 @@ report; final status is recorded there).
 boards, voting, roadmap, changelog, accounts, billing, AI, integrations,
 CRM-style views, landing page) and any technology stack selection.
 
+## M1 — Architecture & Tech Stack Selection
+
+**Status:** Complete (pending PR merge — see
+`validation/reports/M1-validation-report.md`).
+
+**Scope:** Research and decide the technology stack and high-level
+architecture only. No product code, no schema, no dependency
+installed.
+
+- [`docs/TECH_STACK.md`](./docs/TECH_STACK.md) — one recommended
+  choice per category (framework, database, ORM, auth, UI, validation,
+  testing, billing, email, hosting, observability), each with
+  why / alternatives rejected / cost / license / risk.
+- [`docs/M1_ARCHITECTURE_DECISION.md`](./docs/M1_ARCHITECTURE_DECISION.md)
+  — how that stack fits together: multi-tenancy model, conceptual
+  domain shape, application layout, deployment topology.
+- Decision log entries `DECISIONS.md` D1-001–D1-003.
+
+**Explicitly out of scope for M1:** any product feature, any schema or
+migration, any dependency installation, any UI implementation, any
+"minimal skeleton" app. Research and decision only.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M1 — Technology stack selection & minimal running skeleton**
-- **M2 — Workspace & authentication foundation**
-- **M3 — Feedback submission & voting**
-- **M4+** — to be defined as the product proves itself
+- **M2 — Repository scaffold & minimal running skeleton** (apply the
+  M1 stack decision: initialize the app, database connection, and
+  Better Auth wiring — still no product features)
+- **M3 — Workspace & authentication foundation**
+- **M4 — Feedback submission & voting**
+- **M5+** — to be defined as the product proves itself
 
 Do not begin design or implementation work on any future milestone until
 it is explicitly authorized.
