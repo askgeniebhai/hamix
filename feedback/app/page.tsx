@@ -64,7 +64,7 @@ export default function Home() {
                     className="mb-1 size-5 text-primary"
                     aria-hidden="true"
                   />
-                  <CardTitle>{title}</CardTitle>
+                  <CardTitle as="h2">{title}</CardTitle>
                   <CardDescription>{description}</CardDescription>
                 </CardHeader>
               </Card>

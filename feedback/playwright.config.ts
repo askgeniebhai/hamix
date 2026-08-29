@@ -1,7 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3000;
-const baseURL = `http://127.0.0.1:${PORT}`;
+// Must match BETTER_AUTH_URL exactly — Better Auth's trusted-origin
+// check compares the request's Origin header against it, and
+// "localhost" vs "127.0.0.1" count as different origins even though
+// they resolve to the same server.
+const baseURL = `http://localhost:${PORT}`;
 
 // Optional override for environments with a pinned/offline Chromium
 // binary (e.g. a container image with browsers pre-installed at a

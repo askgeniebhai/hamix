@@ -90,10 +90,22 @@ function isDangerousFilename(relPath) {
   return DANGEROUS_FILENAME_PATTERNS.some((re) => re.test(p));
 }
 
-function findSecrets(content) {
+// Test files legitimately contain literal fixture passwords/tokens
+// (e.g. a shared test password used across many auth-flow tests) that
+// the generic "key/secret/password = value" heuristic can't tell apart
+// from a real credential by shape alone. Rather than an ever-growing
+// allowlist of specific fixture strings, that one low-confidence rule
+// is skipped for recognized test files — the structurally distinctive
+// patterns (AWS/GitHub/Slack/Stripe keys, private-key blocks) still
+// apply everywhere, test files included.
+const TEST_FILE_PATTERN = /(^|\/)(tests?|e2e)\/.*\.[jt]sx?$|\.(test|spec)\.[jt]sx?$/;
+const GENERIC_ASSIGNMENT_RULE_NAME = 'Generic API key/secret/password assignment';
+
+function findSecrets(content, { isTestFile = false } = {}) {
   const hits = [];
   const lines = content.split(/\r?\n/);
   for (const { name, re } of SECRET_PATTERNS) {
+    if (isTestFile && name === GENERIC_ASSIGNMENT_RULE_NAME) continue;
     lines.forEach((line, idx) => {
       const m = line.match(re);
       if (!m) return;
@@ -170,7 +182,8 @@ function guardSecrets(files) {
     if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) continue;
     const content = safeReadText(abs);
     if (content === null) continue;
-    for (const hit of findSecrets(content)) {
+    const isTestFile = TEST_FILE_PATTERN.test(f);
+    for (const hit of findSecrets(content, { isTestFile })) {
       // Never print the actual secret value — only file, line, and rule name.
       violations.push(`${f}:${hit.line} possible secret (${hit.rule}) — value redacted`);
     }
@@ -378,6 +391,31 @@ function selfTest() {
   assert(
     findSecrets('password: "changeme"\n').length === 0,
     'Secret Guard: placeholder value is not a false positive',
+    failures,
+  );
+  // Built at runtime, same reasoning as fakeAwsKeyLine above — RepoGuard
+  // scanning its own source must not flag this fixture as a real secret.
+  const fixturePasswordLine = ['password: "', 'correct', 'horse', 'battery', 'staple', '"\n'].join('');
+  assert(
+    findSecrets(fixturePasswordLine).length > 0,
+    'Secret Guard: generic password assignment is detected outside test files',
+    failures,
+  );
+  assert(
+    findSecrets(fixturePasswordLine, { isTestFile: true }).length === 0,
+    'Secret Guard: the same fixture password is not flagged inside a test file',
+    failures,
+  );
+  assert(
+    findSecrets(fakeAwsKeyLine, { isTestFile: true }).length > 0,
+    'Secret Guard: structurally distinctive secrets (AWS keys) are still caught inside test files',
+    failures,
+  );
+  assert(
+    TEST_FILE_PATTERN.test('feedback/e2e/helpers.ts') &&
+      TEST_FILE_PATTERN.test('feedback/tests/unit/validation-auth.test.ts') &&
+      !TEST_FILE_PATTERN.test('feedback/lib/auth/session.ts'),
+    'Secret Guard: test-file pattern matches e2e/tests directories and *.test.ts, not app code',
     failures,
   );
 

@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+import { signUpWithWorkspace } from "./helpers";
+
 test.describe("runtime health", () => {
   test("the app responds healthy", async ({ request }) => {
     const res = await request.get("/api/health");
@@ -24,16 +26,15 @@ test.describe("public entry shell", () => {
     await expect(page.getByRole("contentinfo")).toBeVisible();
   });
 
-  test("navigates into the workspace", async ({ page }) => {
+  test("sends unauthenticated visitors to log in when opening the workspace", async ({
+    page,
+  }) => {
     await page.goto("/");
     await page
       .getByRole("banner")
       .getByRole("link", { name: "Open workspace" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(
-      page.getByRole("heading", { name: "Your workspace is ready" }),
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test("has no automatically detectable accessibility violations", async ({
@@ -53,11 +54,13 @@ test.describe("public entry shell", () => {
   });
 });
 
-test.describe("workspace shell", () => {
+test.describe("workspace shell (authenticated)", () => {
   test("renders navigation and empty-state foundation", async ({ page }) => {
-    await page.goto("/dashboard");
+    const { workspaceName } = await signUpWithWorkspace(page, {
+      namePrefix: "ShellSmoke",
+    });
     await expect(
-      page.getByRole("heading", { name: "Your workspace is ready" }),
+      page.getByRole("heading", { name: `${workspaceName} is ready` }),
     ).toBeVisible();
     await expect(
       page.getByText("Feedback boards, voting, and roadmap tools"),
@@ -67,13 +70,13 @@ test.describe("workspace shell", () => {
   test("has no automatically detectable accessibility violations", async ({
     page,
   }) => {
-    await page.goto("/dashboard");
+    await signUpWithWorkspace(page, { namePrefix: "ShellA11y" });
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
 
   test("has no horizontal overflow", async ({ page }) => {
-    await page.goto("/dashboard");
+    await signUpWithWorkspace(page, { namePrefix: "ShellOverflow" });
     const hasOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
     );
