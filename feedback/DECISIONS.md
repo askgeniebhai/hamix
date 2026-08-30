@@ -7,6 +7,57 @@ for the current state.
 
 ---
 
+## D9-002 — The workspace had no mobile navigation at all; a real gap the UI/UX polish pass and a fresh E2E run caught, not a cosmetic one
+
+**Date:** 2026-08-30
+**Decision:** `AppSidebar` (`components/layout/app-sidebar.tsx`) has
+always been `hidden md:flex` — genuinely absent from the DOM's
+accessibility tree, not merely visually hidden, below the `md`
+breakpoint. No mobile equivalent existed before this session: a
+workspace admin on a phone had no way at all to reach Feedback,
+Changelog, or Billing. This was not caught by inspection — it
+surfaced when `e2e/shell.spec.ts`'s "renders navigation and the real
+workspace summary" test (extended this session to also assert the
+Billing nav link) ran against the `mobile-chromium` project and
+failed on a locator that simply didn't exist at that viewport.
+**Fix:** `components/layout/mobile-nav.tsx` — a persistent bottom tab
+bar (`fixed inset-x-0 bottom-0 ... md:hidden`), not a hamburger/drawer
+menu, so every primary destination is one tap away with nothing to
+open first. It reuses `AppSidebar`'s own exported `primaryNav` array
+(no duplicated nav config) and deliberately shares the identical
+`aria-label="Workspace"` landmark name with the desktop `<nav>` —
+safe, not ambiguous, because Tailwind's `hidden`/`flex` pair is a true
+`display: none` toggle: only one of the two `<nav>` elements is ever
+actually present in the accessibility tree at a given viewport, so
+`page.getByRole("navigation", { name: "Workspace" })` resolves
+correctly on both without any test-side branching.
+**Also fixed this session, same root cause class (a genuine product
+gap the M9 polish pass's UI/UX benchmark and a fresh E2E run
+surfaced, not pre-existing test flakiness):** `submitFeedbackAction`
+in `app/b/[slug]/actions.ts` had no `try`/`catch` around its
+`createPost()` call, so M9's own newly-wired
+`assertWithinParticipantLimit` (Part E/G) could throw a
+`TrackedParticipantLimitReachedError` uncaught into Next.js's error
+boundary the very first time a Free-plan org actually reached its
+limit — a real, reachable production crash, not a hypothetical.
+`voteAction`/`addExternalCommentAction` didn't crash but showed either
+a generic "something went wrong" or the error's own `.message`, which
+is written for a workspace *admin* ("upgrading to Pro raises the
+limit") and has no business being shown to an anonymous customer with
+no visibility into the org's billing. `lib/billing/usage.ts`'s new
+`PARTICIPANT_LIMIT_PUBLIC_MESSAGE` + `isParticipantLimitError()` fix
+all three call sites uniformly: a clear, honest, non-hostile message,
+never a crash, never admin-facing wording shown to the public (Part
+G's explicit "do not silently reject feedback" requirement).
+**Rejected for the mobile nav:** a hamburger button opening a
+`DropdownMenu`/Sheet — the codebase already has a `DropdownMenu`
+primitive (used by `UserMenu`), so it was the lower-effort option, but
+its content only renders into the DOM once opened, which would have
+required every E2E assertion (and every real user) to perform an
+extra open-menu step to reach navigation at all — worse UX and worse
+testability for a nav list this short (5 items). A bottom tab bar
+needs no interaction to become visible.
+
 ## D9-001 — Billing provider: the Product Owner's existing Shopify store, not Stripe — researched live, not assumed, before writing any code
 
 **Date:** 2026-08-30
