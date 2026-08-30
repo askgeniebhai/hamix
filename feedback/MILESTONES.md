@@ -536,6 +536,52 @@ doesn't is deferred, not built "because it'd be nice."
   page and webhook route both present, and every billing action fails
   loudly and truthfully rather than fabricating success when
   unconfigured.
+- **UI/UX benchmark and polish pass (Parts A/B/C/J/K):** the product
+  was run in a real browser end to end and researched against Canny's
+  own public surfaces only (`docs/UI_UX_COMMERCIAL_BENCHMARK.md`) — no
+  private-admin guessing, no copied code/layout/copy. The benchmark
+  found two real bugs, not just cosmetic gaps: the dashboard's stale
+  static empty-state and the sidebar's stale "Roadmap coming soon"
+  entry (already shipped since M7). Both fixed, along with reordering
+  the public board to list requests before the submission form
+  (`components/feedback/submit-feedback-toggle.tsx`), surfacing the
+  public board URL immediately on the dashboard
+  (`components/dashboard/public-board-url.tsx`), and rebuilding the
+  root page into a real commercial entry — hero, the Feedback/Roadmap/
+  Changelog loop named explicitly, Free/Pro pricing sourced from
+  `lib/billing/plans.ts`, Start Free/Login. `/privacy`, `/terms`,
+  `/contact` added as honest placeholders, explicitly marked pending
+  Product Owner/legal review (Part M). A fresh cross-viewport E2E run
+  (not the benchmark's own inspection) then caught a real gap the
+  benchmark missed: the workspace had no mobile navigation at all
+  (`AppSidebar` is `hidden md:flex`, nothing filled that gap) — fixed
+  with `components/layout/mobile-nav.tsx`, a persistent bottom tab bar
+  (`DECISIONS.md` D9-002). The same pass found and fixed a real
+  reachable crash: `assertWithinParticipantLimit`'s error could throw
+  uncaught into the public submit-feedback action, and the actions
+  that did catch it showed admin-facing wording to anonymous
+  customers — `lib/billing/usage.ts`'s `PARTICIPANT_LIMIT_PUBLIC_MESSAGE`
+  fixes all three public write paths uniformly. Part P's explicit
+  acceptance-bar answers (what's genuinely better, what's honestly
+  still weaker and correctly deferred per M9's "DO NOT BUILD" list,
+  and what cannot be compared without private Canny access) are in the
+  benchmark document's own closing section.
+- **Commercial end-to-end proof (Part O):** `e2e/commercial.spec.ts`
+  closes the loop the rest of Tier 3 already proves (signup → board →
+  submit/vote/comment in `feedback.spec.ts`, roadmap in
+  `roadmap.spec.ts`, changelog + notification in `changelog.spec.ts`)
+  with what only the commercial layer needs, through the real running
+  server: Free-plan display, an honest and visible checkout failure
+  when Shopify is unreachable (never a fake "Pro active," never a
+  crash), the full Shopify webhook lifecycle (HMAC signature
+  verification rejecting a forged signature, entitlement grant
+  persisting across a reload, idempotent no-op on a redelivered
+  duplicate, tenant isolation between two organizations, and
+  `orders/cancelled` reconciling entitlement back to Free), and a
+  brand-new participant seeing a clear, non-hostile message once a
+  Free org is at its 25-participant limit. `SHOPIFY_*` credentials in
+  every test environment (local and CI) are fake, non-routable test
+  values — never real Shopify access, and no real charge is possible.
 
 ## Future milestones (placeholders only)
 

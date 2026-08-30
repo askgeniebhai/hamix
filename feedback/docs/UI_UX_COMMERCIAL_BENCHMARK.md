@@ -151,3 +151,90 @@ in the admin's first-run experience** (the dashboard's stale copy, the
 sidebar's stale "coming soon") and **a missing front door** (the root
 page and pricing). Both are addressed in this milestone's polish pass
 below.
+
+## Part P — Acceptance-bar answers (post-polish-pass)
+
+Everything above this section is the *before* benchmark, kept intact
+rather than rewritten, so the change is auditable. This section
+answers, plainly, what actually changed and where things honestly
+stand now — evidence, not ego; nothing below claims "better than
+Canny" without a specific reason.
+
+**Where we were weaker than Canny, and what changed:**
+
+- **Public board led with the submission form, not real demand.**
+  Fixed — `components/feedback/submit-feedback-toggle.tsx` collapses
+  the form behind a "Share feedback" button; the request list renders
+  first on every load, matching the exact "Change required" line
+  above.
+- **The admin's first-run screen contained two outright falsehoods**
+  (a static empty-state claiming no requests existed regardless of
+  real data, and a sidebar entry marking the already-shipped Roadmap
+  "coming soon"). Fixed — the dashboard now queries
+  `getFeedbackSummary`/`getEntitlement` for real counts, and the
+  sidebar's stale entry is gone (`components/layout/app-sidebar.tsx`).
+- **The public board URL — the single artifact a new business needs
+  most — was one extra click away from the post-onboarding landing
+  page.** Fixed — `components/dashboard/public-board-url.tsx` puts it,
+  copyable, at the top of the dashboard.
+- **The root page wasn't a commercial front door at all.** Fixed —
+  `app/page.tsx` now states the product promise, names the
+  Feedback/Roadmap/Changelog loop explicitly, and shows real Free/Pro
+  pricing sourced from `lib/billing/plans.ts` (never a hardcoded
+  second copy of the numbers).
+- **No legal/trust pages existed.** Fixed, as honest placeholders —
+  `/privacy`, `/terms`, `/contact` — each explicitly marked pending
+  Product Owner/legal review rather than inventing a company
+  registration or address (Part M).
+
+**A gap this benchmark's first pass didn't catch, found afterward by a
+real cross-viewport E2E run, not by inspection:** the workspace had
+**no mobile navigation at all** — `AppSidebar` is `hidden md:flex` and
+nothing filled that gap, so an admin on a phone could reach the
+dashboard but nothing else. Fixed with `components/layout/mobile-nav.tsx`,
+a persistent bottom tab bar (`DECISIONS.md` D9-002 has the full
+reasoning, including why a hamburger/drawer was rejected in favor of
+it). This is exactly the kind of thing a benchmark-by-reading misses
+and a benchmark-by-using-the-product-at-both-breakpoints catches — the
+justification for Part D's screenshot-and-overflow-check requirement
+in the first place.
+
+**Where we are now genuinely better, with a specific reason (not
+vibes):**
+
+- **Simpler by construction, not by omission.** One board, no
+  category/multi-board navigation to learn before submitting anything
+  — a smaller surface area is a real advantage for the first 20–25
+  customers this milestone targets, who are evaluating "can I explain
+  this to my team in one sentence," not "does it have everything
+  Canny has."
+- **The core loop is transparent end to end**: every roadmap card and
+  every changelog entry links back to the exact request that drove it
+  (`app/b/[slug]/roadmap/`, `app/b/[slug]/changelog/`) — nothing is
+  presented as having appeared from nowhere.
+- **Pricing is stated plainly on the marketing page itself** (`/#pricing`),
+  not gated behind a "talk to sales" pattern or hidden entirely (a
+  pattern some competitors in this space use, and one Canny itself
+  does not — this is a neutral design choice, not a claim about Canny).
+
+**What remains genuinely inferior to Canny, honestly, and is correctly
+deferred rather than missed** — every item below is on M9's explicit
+"DO NOT BUILD" list, not an oversight:
+
+- No multi-board/category support — one board per organization only.
+- No public search across requests on the board itself.
+- No richer roadmap view (columns beyond Planned/In Progress/Complete,
+  dates/ETAs, drag-and-drop reordering).
+- No rich-text changelog editor (plain text body only).
+- No established-product trust signals a years-old product accrues
+  for free (a large public reference-customer board with heavy real
+  activity, a dedicated security/compliance/status page, integrations
+  marketplace).
+
+**What cannot be honestly compared at all** — Canny's actual private
+admin console, its real onboarding flow content, its internal
+duplicate-detection/merge UI, and anything behind its authenticated
+product were never accessed and are not described or estimated
+anywhere in this document, per Part A's explicit boundary. Any
+apparent gap or advantage in those areas is unknown, not claimed
+either way.
