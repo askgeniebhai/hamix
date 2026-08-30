@@ -4,12 +4,13 @@ import { cn } from "@/lib/utils";
 
 interface PublicBoardNavProps {
   boardSlug: string;
-  active: "feedback" | "roadmap";
+  active: "feedback" | "roadmap" | "changelog";
 }
 
 const TABS = [
   { key: "feedback", label: "Feedback", href: (slug: string) => `/b/${slug}` },
   { key: "roadmap", label: "Roadmap", href: (slug: string) => `/b/${slug}/roadmap` },
+  { key: "changelog", label: "Changelog", href: (slug: string) => `/b/${slug}/changelog` },
 ] as const;
 
 /** Switches between a public board's two views. Shared by `/b/[slug]` and `/b/[slug]/roadmap` so a visitor always has one clear way to move between "what's being asked for" and "what's happening about it." */

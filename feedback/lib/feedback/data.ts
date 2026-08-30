@@ -3,7 +3,16 @@ import "server-only";
 import { and, asc, desc, eq, exists, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
-import { board, comment, member, participant, post, user, vote } from "@/lib/db/schema";
+import {
+  board,
+  comment,
+  member,
+  participant,
+  post,
+  postSubscription,
+  user,
+  vote,
+} from "@/lib/db/schema";
 import { ROADMAP_STATUSES, type PostStatus, type RoadmapStatus } from "@/lib/feedback/status";
 
 /**
@@ -89,14 +98,14 @@ export interface FeedbackPost {
  * names (`"vote"."post_id" = "post"."id"`), which is what actually
  * correlates correctly.
  */
-function voteCountSubquery() {
+export function voteCountSubquery() {
   return sql<number>`(${getDb()
     .select({ count: sql<number>`count(*)`.as("count") })
     .from(vote)
     .where(eq(vote.postId, post.id))})`.mapWith(Number);
 }
 
-function commentCountSubquery() {
+export function commentCountSubquery() {
   return sql<number>`(${getDb()
     .select({ count: sql<number>`count(*)`.as("count") })
     .from(comment)
@@ -276,7 +285,7 @@ async function assertParticipantInOrganization(
 }
 
 /** Confirms `userId` is currently a member of `organizationId` — required before any write attributed to an internal team author. */
-async function assertAuthorIsMember(
+export async function assertAuthorIsMember(
   organizationId: string,
   userId: string,
 ): Promise<void> {
@@ -591,4 +600,105 @@ export async function createInternalComment(input: {
     })
     .returning({ id: comment.id });
   return row;
+}
+
+/**
+ * Records a participant's explicit opt-in to hear about updates on a
+ * post — the *only* path that creates a `post_subscription` row.
+ * Never called implicitly from `createPost`/`castVote`/
+ * `createExternalComment`: doing so would fabricate marketing consent
+ * from an action that wasn't a subscription request (M8's explicit
+ * "do not silently fabricate marketing consent" instruction,
+ * `DECISIONS.md` D8-003). `onConflictDoNothing()` makes a repeat
+ * "Follow" click idempotent rather than an error.
+ */
+export async function subscribeToPost(input: {
+  organizationId: string;
+  postId: string;
+  participantId: string;
+}): Promise<void> {
+  await assertPostInOrganization(input.organizationId, input.postId);
+  await assertParticipantInOrganization(input.organizationId, input.participantId);
+
+  await getDb()
+    .insert(postSubscription)
+    .values({
+      organizationId: input.organizationId,
+      postId: input.postId,
+      participantId: input.participantId,
+    })
+    .onConflictDoNothing();
+}
+
+/** Self-service "Stop following" from the public detail page — the caller (cookie-resolved) participant unsubscribing themselves. */
+export async function unsubscribeFromPost(input: {
+  organizationId: string;
+  postId: string;
+  participantId: string;
+}): Promise<void> {
+  await getDb()
+    .delete(postSubscription)
+    .where(
+      and(
+        eq(postSubscription.postId, input.postId),
+        eq(postSubscription.participantId, input.participantId),
+        eq(postSubscription.organizationId, input.organizationId),
+      ),
+    );
+}
+
+/** Whether the given (already-identified) participant currently follows a post — drives the Follow/Stop-following control's initial state. */
+export async function isParticipantSubscribed(
+  postId: string,
+  participantId: string,
+): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ id: postSubscription.id })
+    .from(postSubscription)
+    .where(
+      and(
+        eq(postSubscription.postId, postId),
+        eq(postSubscription.participantId, participantId),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
+export interface SubscribedPost {
+  postId: string;
+  title: string;
+  boardSlug: string;
+}
+
+/**
+ * Resolves an unsubscribe link's token to the post it follows — no
+ * cookie or session involved, since this is reached from an email
+ * client that may not be the same browser/device the participant
+ * subscribed from. The token is a separate, single-purpose credential
+ * from the participant's own `publicToken`
+ * (`lib/db/feedback-schema.ts`'s `postSubscription` doc comment): it
+ * can only remove this one subscription, nothing else. Idempotent —
+ * an already-used or unknown token returns `null` rather than
+ * throwing, so visiting the same email link twice is harmless.
+ */
+export async function unsubscribeByToken(token: string): Promise<SubscribedPost | null> {
+  const [row] = await getDb()
+    .delete(postSubscription)
+    .where(eq(postSubscription.unsubscribeToken, token))
+    .returning({ postId: postSubscription.postId });
+  if (!row) {
+    return null;
+  }
+
+  const [postRow] = await getDb()
+    .select({ title: post.title, boardSlug: board.slug })
+    .from(post)
+    .innerJoin(board, eq(board.id, post.boardId))
+    .where(eq(post.id, row.postId))
+    .limit(1);
+  if (!postRow) {
+    return null;
+  }
+  return { postId: row.postId, title: postRow.title, boardSlug: postRow.boardSlug };
 }

@@ -16,13 +16,11 @@ import { cn } from "@/lib/utils";
 const primaryNav = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
   { label: "Feedback", href: "/feedback", icon: Inbox },
+  { label: "Changelog", href: "/changelog", icon: ScrollText },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
-const upcomingNav = [
-  { label: "Roadmap", icon: Milestone },
-  { label: "Changelog", icon: ScrollText },
-];
+const upcomingNav = [{ label: "Roadmap", icon: Milestone }];
 
 export function AppSidebar() {
   const pathname = usePathname();

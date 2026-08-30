@@ -81,7 +81,7 @@ report.
   a database exists — no undocumented manual schema changes against
   production.
 
-## Current status (as of M7)
+## Current status (as of M8)
 
 - **Secrets:** enforced since M0 — RepoGuard's Secret Guard and
   Dangerous File Guard run on every change. `lib/env.ts` fails closed
@@ -230,13 +230,59 @@ report.
   `e2e/roadmap.spec.ts` shows the public roadmap page renders no
   status-changing control at all (no `combobox`, no button matching
   "Change status") for an unauthenticated visitor.
+- **Changelog authorization, tenant isolation, and consent:** new this
+  milestone — creating, editing, linking, and publishing a changelog
+  entry all require `requireActiveOrganization()` at the action layer,
+  and `lib/changelog/data.ts` independently re-verifies every id it's
+  handed (entry, post, author) belongs to that same organization
+  before writing, the same pattern every other write in this codebase
+  uses. A post can only be linked while `complete` and in the same
+  organization — enforced at the write, not just the picker UI — and
+  publishing re-verifies every linked post is *still* `complete`
+  before proceeding. A draft is never returned by the public query
+  (`listPublishedChangelogEntries`'s `WHERE state = 'published'` is
+  the only filter, proven directly by a test asserting absence before
+  publish and presence after, for the same entry). Consent for email
+  is never inferred: `post_subscription` rows are created by exactly
+  one path — an explicit "Follow updates" click — never by
+  submitting, voting, or commenting; unsubscribing works both from a
+  cookie-identified session and from a single-purpose per-subscription
+  token reachable with no session, so a leaked unsubscribe link's
+  blast radius is limited to removing that one subscription.
+- **Delivery integrity:** publishing is idempotent by construction — a
+  `state = 'draft'`-guarded atomic `UPDATE` plus a unique constraint
+  on `(changelog_entry_id, participant_id)`, both inside one
+  transaction with the recipient-row creation — so a double publish,
+  a retry, or a page refresh cannot produce a duplicate notification;
+  proven directly, not assumed, including the case where one
+  participant follows two of an entry's linked posts (must receive
+  exactly one notification, not two). The admin changelog view exposes
+  only aggregate delivery counts (notified/failed/pending) — a
+  recipient's email is never returned by any read path reachable from
+  the UI, proven directly by asserting the detail response contains no
+  email-shaped string.
+- **Email transport:** production email goes through the official
+  `resend` SDK behind an `EmailTransport` interface, never a hand-
+  rolled HTTP call; every test uses a deterministic fake transport, so
+  no test in this suite makes a real network call to a third-party
+  email provider. `RESEND_API_KEY`/`EMAIL_FROM_ADDRESS` are optional —
+  a zero-env build and an unconfigured workspace never crash — and an
+  actual publish attempt with email unconfigured still succeeds for
+  the changelog content while every notification is recorded `failed`
+  with a truthful reason, never silently dropped or falsely reported
+  `sent`.
 - **Not yet applicable:** auditability (no sensitive actions beyond
-  auth/workspace creation and feedback submission/voting/commenting/
-  status changes exist yet — none of which currently need an audit
-  trail), backups/migration discipline beyond `drizzle-kit`'s own
-  migration files (no production database provisioned yet).
+  auth/workspace creation, feedback submission/voting/commenting/
+  status changes, and now changelog publishing exist yet — the
+  `changelog_notification` delivery record is itself a lightweight
+  audit trail for publish/notify, but nothing else in the product
+  needs one yet), backups/migration discipline beyond `drizzle-kit`'s
+  own migration files (no production database provisioned yet).
   XSS-specific review remains partially applicable: feedback post
-  titles/descriptions and comment bodies are user-generated content,
-  rendered as plain text through React's default escaping (never
-  `dangerouslySetInnerHTML`) — no rich text or HTML rendering exists
-  to review yet.
+  titles/descriptions, comment bodies, and now changelog titles/bodies
+  are user-generated content, rendered as plain text through React's
+  default escaping (never `dangerouslySetInnerHTML`) in the app itself,
+  and explicitly HTML-escaped in the notification email template
+  (`lib/email/templates.ts`, proven directly by a test asserting a
+  `<script>` tag in a title is never emitted unescaped) — no rich text
+  or HTML rendering exists to review yet.

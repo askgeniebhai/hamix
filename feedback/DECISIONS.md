@@ -7,6 +7,255 @@ for the current state.
 
 ---
 
+## D8-006 — The unqualified-identifier subquery trap (D6-003) recurred in `listCompletablePosts`, caught by a real UI failure, not by inspection
+
+**Date:** 2026-08-30
+**Decision:** `listCompletablePosts()`'s `linked` column is now built via
+`exists(getDb().select(...).from(changelogEntryPost).where(and(eq(...),
+eq(...))))` — the query-builder pattern D6-003 already established as
+correct — replacing an initial draft that used a raw `sql` template with
+`${changelogEntryPost.postId}`/`${post.id}` interpolated directly.
+**Why:** The same bug class as D6-003, reproduced despite having just
+documented it: inside a bare `sql` tag, an interpolated `Column`
+renders as its *unqualified* identifier. `${post.id}` became `"id"`
+with no table prefix; nested inside a subquery whose own `FROM` is
+`changelog_entry_post` — which, like every table in this schema, has
+its own `id` primary key — that unqualified `"id"` resolved to
+`changelog_entry_post.id`, not the outer `post.id`. The subquery
+therefore compared `changelog_entry_post.post_id` to
+`changelog_entry_post.id` — two different columns of the same row,
+never equal — so `linked` was `false` for every post, always,
+regardless of what was actually linked. This was not caught by
+`tsc`, lint, or the unit suite (none exercise the query), and not
+initially caught by the integration suite either: the first version
+of `tests/integration/changelog.test.ts` only asserted that
+*non-Complete* posts were *excluded* from the picker, never that a
+genuinely linked post's `linked` flag read `true`. It surfaced as a
+real, reproducible Playwright failure — clicking "Link" in the admin
+UI, the button never changed to "Unlink" — during this milestone's
+own E2E-writing work, the same way D7-003's race was found.
+**Verified:** Added the missing positive case
+(`tests/integration/changelog.test.ts`'s "listCompletablePosts's
+linked flag reflects the real link state" test — asserts `false`
+before linking, `true` after, `false` again after unlinking) — this
+test fails against the old raw-`sql` version and passes against the
+fix; confirmed by reverting the fix locally and re-running it before
+committing. `e2e/changelog.spec.ts`'s Link/Unlink assertions, which
+originally failed identically to the integration gap, now pass.
+**Rejected:** Manually qualifying the raw `sql` template instead
+(e.g. a literal `"post"."id"`) — the same objection as D6-003: it
+hardcodes an identifier string disconnected from the real `Column`
+object, with no type-level signal if the table is ever renamed or
+aliased. **Standing rule going forward:** every subquery in this
+codebase — vote/comment counts, roadmap filtering, changelog linking,
+whatever comes next — is built with the query builder's own
+`eq()`/`and()`/`exists()`, never a raw `sql` template with an
+interpolated bare `Column`. Two independent recurrences of the same
+mistake is the signal that this needs to be a rule, not a
+case-by-case judgment call.
+
+## D8-005 — Email is zero-env-safe by construction; a send only fails loudly when actually attempted
+
+**Date:** 2026-08-30
+**Decision:** `RESEND_API_KEY`/`EMAIL_FROM_ADDRESS` are optional in
+`lib/env.ts`'s schema. `lib/email/get-transport.ts` resolves to a real
+`ResendTransport` when both are set, or to an `UnconfiguredTransport`
+that only throws (`EmailTransportUnavailableError`) the moment
+`.send()` is actually called — never at import, build, or app-startup
+time.
+**Why:** M8's explicit env rule: "zero-env production build must
+continue to pass... if email credentials are absent, app/build must
+not crash... actual publish must fail visibly if notification
+delivery cannot be initialized... do not falsely report sent." A
+workspace that hasn't configured email yet must still be able to use
+every other part of the product, including publishing a changelog
+entry — the publish itself always succeeds (the content is real and
+live); only the notification *delivery* for that publish is affected,
+landing every recipient's row in `failed` state with a truthful,
+visible reason ("Email is not configured...") rather than a silent
+no-op or a false `sent`.
+**Verified:** `npm run build` with a completely empty environment
+(`env -i`) succeeds and produces the same route manifest as a
+configured build. `tests/integration/changelog.test.ts`'s failure-
+state test proves a transport that throws lands the delivery in
+`failed` with the thrown message (truncated) as the reason, never
+`sent`; the admin `/changelog/[entryId]` published view surfaces
+`failedCount` with a plain-language explanation.
+**Rejected:** Requiring `RESEND_API_KEY` unconditionally (blocks every
+workspace from using the product until they configure email, for a
+feature — notifications — that's secondary to the changelog content
+itself); silently skipping notification rows entirely when
+unconfigured (violates "do not falsely report sent" by omission — an
+admin needs to see *that* delivery failed, not just infer it from an
+absence).
+
+## D8-004 — Publishing is idempotent by construction: an atomic state-guarded `UPDATE`, plus a unique constraint, plus a separate delivery step
+
+**Date:** 2026-08-30
+**Decision:** `publishChangelogEntry()` (`lib/changelog/data.ts`)
+flips `draft` → `published` with the organization id *and* `state =
+'draft'` baked directly into the `UPDATE`'s own `WHERE` clause, inside
+a transaction that also inserts one `changelog_notification` row per
+recipient with `ON CONFLICT (changelog_entry_id, participant_id) DO
+NOTHING`. Recipients themselves come from a `SELECT DISTINCT` across
+every linked post's `post_subscription` rows, so a participant
+following two of an entry's linked posts appears once, not twice.
+Only after that transaction commits does the code attempt to actually
+send each pending notification, updating it to `sent` or `failed` as
+it goes.
+**Why:** M8's explicit requirement — no duplicate notifications on
+"double publish, retry, repeated action, page refresh," and "DB
+uniqueness/idempotency mandatory," with an explicit instruction *not*
+to reach for a queue/worker system for this scale. Three layers, each
+closing a different race: the atomic `UPDATE...WHERE state='draft'`
+means a second concurrent publish call updates zero rows and is
+rejected outright — it never even reaches the recipient-insert step;
+the `SELECT DISTINCT` means a subscriber reachable through multiple
+linked posts is computed as one recipient in the first place; the
+unique constraint on `changelog_notification` is the last-resort
+guarantee even if the first two layers somehow didn't hold. Email
+delivery itself is deliberately *not* inside the transaction — it
+can't be (an external HTTP call isn't transactional with Postgres),
+so the transactionally-coherent part is exactly what M8-H asks for
+(the state change and the recipient-row creation), while delivery
+is a separate, individually-tracked step per recipient.
+**Verified:** `tests/integration/changelog.test.ts` — publishing
+twice: the second call throws and no second notification row is
+created; a participant subscribed to two of an entry's linked posts
+receives exactly one row and one `transport.send()` call; an
+unsubscribed participant receives zero. `e2e/changelog.spec.ts`'s
+flow test confirms exactly one delivery record end to end through the
+real UI.
+**Rejected:** A queue/worker/outbox-processor system (explicitly ruled
+out — "if asynchronous infrastructure is genuinely unnecessary, don't
+invent it"; at this scale, one loop over a handful of recipients
+inside the same request is simpler, fully synchronous, and easier to
+reason about than a background job with its own failure modes);
+relying on the unique constraint alone without the atomic state guard
+(would still let a second publish call recompute and *attempt*
+duplicate sends before the constraint rejected the inserts, wasting a
+provider call per recipient for no benefit).
+
+## D8-003 — A participant becomes an email recipient only by explicitly clicking "Follow updates" — never implicitly
+
+**Date:** 2026-08-30
+**Decision:** `post_subscription` rows are created by exactly one
+function, `subscribeToPost()` (`lib/feedback/data.ts`), called by
+exactly one server action, `followAction`
+(`app/b/[slug]/p/[postId]/actions.ts`). Submitting feedback, voting,
+and commenting never call it. `publishChangelogEntry()`'s recipient
+computation reads only `post_subscription`, not activity — a
+submitter, voter, or commenter who never clicked "Follow" receives
+nothing.
+**Why:** M8's explicit instruction: "do not casually send marketing
+email... a participant must be able to explicitly 'Follow updates'...
+do not silently fabricate marketing consent." The alternative — auto-
+subscribing anyone who submits/votes/comments — would technically
+satisfy "notify people who care about this request" but violates the
+letter of that instruction and this project's existing pattern of
+never fabricating a client-facing capability from an unrelated action
+(the same reasoning `D4-002` and `D5-002` already apply to identity).
+Unfollowing works two ways, both tenant/identity-scoped: a cookie-
+identified participant can "Stop following" directly on the post
+detail page (`unsubscribeFromPost`); anyone reached via the
+notification email can use a single-purpose `unsubscribeToken` — a
+*different* credential from the participant's own `publicToken` — so
+a leaked or forwarded unsubscribe link can only remove that one
+subscription, never act as the participant anywhere else.
+**Verified:** `tests/integration/post-subscription.test.ts` proves
+subscribe is idempotent, both unsubscribe paths actually remove the
+row, and the token path is safely idempotent (a second visit to the
+same link, or a link-scanner pre-fetch, finds nothing to remove
+rather than erroring). `e2e/changelog.spec.ts`'s flow test proves
+voting and commenting alone never create a subscription — only the
+explicit "Follow updates" click does.
+**Rejected:** Auto-subscribing the original submitter (still an
+unrequested inference of consent, and inconsistent with treating
+voters/commenters the same way); a single shared token per
+participant instead of per-subscription (reusing `publicToken` would
+mean a leaked unsubscribe link doubles as a vote/comment credential —
+a strictly larger blast radius for no benefit).
+
+## D8-002 — Email delivery goes through an `EmailTransport` interface; `resend` is the only thing that implements it in production
+
+**Date:** 2026-08-30
+**Decision:** `lib/changelog/data.ts`'s `publishChangelogEntry()`
+depends only on `lib/email/transport.ts`'s `EmailTransport` interface
+(`send(message): Promise<{id}>`), injectable via an optional
+parameter defaulting to `lib/email/get-transport.ts`'s
+`getEmailTransport()`. `ResendTransport` (`lib/email/resend-
+transport.ts`) is a thin wrapper around the official `resend` npm
+package (`docs/TECH_STACK.md`'s pre-existing choice, confirmed against
+the installed SDK's own type definitions before writing this) — no
+hand-rolled HTTP call to Resend's API. Every integration test that
+publishes supplies `tests/support/fake-email-transport.ts`'s
+`FakeEmailTransport` instead.
+**Why:** Explicit instruction: "reuse official maintained resource, do
+not hand-roll email transport" for production, and "do NOT call a
+real external email service in CI... create a transport boundary/
+adapter... tests: deterministic fake/test transport." The interface
+boundary is what makes both halves possible from the same production
+code path — `publishChangelogEntry()` never branches on "am I in a
+test," it just calls whatever `EmailTransport` it was given.
+`ResendTransport.send()` passes `idempotencyKey` through to Resend's
+own `Idempotency-Key` header (confirmed in the SDK's types) — a
+second send with the same key is a no-op on the provider's side too,
+defense-in-depth alongside the database-level uniqueness D8-004
+describes.
+**Verified:** `tests/unit/email-templates.test.ts` proves the
+template's content (subject, body, linked-request links, unsubscribe
+link) and its HTML-escaping of user-supplied title/body content, with
+zero I/O. Every publish-path integration test in
+`tests/integration/changelog.test.ts` and
+`tests/integration/changelog-smoke.test.ts` runs against
+`FakeEmailTransport`, never a real network call — confirmed no test
+in this suite requires network access.
+**Rejected:** Calling `resend`'s SDK directly from
+`publishChangelogEntry()` with no interface (would make the fake-
+transport testing strategy impossible without either a mocking
+framework — this project doesn't use one — or a real API call in CI,
+both explicitly ruled out); React Email for the template (a real,
+maintained option per `docs/TECH_STACK.md`, but M8 sends exactly one
+email; a plain, tested HTML-string builder function is simpler and
+this milestone's own "keep it simple" instruction applies as much to
+the notification as to the changelog editor).
+
+## D8-001 — Changelog is a genuine entity linked to Posts through a junction table, not a duplication of Post content
+
+**Date:** 2026-08-30
+**Decision:** `changelog_entry` (`id`, `organization_id`, `title`,
+`body`, `created_by_user_id`, `state` — a real `draft`/`published`
+Postgres enum — `created_at`, `published_at`) is a new domain table,
+linked to zero or more `Post`s through `changelog_entry_post` (a
+junction table, unique on `(changelog_entry_id, post_id)`) rather than
+copying a post's title/description into the entry. A `published`
+entry's `title`/`body` are immutable — `updateChangelogDraft()`
+rejects any entry whose `state` isn't `draft`, and there is no
+unpublish in M8.
+**Why:** Explicit instruction — a distinct entity, a junction table,
+"do not duplicate feedback contents into changelog rows." Post remains
+the single source of truth for what was asked for; the changelog
+entry is a separate, independently-authored piece of writing about
+what shipped, which may reference several requests (or none — a
+general announcement) without ever risking the two texts drifting
+apart. Immutability after publish keeps "what's on the public
+changelog" a stable, citable record — the same reasoning M8's own
+"cannot be unpublished" instruction reflects.
+**Verified:** `tests/integration/changelog.test.ts` — a published
+entry rejects further edits and a second publish attempt; the public
+`listPublishedChangelogEntries()` never returns a `draft`, proven
+directly rather than assumed from the query's `WHERE` clause alone
+(the test asserts absence both before and presence after publish, for
+the same entry id).
+**Rejected:** Embedding a post's title/description as denormalized
+text on `changelog_entry_post` (exactly the duplication the
+instruction rules out — a later post title edit would silently
+diverge from what the changelog page displays); a single polymorphic
+"release" table covering both changelog entries and some future
+content type (unrequested, and would weaken the `state` enum and the
+`created_by_user_id` foreign key to something looser for a benefit
+this milestone doesn't need).
+
 ## D7-003 — Playwright status changes must wait for the mutation's own network response, not the optimistic UI label
 
 **Date:** 2026-08-30
