@@ -63,8 +63,9 @@ test.describe("workspace shell (authenticated)", () => {
       page.getByRole("heading", { name: `${workspaceName} is ready` }),
     ).toBeVisible();
     await expect(
-      page.getByText("Feedback boards, voting, and roadmap tools"),
+      page.getByText("Roadmap and changelog tools will appear here"),
     ).toBeVisible();
+    await expect(page.getByRole("link", { name: "View feedback" })).toBeVisible();
   });
 
   test("has no automatically detectable accessibility violations", async ({

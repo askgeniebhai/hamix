@@ -5,9 +5,12 @@
  * (`npx @better-auth/cli generate`) from `lib/auth/index.ts`'s config
  * (core auth + the `organization()` plugin) — do not hand-edit it;
  * regenerate it when the Better Auth config changes and re-review the
- * diff. Domain tables (Post, Vote, Comment, ... see
- * docs/M1_ARCHITECTURE_DECISION.md) are introduced in a future,
- * separately authorized milestone and will be added here alongside
- * the auth schema, not inside it.
+ * diff.
+ *
+ * `feedback-schema.ts` is the hand-written domain schema (Board,
+ * Post, Vote, Participant — see docs/M1_ARCHITECTURE_DECISION.md),
+ * introduced in M4. Comment and any further domain entities are a
+ * future, separately authorized milestone.
  */
 export * from "@/lib/db/auth-schema";
+export * from "@/lib/db/feedback-schema";

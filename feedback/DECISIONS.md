@@ -7,6 +7,74 @@ for the current state.
 
 ---
 
+## D4-001 — One board per organization, created atomically via `afterCreateOrganization`
+
+**Date:** 2026-08-29
+**Decision:** Every organization gets exactly one `board` row, created
+inside Better Auth's `organizationHooks.afterCreateOrganization` hook
+(`lib/auth/index.ts`) — not from the workspace-creation UI form,
+and not lazily on first portal visit. The board's `slug` is set equal
+to the organization's own (already globally unique) slug, so the
+public portal URL is simply `/b/[organization-slug]` with no separate
+board slug for a user to name.
+**Why:** M1_ARCHITECTURE_DECISION.md's domain shape allows an
+organization to run more than one board in the future, so a real
+`board` table (rather than treating `organization` itself as the
+board) keeps that door open without a future schema change — while
+M4's explicit "smallest complete workflow" scope only needs one.
+Creating it in the hook (which fires for every path that creates an
+organization — the onboarding form today, an API caller or admin
+tool tomorrow) guarantees the invariant "every organization has a
+board" holds everywhere, rather than only wherever a developer
+remembered to also call a "create board" step. Reusing the
+organization's slug removes an entire redundant input from the
+workspace-creation form.
+**Rejected:** A separate "board name/slug" field on workspace
+creation — real product value (multiple named boards) that M4 doesn't
+need yet, and would add a UI step and a slug-uniqueness edge case for
+zero benefit at this milestone; lazily creating the board on first
+portal visit — leaves a window where `getBoardForOrganization` in the
+admin view legitimately returns null for a brand-new organization,
+which the admin page already handles gracefully, but there's no
+reason to accept that state when it's just as cheap to guarantee it
+never happens.
+
+## D4-002 — External participant identity: cookie-linked, not account-based
+
+**Date:** 2026-08-29
+**Decision:** A `participant` is identified by (organization, email),
+upserted via `identifyParticipant()`, and linked to later requests by
+an opaque `publicToken` in an HttpOnly, per-organization cookie
+(`lib/feedback/participant.ts`) — never a client-supplied participant
+id, and never Better Auth's own user/session system. Vote-uniqueness
+is enforced by a real database unique index
+(`vote_post_participant_uidx` on `(post_id, participant_id)`), proven
+race-safe under genuine concurrency by a new integration-test tier
+(`tests/integration/`, real Postgres, run in Tier 3 — see
+`vitest.integration.config.ts`) rather than by a UI-level double-click
+test, which can't reliably reproduce a true race.
+**Why:** M4's explicit instruction is to keep internal
+`user`/`member` and external feedback participants structurally
+separate — a shared identity system would blur that line the first
+time someone reused a workspace-member's email as a participant's.
+Email is the minimum information that lets the same person vote once
+and be recognized on return, satisfying "avoid unnecessary personal
+information." The cookie only ever carries an opaque token (not the
+email, not a raw database id), so a returning visitor is recognized
+without re-typing their email, but the cookie's blast radius if
+stolen is limited to acting as that one participant on that one
+organization's board — nothing account-like.
+**Rejected:** Reusing Better Auth's session system for participants —
+would require every visitor to "sign up" to submit feedback, directly
+against the milestone's own instruction and against normal Canny-style
+UX; trusting a client-supplied participant/organization id on the vote
+request — the exact class of bug D3-005 fixed in the auth session
+module, not repeating it here; proving race-safety via a simulated
+browser double-click — timing in a real browser/network is not a
+reliable way to force two requests to race at the database, so the
+new integration-test tier calls the actual data-access function twice
+concurrently instead.
+
 ## D3-001 — Switch from `neon-http` to standard `node-postgres`
 
 **Date:** 2026-08-29

@@ -1,5 +1,9 @@
 import type { Page } from "@playwright/test";
 
+import { slugify } from "../lib/validation/auth";
+
+export { slugify };
+
 export const PASSWORD = "correcthorsebatterystaple";
 
 export function unique(): string {
@@ -39,6 +43,18 @@ export async function createWorkspace(page: Page, name: string) {
 export async function logOut(page: Page) {
   await page.getByRole("button", { name: /Account menu/ }).click();
   await page.getByRole("menuitem", { name: "Log out" }).click();
+}
+
+export async function submitFeedback(
+  page: Page,
+  input: { title: string; description: string; name: string; email: string },
+) {
+  await page.locator("#title").fill(input.title);
+  await page.locator("#description").fill(input.description);
+  await page.locator("#name").fill(input.name);
+  await page.locator("#email").fill(input.email);
+  await page.getByRole("button", { name: "Submit feedback" }).click();
+  await page.getByText(input.title).first().waitFor();
 }
 
 /** Signs up a fresh unique user and creates a workspace, landing on /dashboard. */

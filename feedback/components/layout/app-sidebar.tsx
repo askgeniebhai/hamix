@@ -15,11 +15,11 @@ import { cn } from "@/lib/utils";
 
 const primaryNav = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
+  { label: "Feedback", href: "/feedback", icon: Inbox },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 const upcomingNav = [
-  { label: "Feedback", icon: Inbox },
   { label: "Roadmap", icon: Milestone },
   { label: "Changelog", icon: ScrollText },
 ];

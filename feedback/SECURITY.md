@@ -81,7 +81,7 @@ report.
   a database exists — no undocumented manual schema changes against
   production.
 
-## Current status (as of M3)
+## Current status (as of M4)
 
 - **Secrets:** enforced since M0 — RepoGuard's Secret Guard and
   Dangerous File Guard run on every change. `lib/env.ts` fails closed
@@ -92,44 +92,82 @@ report.
   stored or logged in plaintext); real signup/login/logout are covered
   by `e2e/auth.spec.ts` against a real database.
 - **Authorization / default-deny:** implemented — protected routes
-  (`/dashboard`, `/settings`, `/onboarding`) redirect unauthenticated
-  requests to `/login`; `proxy.ts` provides a fast cookie-presence
-  check, but the real boundary is the server-side session check in
-  `lib/auth/session.ts`, which every protected page calls. Verified by
-  `e2e/auth.spec.ts`'s "unauthenticated requests to protected routes
-  are rejected" test.
-- **Tenant isolation:** implemented for the auth/workspace data that
-  exists so far — `requireActiveOrganization()` re-verifies the
+  (`/dashboard`, `/settings`, `/onboarding`, `/feedback`) redirect
+  unauthenticated requests to `/login`; `proxy.ts` provides a fast
+  cookie-presence check, but the real boundary is the server-side
+  session check in `lib/auth/session.ts`, which every protected page
+  calls. Verified by `e2e/auth.spec.ts`'s "unauthenticated requests to
+  protected routes are rejected" test (now including `/feedback`) and
+  `e2e/feedback.spec.ts`'s "unauthenticated visitors cannot reach the
+  admin feedback view".
+- **Tenant isolation:** implemented and now exercised against real
+  product data. `requireActiveOrganization()` re-verifies the
   session's active organization against the `member` table rather
-  than trusting the session cookie, and Better Auth's own
+  than trusting the session cookie; Better Auth's own
   `organization/set-active` endpoint rejects switching into an
-  organization the caller isn't a member of. Covered by a genuine
-  cross-tenant negative test (`e2e/auth.spec.ts`, "tenant isolation")
-  against a real Postgres database — not yet exercised against product
-  data, since none exists until a future milestone.
+  organization the caller isn't a member of. On the public feedback
+  side (M4), `lib/feedback/data.ts` re-verifies a post's
+  `organization_id` before recording a vote — a `postId` from another
+  organization is rejected even if a request supplies a valid
+  participant identity for the org it claims — and `lib/feedback/
+  participant.ts` scopes participant identity to (organization, email)
+  so the same email produces structurally distinct participant rows
+  per organization; no participant, post, or vote can be reused
+  across tenants. Covered by genuine cross-tenant negative tests in
+  both `e2e/auth.spec.ts` ("tenant isolation") and
+  `e2e/feedback.spec.ts` ("tenant A's feedback board never shows
+  tenant B's posts, and voting cannot cross tenants") against a real
+  Postgres database.
 - **Session & transport:** implemented — Better Auth's session cookie
   is `HttpOnly`, `SameSite=Lax`, with CSRF protection via Better Auth's
   trusted-origin check on state-changing requests (verified directly:
   a request with a missing/mismatched `Origin` header is rejected).
   `Secure` is applied automatically over HTTPS in production; local
-  dev/CI runs over plain HTTP.
+  dev/CI runs over plain HTTP. The new public participant-identity
+  cookie (`lib/feedback/participant.ts`) follows the same pattern:
+  `HttpOnly`, `SameSite=Lax`, `Secure` in production, and carries only
+  an opaque token — never the participant's email or a raw database
+  id — scoped per organization so it cannot be reused to act as a
+  participant of a different organization.
 - **Rate limiting:** implemented via Better Auth's built-in limiter,
   enabled by default in production; disabled only when `CI=true` so
   the E2E suite's own legitimate rapid signups aren't throttled as
-  abuse (`DECISIONS.md` D3-004) — a real deployment keeps it on.
+  abuse (`DECISIONS.md` D3-004) — a real deployment keeps it on. The
+  public feedback endpoints (submit/vote) are not yet separately
+  rate-limited — see "Known limitations" in the M4 validation report;
+  the database-enforced vote-uniqueness constraint prevents the one
+  correctness issue unlimited requests could otherwise cause
+  (double-voting), but volumetric abuse protection for public
+  submission is deferred.
 - **Input handling:** implemented for what exists — Zod schemas
-  (`lib/validation/auth.ts`) validate signup/login/workspace-creation
-  input; Drizzle's parameterized queries are used throughout, no
-  string-built SQL anywhere in the codebase.
+  (`lib/validation/auth.ts`, `lib/validation/feedback.ts`) validate
+  signup/login/workspace-creation and feedback-submission/participant-
+  identity input server-side (never trusting client-side `required`/
+  `minLength` HTML attributes alone — verified directly by
+  `e2e/feedback.spec.ts`'s "invalid submission is rejected server-side
+  even if client validation is bypassed"); Drizzle's parameterized
+  queries are used throughout, no string-built SQL anywhere in the
+  codebase.
+- **Data integrity under concurrency:** new this milestone — the
+  one-vote-per-(post, participant) rule is enforced by a database
+  unique index (`vote_post_participant_uidx`), not just application
+  logic, and proven race-safe by `tests/integration/vote-race.test.ts`
+  (two concurrent `castVote` calls against a real database, asserting
+  exactly one vote row results) rather than assumed from the
+  `onConflictDoNothing()` call alone.
 - **Dependency review:** applied — e.g. the `neon-http` → `node-postgres`
   driver switch and the account-schema patch were each reviewed and
   recorded (`DECISIONS.md` D3-001, D3-002) rather than adopted blindly;
   the drizzle-kit dev-only advisory noted in the M2 report remains a
-  documented, accepted risk (no fixed release exists yet).
+  documented, accepted risk (no fixed release exists yet). M4 added no
+  new runtime dependencies.
 - **Not yet applicable:** auditability (no sensitive actions beyond
-  auth/workspace creation exist yet), backups/migration discipline
-  beyond `drizzle-kit`'s own migration files (no production database
-  provisioned yet), and XSS-specific review (no user-generated content
-  is rendered yet — React's default escaping covers the UI that exists
-  today, but this needs explicit re-verification once product content
-  like feedback posts/comments exists).
+  auth/workspace creation and now feedback submission/voting exist
+  yet — none of which currently need an audit trail), backups/
+  migration discipline beyond `drizzle-kit`'s own migration files (no
+  production database provisioned yet). XSS-specific review is now
+  partially applicable: feedback post titles/descriptions are the
+  first real user-generated content rendered in the app, and are
+  rendered as plain text through React's default escaping (never
+  `dangerouslySetInnerHTML`) — no rich text or HTML rendering exists
+  to review yet.
