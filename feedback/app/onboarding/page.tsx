@@ -23,7 +23,7 @@ export default async function OnboardingPage() {
         className="flex items-center gap-2 text-sm font-medium text-foreground"
       >
         <MessageSquareText className="size-5 text-primary" aria-hidden="true" />
-        Feedback
+        Nudge
       </Link>
       <main id="main-content" className="w-full max-w-sm">
         <CreateWorkspaceForm />

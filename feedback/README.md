@@ -1,4 +1,4 @@
-# feedback (working name)
+# Nudge
 
 An independent, original SaaS project reproducing the proven **customer
 feedback management** business model (public/private feedback boards,
@@ -14,7 +14,11 @@ mechanism*, not any proprietary implementation. See
 and [`SECURITY.md`](./SECURITY.md) for the security baseline this rule
 implies in practice.
 
-`feedback` is a placeholder name and will be renamed before public launch.
+**Nudge** is the product's customer-facing brand name (tagline: "Turn
+feedback into what you build next."). The `feedback` directory name and
+every internal domain concept (Feedback, Post, Participant, Roadmap,
+Changelog) are unchanged — `feedback` remains the project/directory name
+for the reasons described below, distinct from the product's public brand.
 
 ## Relationship to this repository
 

@@ -80,7 +80,7 @@ export default async function BillingPage() {
           {entitlement.plan === "free" ? (
             <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
               <p className="text-sm font-medium text-foreground">
-                Feedback Pro — ${PRO_PLAN_DISPLAY_PRICE_USD}/month
+                Nudge Pro — ${PRO_PLAN_DISPLAY_PRICE_USD}/month
               </p>
               <p className="text-xs text-muted-foreground">
                 Up to 100 tracked participants. Checkout runs through our existing Shopify store.
@@ -103,7 +103,7 @@ export default async function BillingPage() {
                 </p>
               ) : (
                 <p className="text-sm text-foreground">
-                  Thanks for being a Feedback Pro customer.
+                  Thanks for being a Nudge Pro customer.
                 </p>
               )}
               {canManageBilling && manageSubscriptionUrl ? (

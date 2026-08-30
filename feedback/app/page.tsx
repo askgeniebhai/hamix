@@ -48,7 +48,7 @@ export default function Home() {
       <main id="main-content" className="flex flex-1 flex-col">
         <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-24 sm:py-32">
           <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-            Collect feedback. Show your roadmap. Close the loop.
+            Turn feedback into what you build next.
           </h1>
           <p className="max-w-xl text-lg text-pretty text-muted-foreground">
             One calm place for customers to tell you what they need, see what&rsquo;s

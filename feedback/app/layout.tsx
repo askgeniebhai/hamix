@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Feedback",
-    template: "%s · Feedback",
+    default: "Nudge",
+    template: "%s · Nudge",
   },
   description:
     "A calm, focused home for customer feedback — capture, organize, and act on what your customers actually need.",
