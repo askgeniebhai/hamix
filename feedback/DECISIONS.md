@@ -7,6 +7,65 @@ for the current state.
 
 ---
 
+## D9-004 — PR #32 automated-review response: four real Shopify-billing findings, all fixed at the root
+
+**Date:** 2026-08-30
+**Decision:** Codex's automated review of PR #32 raised five P1
+findings; one (the `/contact` zero-env crash) was already fixed and
+pushed before the review landed (`D9-003`). The remaining four were
+verified against the actual code and fixed, not dismissed:
+
+1. **Webhook ledger insert and entitlement mutation weren't atomic**
+   (`lib/billing/shopify/webhook.ts`). If the entitlement write failed
+   after the `billing_webhook_event` ledger row had already committed
+   (a dropped connection, a constraint violation), Shopify's retry of
+   that exact webhook id would hit the `duplicate` path and the paid
+   or cancelled event would be lost permanently — no second chance.
+   Fixed: `processShopifyWebhook` now wraps the ledger insert and
+   every dispatch case in one `getDb().transaction(...)` — a failure
+   anywhere rolls the ledger insert back too, so the next retry
+   reprocesses the event for real.
+2. **`orders/paid` granted Pro from the `organization_id` cart
+   attribute alone, never verifying the order actually paid for the
+   "Feedback Pro" product.** A cart's line items can be edited
+   independently of its attributes before checkout completes, so a
+   customer could start the Pro checkout (setting the attribute), swap
+   the line for something cheaper, and still trigger a grant. Fixed:
+   `parseOrderWebhook` now also collects `line_items[].variant_id`
+   (the classic REST webhook's bare numeric id — confirmed distinct
+   from the Storefront API's GID form `createProCheckoutUrl` uses,
+   handled by a new `numericIdFromGid` helper), and `orders/paid`
+   is `ignored` unless the paid order actually contains
+   `SHOPIFY_PRO_VARIANT_ID`.
+3. **Entitlement never expired on its own** (`lib/billing/plans.ts`).
+   `resolveEffectivePlan` only checked `plan`/`status` — if a
+   cancellation webhook was missed (the `subscription_contracts/
+   update` parser is explicitly best-effort) or a renewal simply
+   produced no `orders/paid`, `status` stayed `active` forever even
+   after the paid period ended. Fixed: `resolveEffectivePlan` now also
+   takes `currentPeriodEnd` and treats a lapsed period as no longer
+   entitled for `active`/`trialing` (never for `past_due`, a
+   provider-managed grace window with no period-end semantics of its
+   own); `getEntitlement` passes it through.
+4. **`organization_billing.provider_customer_id` was globally
+   unique**, rejecting a second organization's otherwise-valid
+   `orders/paid` webhook whenever the same Shopify customer (the same
+   person or business, buying through the one shared store) paid for
+   Pro on more than one workspace. Fixed: the column is now indexed
+   for lookup performance but not unique (migration
+   `0007_stormy_blazing_skull.sql`) — a subscription/order id genuinely
+   does belong to exactly one organization and stays unique;
+   a customer identifies a *buyer*, not a one-to-one workspace
+   relationship, and never should have been constrained that way.
+
+Each fix has direct test coverage: an integration test for the
+wrong-product case, one proving the same Shopify customer can pay for
+Pro on two organizations, and unit tests for the lapsed-period-end
+case (`tests/integration/billing-shopify-webhook.test.ts`,
+`tests/unit/billing-plans.test.ts`). Full regression re-run clean: 70
+unit / 48 integration / 114 Playwright, zero-env build, `drizzle-kit
+check`, RepoGuard.
+
 ## D9-003 — The "zero-env build succeeds" check I ran locally was a false positive; PR #32's own CI caught the real bug
 
 **Date:** 2026-08-30

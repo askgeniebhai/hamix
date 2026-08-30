@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { boolean, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { organization } from "@/lib/db/auth-schema";
 
@@ -64,6 +64,16 @@ export const organizationBilling = pgTable(
     // provider-side customer record — set once, then reused for every
     // subsequent Checkout/portal session so an organization only ever
     // has one provider customer, never a fresh one per attempt.
+    //
+    // Deliberately NOT globally unique: Checkout runs through one
+    // shared Shopify store (`DECISIONS.md` D9-001), so a Shopify
+    // customer identifies a *buyer*, not a one-to-one relationship
+    // with a workspace — the same person (or business) legitimately
+    // owns more than one organization here and can pay for Pro on
+    // each with the same Shopify account/email. A global unique
+    // constraint on this column would reject the second workspace's
+    // otherwise-valid `orders/paid` webhook outright. Indexed, not
+    // uniquely, purely for lookup performance.
     providerCustomerId: text("provider_customer_id"),
     providerSubscriptionId: text("provider_subscription_id"),
     plan: billingPlan("plan").notNull().default("free"),
@@ -73,13 +83,12 @@ export const organizationBilling = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
-    // Both nullable — Postgres allows any number of NULLs through a
-    // unique index, so this only rejects two organizations somehow
-    // sharing the same *non-null* provider id, never blocks the
-    // common free-tier "both null" case.
-    uniqueIndex("organization_billing_provider_customer_id_uidx").on(
+    index("organization_billing_provider_customer_id_idx").on(
       table.providerCustomerId,
     ),
+    // A subscription contract/order id genuinely does belong to
+    // exactly one organization (it was created by that organization's
+    // own Checkout attribute), so this one stays unique.
     uniqueIndex("organization_billing_provider_subscription_id_uidx").on(
       table.providerSubscriptionId,
     ),

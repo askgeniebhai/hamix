@@ -62,12 +62,38 @@ export function isEntitledStatus(status: string): boolean {
   return ENTITLED_STATUSES.has(status as BillingSubscriptionStatus);
 }
 
-/** The plan an organization is *actually* entitled to right now — never `plan` alone. */
+/**
+ * The plan an organization is *actually* entitled to right now —
+ * never `plan` alone, and never `status` alone either.
+ * `currentPeriodEnd` matters for `active`/`trialing`: both are
+ * period-bound, and if that period has lapsed with no fresh webhook
+ * extending it — a missed `subscription_contracts/update`
+ * cancellation (the parser is explicitly best-effort,
+ * `lib/billing/shopify/webhook.ts`), or a renewal that simply never
+ * produced an `orders/paid` event — the organization is no longer
+ * entitled regardless of the stale stored status. `currentPeriodEnd`
+ * is omitted (or explicitly `null`) for the common case of no period
+ * information at all, which never lapses this check on its own.
+ * `past_due` is exempt: it's a provider-managed retry/grace window,
+ * not something this file has a period-end for.
+ */
 export function resolveEffectivePlan(input: {
   plan: BillingPlan;
   status: string;
+  currentPeriodEnd?: Date | null;
 }): BillingPlan {
-  return input.plan === "pro" && isEntitledStatus(input.status) ? "pro" : "free";
+  if (input.plan !== "pro" || !isEntitledStatus(input.status)) {
+    return "free";
+  }
+  const periodEnd = input.currentPeriodEnd;
+  if (
+    input.status !== "past_due" &&
+    periodEnd != null &&
+    periodEnd.getTime() < Date.now()
+  ) {
+    return "free";
+  }
+  return "pro";
 }
 
 export function trackedParticipantLimitFor(plan: BillingPlan): number {

@@ -43,6 +43,11 @@ function orderPayload(organizationId: string, orderId: number, financialStatus =
     financial_status: financialStatus,
     customer: { id: 900_000_000 + orderId },
     note_attributes: [{ name: "organization_id", value: organizationId }],
+    // Matches SHOPIFY_PRO_VARIANT_ID ("gid://shopify/ProductVariant/1")
+    // set in this environment — processShopifyWebhook now verifies the
+    // paid order actually contains the configured Pro product before
+    // granting entitlement (never the organization_id attribute alone).
+    line_items: [{ variant_id: 1, quantity: 1 }],
   });
 }
 

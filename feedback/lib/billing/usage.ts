@@ -104,7 +104,11 @@ export async function getEntitlement(organizationId: string): Promise<Entitlemen
     countTrackedParticipants(organizationId),
   ]);
 
-  const plan = resolveEffectivePlan({ plan: billing.plan, status: billing.status });
+  const plan = resolveEffectivePlan({
+    plan: billing.plan,
+    status: billing.status,
+    currentPeriodEnd: billing.currentPeriodEnd,
+  });
   return {
     plan,
     rawPlan: billing.plan,

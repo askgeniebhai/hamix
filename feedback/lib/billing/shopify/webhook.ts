@@ -39,6 +39,8 @@ interface ParsedOrderWebhook {
   organizationId: string | null;
   customerId: string | null;
   financialStatus: string | null;
+  /** The `variant_id` of every line item on the order, stringified — used to confirm the order actually paid for the configured "Feedback Pro" product before granting entitlement, never inferred from the `organization_id` attribute alone. */
+  lineItemVariantIds: string[];
 }
 
 /** Reads the classic REST Order webhook payload's `note_attributes` — the array Shopify copies a subscription contract's own custom attributes into on every order it generates, including renewals (confirmed against Shopify's developer changelog before this was written). */
@@ -75,12 +77,31 @@ function parseOrderWebhook(rawBody: string): ParsedOrderWebhook | null {
       ? String((customer as Record<string, unknown>).id)
       : null;
 
+  const lineItemVariantIds: string[] = [];
+  if (Array.isArray(record.line_items)) {
+    for (const item of record.line_items) {
+      if (item && typeof item === "object") {
+        const li = item as Record<string, unknown>;
+        if (li.variant_id !== undefined && li.variant_id !== null) {
+          lineItemVariantIds.push(String(li.variant_id));
+        }
+      }
+    }
+  }
+
   return {
     orderId: String(record.id),
     organizationId,
     customerId,
     financialStatus: typeof record.financial_status === "string" ? record.financial_status : null,
+    lineItemVariantIds,
   };
+}
+
+/** `"gid://shopify/ProductVariant/123"` → `"123"` — the classic REST order webhook's `line_items[].variant_id` is a bare numeric id, never the Storefront API's GID form `createProCheckoutUrl` uses. */
+function numericIdFromGid(gidOrId: string): string {
+  const parts = gidOrId.split("/");
+  return parts[parts.length - 1] || gidOrId;
 }
 
 interface ParsedSubscriptionContractWebhook {
@@ -173,12 +194,24 @@ export type ProcessShopifyWebhookResult =
 
 /**
  * The single entry point every Shopify billing webhook goes through —
- * verify, deduplicate, then dispatch. Mirrors `lib/changelog/data.ts`'s
- * idempotent-publish pattern: `billing_webhook_event`'s unique
- * `(provider, provider_event_id)` index plus `ON CONFLICT DO NOTHING`
- * is what actually makes a Shopify-redelivered webhook a no-op on its
- * second attempt, not application-level "have I seen this before"
- * logic (`DECISIONS.md` D8-004, reused here).
+ * verify, deduplicate, then dispatch, all inside one database
+ * transaction. Mirrors `lib/changelog/data.ts`'s idempotent-publish
+ * pattern: `billing_webhook_event`'s unique `(provider,
+ * provider_event_id)` index plus `ON CONFLICT DO NOTHING` is what
+ * actually makes a Shopify-redelivered webhook a no-op on its second
+ * attempt, not application-level "have I seen this before" logic
+ * (`DECISIONS.md` D8-004, reused here).
+ *
+ * The ledger insert and the entitlement mutation (or its deliberate
+ * absence, for an `ignored` outcome) commit or roll back together.
+ * Without this, a transient failure *after* the ledger row committed
+ * (a dropped connection, a constraint violation) would leave the
+ * event marked "seen" with its entitlement change never applied —
+ * and Shopify's retry of that exact webhook id would then hit the
+ * `duplicate` path and silently never try again, permanently losing
+ * a paid or cancelled event. Wrapping both in one transaction means a
+ * failure here rolls the ledger insert back too, so the next retry
+ * reprocesses it for real.
  */
 export async function processShopifyWebhook(
   input: ProcessShopifyWebhookInput,
@@ -190,41 +223,46 @@ export async function processShopifyWebhook(
   if (!verifyShopifyHmac(input.rawBody, input.hmacHeader, config.webhookSecret)) {
     return { status: "invalid_signature" };
   }
-  if (!input.webhookId) {
+  const webhookId = input.webhookId;
+  if (!webhookId) {
     return { status: "ignored", reason: "missing X-Shopify-Webhook-Id" };
   }
 
-  const inserted = await getDb()
-    .insert(billingWebhookEvent)
-    .values({ provider: "shopify", providerEventId: input.webhookId, type: input.topic ?? "unknown" })
-    .onConflictDoNothing()
-    .returning({ id: billingWebhookEvent.id });
-  if (inserted.length === 0) {
-    return { status: "duplicate" };
-  }
+  return getDb().transaction(async (tx) => {
+    const inserted = await tx
+      .insert(billingWebhookEvent)
+      .values({ provider: "shopify", providerEventId: webhookId, type: input.topic ?? "unknown" })
+      .onConflictDoNothing()
+      .returning({ id: billingWebhookEvent.id });
+    if (inserted.length === 0) {
+      return { status: "duplicate" };
+    }
 
-  switch (input.topic) {
-    case "orders/paid": {
-      const order = parseOrderWebhook(input.rawBody);
-      if (!order?.organizationId) {
-        return { status: "ignored", reason: "no organization_id attribute on this order" };
-      }
-      await getDb()
-        .insert(organizationBilling)
-        .values({
-          organizationId: order.organizationId,
-          provider: "shopify",
-          providerCustomerId: order.customerId,
-          providerSubscriptionId: order.orderId,
-          plan: "pro",
-          status: "active",
-          currentPeriodEnd: new Date(Date.now() + PRO_PERIOD_LENGTH_MS),
-          cancelAtPeriodEnd: false,
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: organizationBilling.organizationId,
-          set: {
+    switch (input.topic) {
+      case "orders/paid": {
+        const order = parseOrderWebhook(input.rawBody);
+        if (!order?.organizationId) {
+          return { status: "ignored", reason: "no organization_id attribute on this order" };
+        }
+        // Confirm the paid order actually contains the configured
+        // "Feedback Pro" product before granting entitlement — the
+        // `organization_id` cart attribute alone isn't proof of
+        // payment for *that* product: a cart's line items can be
+        // edited independently of its attributes before checkout
+        // completes (e.g. the Pro line swapped for something
+        // cheaper), so trusting the attribute alone would let an
+        // unrelated paid order grant Pro.
+        const expectedVariantId = numericIdFromGid(config.proVariantId);
+        if (!order.lineItemVariantIds.includes(expectedVariantId)) {
+          return {
+            status: "ignored",
+            reason: "paid order does not contain the configured Pro product variant",
+          };
+        }
+        await tx
+          .insert(organizationBilling)
+          .values({
+            organizationId: order.organizationId,
             provider: "shopify",
             providerCustomerId: order.customerId,
             providerSubscriptionId: order.orderId,
@@ -233,37 +271,50 @@ export async function processShopifyWebhook(
             currentPeriodEnd: new Date(Date.now() + PRO_PERIOD_LENGTH_MS),
             cancelAtPeriodEnd: false,
             updatedAt: new Date(),
-          },
-        });
-      return { status: "processed" };
-    }
-    case "orders/cancelled": {
-      const order = parseOrderWebhook(input.rawBody);
-      if (!order?.organizationId) {
-        return { status: "ignored", reason: "no organization_id attribute on this order" };
+          })
+          .onConflictDoUpdate({
+            target: organizationBilling.organizationId,
+            set: {
+              provider: "shopify",
+              providerCustomerId: order.customerId,
+              providerSubscriptionId: order.orderId,
+              plan: "pro",
+              status: "active",
+              currentPeriodEnd: new Date(Date.now() + PRO_PERIOD_LENGTH_MS),
+              cancelAtPeriodEnd: false,
+              updatedAt: new Date(),
+            },
+          });
+        return { status: "processed" };
       }
-      await getDb()
-        .update(organizationBilling)
-        .set({ status: "canceled", updatedAt: new Date() })
-        .where(eq(organizationBilling.organizationId, order.organizationId));
-      return { status: "processed" };
-    }
-    case "subscription_contracts/update": {
-      const contract = parseSubscriptionContractWebhook(input.rawBody);
-      if (!contract?.organizationId || !contract.status) {
-        return { status: "ignored", reason: "unrecognized subscription-contract payload shape" };
+      case "orders/cancelled": {
+        const order = parseOrderWebhook(input.rawBody);
+        if (!order?.organizationId) {
+          return { status: "ignored", reason: "no organization_id attribute on this order" };
+        }
+        await tx
+          .update(organizationBilling)
+          .set({ status: "canceled", updatedAt: new Date() })
+          .where(eq(organizationBilling.organizationId, order.organizationId));
+        return { status: "processed" };
       }
-      const mapped = mapContractStatus(contract.status);
-      if (!mapped) {
-        return { status: "ignored", reason: `unmapped contract status: ${contract.status}` };
+      case "subscription_contracts/update": {
+        const contract = parseSubscriptionContractWebhook(input.rawBody);
+        if (!contract?.organizationId || !contract.status) {
+          return { status: "ignored", reason: "unrecognized subscription-contract payload shape" };
+        }
+        const mapped = mapContractStatus(contract.status);
+        if (!mapped) {
+          return { status: "ignored", reason: `unmapped contract status: ${contract.status}` };
+        }
+        await tx
+          .update(organizationBilling)
+          .set({ status: mapped, updatedAt: new Date() })
+          .where(eq(organizationBilling.organizationId, contract.organizationId));
+        return { status: "processed" };
       }
-      await getDb()
-        .update(organizationBilling)
-        .set({ status: mapped, updatedAt: new Date() })
-        .where(eq(organizationBilling.organizationId, contract.organizationId));
-      return { status: "processed" };
+      default:
+        return { status: "ignored", reason: `unhandled topic: ${input.topic ?? "(none)"}` };
     }
-    default:
-      return { status: "ignored", reason: `unhandled topic: ${input.topic ?? "(none)"}` };
-  }
+  });
 }

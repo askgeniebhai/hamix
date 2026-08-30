@@ -39,4 +39,30 @@ describe("billing plans", () => {
     expect(resolveEffectivePlan({ plan: "pro", status: "none" })).toBe("free");
     expect(resolveEffectivePlan({ plan: "free", status: "active" })).toBe("free");
   });
+
+  it("resolveEffectivePlan treats a lapsed currentPeriodEnd as no longer entitled, even with a stale active/trialing status", () => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    // The exact gap this guards: a missed cancellation webhook or a
+    // renewal that never produced orders/paid leaves `status`
+    // stuck "active" past the period it actually paid for.
+    expect(resolveEffectivePlan({ plan: "pro", status: "active", currentPeriodEnd: yesterday })).toBe(
+      "free",
+    );
+    expect(resolveEffectivePlan({ plan: "pro", status: "trialing", currentPeriodEnd: yesterday })).toBe(
+      "free",
+    );
+    expect(resolveEffectivePlan({ plan: "pro", status: "active", currentPeriodEnd: tomorrow })).toBe(
+      "pro",
+    );
+    // No period-end recorded at all never lapses this check on its own.
+    expect(resolveEffectivePlan({ plan: "pro", status: "active", currentPeriodEnd: null })).toBe("pro");
+    expect(resolveEffectivePlan({ plan: "pro", status: "active" })).toBe("pro");
+    // past_due is a provider-managed grace window, exempt from the
+    // period-end check regardless of how stale currentPeriodEnd is.
+    expect(resolveEffectivePlan({ plan: "pro", status: "past_due", currentPeriodEnd: yesterday })).toBe(
+      "pro",
+    );
+  });
 });

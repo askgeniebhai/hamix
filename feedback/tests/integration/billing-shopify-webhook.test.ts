@@ -77,13 +77,12 @@ describe("processShopifyWebhook — signature, idempotency, entitlement reconcil
     organizationId: string,
     orderId: number,
     financialStatus = "paid",
-    // Distinct organizations are always distinct Shopify customers in
-    // reality (each checks out with their own identity through the
-    // one shared store) — defaults to a value derived from the order
-    // id so tests don't accidentally collide on
-    // `organization_billing`'s real `provider_customer_id` uniqueness
-    // constraint the way two orders for the *same* org's subsequent
-    // renewal legitimately should (same customer, new order id).
+    // Defaults to a value derived from the order id so a renewal
+    // (same customer, new order id) is easy to model distinctly from
+    // a first purchase — not because two organizations sharing a
+    // customer id would fail; `provider_customer_id` is deliberately
+    // not unique (see the "one Shopify customer, two organizations"
+    // test below).
     customerId = 500000000 + orderId,
   ) {
     return JSON.stringify({
@@ -91,6 +90,21 @@ describe("processShopifyWebhook — signature, idempotency, entitlement reconcil
       financial_status: financialStatus,
       customer: { id: customerId },
       note_attributes: [{ name: "organization_id", value: organizationId }],
+      // Matches SHOPIFY_PRO_VARIANT_ID ("gid://shopify/ProductVariant/1")
+      // set at the top of this file — the classic REST order webhook's
+      // line_items[].variant_id is the bare numeric id, never the GID.
+      line_items: [{ variant_id: 1, quantity: 1 }],
+    });
+  }
+
+  /** A paid order whose line items do NOT contain the configured Pro variant — the exact "cart line swapped before checkout completed" scenario `processShopifyWebhook`'s product-verification check exists to reject. */
+  function orderPayloadWrongProduct(organizationId: string, orderId: number, customerId = 500000000 + orderId) {
+    return JSON.stringify({
+      id: orderId,
+      financial_status: "paid",
+      customer: { id: customerId },
+      note_attributes: [{ name: "organization_id", value: organizationId }],
+      line_items: [{ variant_id: 999999, quantity: 1 }],
     });
   }
 
@@ -205,6 +219,19 @@ describe("processShopifyWebhook — signature, idempotency, entitlement reconcil
     expect(result.status).toBe("ignored");
   });
 
+  it("a paid order whose line items don't contain the configured Pro variant is ignored, not granted Pro", async () => {
+    const orgId = await seedOrg("WrongProduct");
+    const body = orderPayloadWrongProduct(orgId, 8001);
+    const result = await processShopifyWebhook({
+      rawBody: body,
+      hmacHeader: sign(body),
+      webhookId: randomUUID(),
+      topic: "orders/paid",
+    });
+    expect(result.status).toBe("ignored");
+    expect((await getEntitlement(orgId)).plan).toBe("free");
+  });
+
   it("tenant isolation: an orders/paid webhook for one organization never grants entitlement to another", async () => {
     const orgA = await seedOrg("TenantIsoA");
     const orgB = await seedOrg("TenantIsoB");
@@ -218,6 +245,33 @@ describe("processShopifyWebhook — signature, idempotency, entitlement reconcil
 
     expect((await getEntitlement(orgA)).plan).toBe("pro");
     expect((await getEntitlement(orgB)).plan).toBe("free");
+  });
+
+  it("the same Shopify customer buying Pro for two different organizations grants both — provider_customer_id is not globally unique", async () => {
+    const orgA = await seedOrg("SharedCustomerA");
+    const orgB = await seedOrg("SharedCustomerB");
+    const sharedCustomerId = 700000001;
+
+    const bodyA = orderPayload(orgA, 7101, "paid", sharedCustomerId);
+    const resultA = await processShopifyWebhook({
+      rawBody: bodyA,
+      hmacHeader: sign(bodyA),
+      webhookId: randomUUID(),
+      topic: "orders/paid",
+    });
+    expect(resultA.status).toBe("processed");
+
+    const bodyB = orderPayload(orgB, 7102, "paid", sharedCustomerId);
+    const resultB = await processShopifyWebhook({
+      rawBody: bodyB,
+      hmacHeader: sign(bodyB),
+      webhookId: randomUUID(),
+      topic: "orders/paid",
+    });
+    expect(resultB.status).toBe("processed");
+
+    expect((await getEntitlement(orgA)).plan).toBe("pro");
+    expect((await getEntitlement(orgB)).plan).toBe("pro");
   });
 
   it("cleans up its own organization_billing rows via the organization cascade", async () => {
