@@ -28,3 +28,14 @@ export const POST_STATUS_LABELS: Record<PostStatus, string> = {
   in_progress: "In Progress",
   complete: "Complete",
 };
+
+/**
+ * The subset of statuses the public Roadmap (`/b/[slug]/roadmap`)
+ * shows — `open` and `under_review` are internal triage states with
+ * nothing yet worth telling a customer, so they're excluded here
+ * rather than filtered out ad hoc wherever the roadmap is read or
+ * rendered (`DECISIONS.md` D7-001).
+ */
+export const ROADMAP_STATUSES = ["planned", "in_progress", "complete"] as const satisfies readonly PostStatus[];
+
+export type RoadmapStatus = (typeof ROADMAP_STATUSES)[number];

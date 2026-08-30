@@ -223,7 +223,14 @@ editing/deleting/moderation system.
 
 ## M6 — Feedback Status & Admin Management
 
-**Status:** Complete. See `validation/reports/M6-validation-report.md`.
+**Status:** Complete. Merged to `main` via PR #29 (SHA
+`010a636e7eb7f9da93e4ce8462c1a8ccc6332ed5`). See
+`validation/reports/M6-validation-report.md`. Automated code review on
+the PR found three small, real bugs, all fixed before merge: repeated
+`searchParams` values (`?q=a&q=b`) weren't normalized before use, the
+admin filters' navigation could revert a select change under a
+debounce race, and the search box's ILIKE pattern didn't escape
+`%`/`_` wildcard characters.
 
 **Scope:** A flat, admin-only status lifecycle for each post, and an
 admin triage view that scales past a handful of posts — search,
@@ -285,14 +292,81 @@ tags/categories, duplicate merging, AI/prioritization intelligence,
 billing, CRM, private/internal notes, and any complex status-workflow
 or moderation system.
 
+## M7 — Public Roadmap
+
+**Status:** Complete. See `validation/reports/M7-validation-report.md`.
+
+**Scope:** Completes the sellable customer journey — Feedback → Vote →
+Discussion → Roadmap (Planned/In Progress/Complete). Roadmap is a
+read-only *view* over the existing `Post`/status model, not a new
+domain concept: no `roadmap_item` table, no roadmap-specific admin
+console, no drag/drop, no dates or ETAs.
+
+- Public route `/b/[slug]/roadmap`: three sections — Planned, In
+  Progress, Complete — each ordered newest-`statusChangedAt`-first.
+  `open`/`under_review` posts are excluded at the database query
+  itself, never fetched and filtered in the browser
+  (`lib/feedback/data.ts`'s `listRoadmapPosts()`, `DECISIONS.md`
+  D7-001)
+- New compound index `post_board_id_status_idx` on
+  `(board_id, status)` backs the roadmap query
+  (`drizzle/0004_dusty_iceman.sql`)
+- `ROADMAP_STATUSES` (`lib/feedback/status.ts`) is the single source
+  of truth for which three statuses are customer-facing, shared by the
+  query and the UI's section headings
+- `PublicBoardNav` (`components/feedback/public-board-nav.tsx`): clear
+  Feedback ⇄ Roadmap navigation, shared by both `/b/[slug]` and
+  `/b/[slug]/roadmap`
+- Each roadmap card: title, status badge, vote count, comment count,
+  linking to the same public post detail page M4/M5 already built — no
+  new detail page, no duplication
+- No separate roadmap-management console: the existing M6
+  `StatusSelect` on the protected admin thread view is the only way a
+  post's roadmap placement ever changes — Open/Under Review → hidden,
+  Planned/In Progress/Complete → the matching section, automatically
+- Tenant-scoped by construction — the same `boardId`-scoped pattern
+  `listBoardPosts()` already uses; no separate assertion needed since
+  the board itself was already resolved from a legitimate slug lookup
+- Responsive: desktop uses a 3-column grid, mobile stacks to a single
+  column, no horizontal overflow at either width
+  (`e2e/roadmap.spec.ts`)
+- Integration test proving `open`/`under_review` are excluded at the
+  query (not merely unlisted in the UI), tenant isolation across
+  boards, and newest-first ordering
+  (`tests/integration/roadmap.test.ts`)
+- Playwright coverage of the full lifecycle (submit → Planned appears
+  → In Progress moves → Complete moves → refresh persists), the
+  negative tests listed below, and accessibility/responsive checks
+- A genuine (not flaky) test-timing bug found while building this
+  milestone's E2E coverage — and confirmed already latent in M6's own
+  merged `status.spec.ts` — is fixed: a Playwright status-change helper
+  that waited only for the optimistic UI label, not the underlying
+  mutation's network response, could let a subsequent navigation
+  outrace the real database write (`DECISIONS.md` D7-003)
+- A documented, non-defect finding: `/b/[slug]/roadmap`'s
+  `notFound()` for an unknown board doesn't produce a literal HTTP 404
+  under this Next.js version's Cache Components streaming
+  architecture — the same pre-existing characteristic the already-
+  shipped `/b/[slug]` board page has. Verified safe by what actually
+  matters (no data leak, the generic not-found UI renders, `noindex`
+  is set), not "fixed" by an out-of-scope architectural change
+  (`DECISIONS.md` D7-002)
+- Decision log entries `DECISIONS.md` D7-001–D7-003
+
+**Explicitly out of scope for M7:** drag/drop, quarters, ETAs, dates or
+promises, custom statuses or roadmap columns, a private roadmap,
+roadmap item duplication, changelog, notifications, AI, CRM, billing,
+enterprise features.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M7+** — to be defined as the product proves itself (Product Owner
-  has noted a commercial sequence — Roadmap, then Changelog, then
-  Billing/limits — as direction only, not an authorization)
+- **M8+** — to be defined as the product proves itself (Product Owner
+  has noted a commercial sequence — Changelog + close-loop, then
+  Billing/limits + launch readiness — as direction only, not an
+  authorization)
 
 Do not begin design or implementation work on any future milestone until
 it is explicitly authorized.

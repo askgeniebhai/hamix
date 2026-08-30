@@ -1,0 +1,1 @@
+CREATE INDEX "post_board_id_status_idx" ON "post" USING btree ("board_id","status");

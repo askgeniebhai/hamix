@@ -1,10 +1,10 @@
 import "server-only";
 
-import { and, asc, desc, eq, exists, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
 import { board, comment, member, participant, post, user, vote } from "@/lib/db/schema";
-import type { PostStatus } from "@/lib/feedback/status";
+import { ROADMAP_STATUSES, type PostStatus, type RoadmapStatus } from "@/lib/feedback/status";
 
 /**
  * Tenant-scoped data access for the feedback domain (Board, Post,
@@ -145,6 +145,47 @@ export async function listBoardPosts(
     .from(post)
     .where(eq(post.boardId, boardId))
     .orderBy(desc(voteCount), desc(post.createdAt));
+}
+
+export interface RoadmapPost {
+  id: string;
+  title: string;
+  status: RoadmapStatus;
+  statusChangedAt: Date;
+  voteCount: number;
+  commentCount: number;
+}
+
+/**
+ * Posts on a public board's Roadmap (`/b/[slug]/roadmap`) — only
+ * `planned`/`in_progress`/`complete`, filtered at the database level
+ * (never fetched as the full board and narrowed in the browser),
+ * backed by the compound `post_board_id_status_idx`
+ * (`lib/db/feedback-schema.ts`) so the extra `status` predicate is a
+ * direct index lookup, not a scan of every status for the board
+ * (`DECISIONS.md` D7-001). Ordering (newest `statusChangedAt` first
+ * within a status) is left to the database too; the caller groups the
+ * already-small result into its three sections for rendering, which
+ * is not the same as filtering an unbounded list client-side.
+ */
+export async function listRoadmapPosts(boardId: string): Promise<RoadmapPost[]> {
+  const voteCount = voteCountSubquery();
+  const commentCount = commentCountSubquery();
+
+  const rows = await getDb()
+    .select({
+      id: post.id,
+      title: post.title,
+      status: post.status,
+      statusChangedAt: post.statusChangedAt,
+      voteCount,
+      commentCount,
+    })
+    .from(post)
+    .where(and(eq(post.boardId, boardId), inArray(post.status, ROADMAP_STATUSES)))
+    .orderBy(desc(post.statusChangedAt));
+
+  return rows as RoadmapPost[];
 }
 
 /**

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MessageCircle, MessageSquareText } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
+import { PublicBoardNav } from "@/components/feedback/public-board-nav";
 import { StatusBadge } from "@/components/feedback/status-badge";
 import { SubmitFeedbackForm } from "@/components/feedback/submit-feedback-form";
 import { VoteControl } from "@/components/feedback/vote-control";
@@ -46,6 +47,9 @@ export default async function BoardPage({ params }: BoardPageProps) {
           <p className="text-sm text-muted-foreground">
             Share an idea, or vote for what matters most to you.
           </p>
+          <div className="pt-2">
+            <PublicBoardNav boardSlug={board.slug} active="feedback" />
+          </div>
         </div>
       </header>
 

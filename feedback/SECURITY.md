@@ -81,7 +81,7 @@ report.
   a database exists — no undocumented manual schema changes against
   production.
 
-## Current status (as of M6)
+## Current status (as of M7)
 
 - **Secrets:** enforced since M0 — RepoGuard's Secret Guard and
   Dangerous File Guard run on every change. `lib/env.ts` fails closed
@@ -218,6 +218,18 @@ report.
   was caught the same way this project treats every other data-layer
   change: full Playwright re-run, not assumed correct from a clean
   typecheck/lint pass, before being considered done.
+- **Roadmap tenant isolation and mutation surface:** new this
+  milestone — `/b/[slug]/roadmap` introduces no new write path at all;
+  it reuses M6's already-hardened `updatePostStatus()` as the sole way
+  a post's roadmap placement changes. Reads are scoped by `boardId`,
+  the same pattern `listBoardPosts()` already uses (the board itself
+  was already resolved from a legitimate slug lookup, so no separate
+  organization check is needed for a read). Proven directly, not
+  assumed: `tests/integration/roadmap.test.ts` shows a second board's
+  posts are absent from the first board's roadmap query, and
+  `e2e/roadmap.spec.ts` shows the public roadmap page renders no
+  status-changing control at all (no `combobox`, no button matching
+  "Change status") for an unauthenticated visitor.
 - **Not yet applicable:** auditability (no sensitive actions beyond
   auth/workspace creation and feedback submission/voting/commenting/
   status changes exist yet — none of which currently need an audit
