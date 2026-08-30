@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   check,
   index,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -84,6 +85,24 @@ export const participant = pgTable(
   ],
 );
 
+/**
+ * A Post's lifecycle stage, as a real Postgres enum rather than a
+ * free-text column, so an invalid value is rejected by the database
+ * itself, not just by application-level validation. The five values
+ * and their order (docs/M1_ARCHITECTURE_DECISION.md's Status concept,
+ * finalized in M6 — `DECISIONS.md` D6-001) are chosen so a future
+ * Roadmap milestone can group posts by this same column directly, no
+ * migration required to introduce Roadmap — only to build the view
+ * over it.
+ */
+export const postStatus = pgEnum("post_status", [
+  "open",
+  "under_review",
+  "planned",
+  "in_progress",
+  "complete",
+]);
+
 /** A feedback/feature request, scoped to a Board → Organization. */
 export const post = pgTable(
   "post",
@@ -100,11 +119,19 @@ export const post = pgTable(
       .references(() => participant.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description").notNull(),
+    status: postStatus("status").notNull().default("open"),
+    // Set at creation (equal to createdAt) and updated only when
+    // updatePostStatus() actually changes the status — never touched
+    // by a no-op "change" to the same value. Lets a future Roadmap
+    // view sort/show "time in current status" without inferring it
+    // from an audit log that doesn't exist yet.
+    statusChangedAt: timestamp("status_changed_at").defaultNow().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("post_board_id_idx").on(table.boardId),
     index("post_organization_id_idx").on(table.organizationId),
+    index("post_status_idx").on(table.status),
   ],
 );
 

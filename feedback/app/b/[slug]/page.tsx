@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MessageCircle, MessageSquareText } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
+import { StatusBadge } from "@/components/feedback/status-badge";
 import { SubmitFeedbackForm } from "@/components/feedback/submit-feedback-form";
 import { VoteControl } from "@/components/feedback/vote-control";
 import { getBoardBySlug, listBoardPosts } from "@/lib/feedback/data";
@@ -82,12 +83,15 @@ export default async function BoardPage({ params }: BoardPageProps) {
                       identified={!!me}
                     />
                     <div className="flex min-w-0 flex-col gap-1 pt-1">
-                      <Link
-                        href={`/b/${board.slug}/p/${post.id}`}
-                        className="text-sm font-medium text-foreground hover:underline"
-                      >
-                        {post.title}
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/b/${board.slug}/p/${post.id}`}
+                          className="text-sm font-medium text-foreground hover:underline"
+                        >
+                          {post.title}
+                        </Link>
+                        <StatusBadge status={post.status} />
+                      </div>
                       <p className="text-sm text-pretty text-muted-foreground">
                         {post.description}
                       </p>

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { postStatusSchema } from "@/lib/feedback/status";
+
 /** The minimum identity needed to safely attribute a submission or vote to a real person — no other personal information is collected. */
 export const participantIdentitySchema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(100),
@@ -32,3 +34,9 @@ export const addCommentSchema = z.object({
 });
 
 export type AddCommentInput = z.infer<typeof addCommentSchema>;
+
+export const updateStatusSchema = z.object({
+  status: postStatusSchema,
+});
+
+export type UpdateStatusInput = z.infer<typeof updateStatusSchema>;

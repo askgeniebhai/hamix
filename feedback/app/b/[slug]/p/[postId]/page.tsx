@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { AddCommentForm } from "@/components/feedback/add-comment-form";
 import { CommentThread } from "@/components/feedback/comment-thread";
+import { StatusBadge } from "@/components/feedback/status-badge";
 import { VoteControl } from "@/components/feedback/vote-control";
 import {
   getBoardBySlug,
@@ -71,7 +72,10 @@ export default async function PostPage({ params }: PostPageProps) {
             identified={!!me}
           />
           <div className="flex min-w-0 flex-col gap-2 pt-1">
-            <h1 className="text-lg font-semibold text-foreground">{post.title}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-semibold text-foreground">{post.title}</h1>
+              <StatusBadge status={post.status} />
+            </div>
             <p className="text-sm text-pretty text-muted-foreground">
               {post.description}
             </p>

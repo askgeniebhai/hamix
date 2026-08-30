@@ -7,6 +7,138 @@ for the current state.
 
 ---
 
+## D6-003 — Correlated count/exists subqueries must be built with the query builder, not raw `sql` templates with interpolated `Column` objects
+
+**Date:** 2026-08-30
+**Decision:** `voteCountSubquery()`, `commentCountSubquery()`, and
+`votedByViewerSubquery()` in `lib/feedback/data.ts` are now built as
+`getDb().select(...).from(...).where(eq(innerTable.column,
+post.id))`, wrapped in `sql` (for the two counts) or Drizzle's
+`exists()` helper (for the vote check), instead of a `sql` template
+literal with `${post.id}`/`${vote.postId}` interpolated directly.
+**Why:** The original (D6-002) implementation wrote each subquery as a
+raw `sql` tag, e.g. `` sql`(select count(*) from ${vote} where
+${vote.postId} = ${post.id})` ``. Drizzle's `sql` template renders an
+interpolated bare `Column` object as its *unqualified* identifier —
+`${post.id}` became just `"id"`, with no `"post".` prefix. Nested
+inside a subquery whose own `FROM` is `vote` (or `comment`) — both of
+which also have their own `id` column — that unqualified `"id"`
+resolved to the *inner* table's `id`, not the outer `post.id` it was
+meant to correlate against. The generated SQL was literally `select
+count(*) from "vote" where "post_id" = "id"` — comparing `vote.post_id`
+to `vote.id`, which is never true for a real vote row, not `post.id`.
+The subquery therefore silently always returned `0`/`false`: every
+post looked like it had zero votes and had never been voted on by the
+viewer, regardless of what was actually in the `vote` table. This bug
+was introduced during M6 development, not PR #28 (which was the M5
+tenant-hardening pass and never touched these subqueries) — it was
+caught by a full Playwright run against the uncommitted M6 branch
+before M6 ever merged, so it never reached `main`. Two pre-existing M4
+tests (`e2e/feedback.spec.ts`) that vote and then assert the button
+flips to "Remove your vote" started failing, which is what surfaced
+it. The query builder's own `eq()`
+qualifies both sides of a comparison with their actual table names
+(`"vote"."post_id" = "post"."id"`) because it knows which table each
+`Column` belongs to independent of surrounding raw SQL text, which is
+what makes the correlation land on the right row.
+**Verified:** Reproduced directly against local Postgres — inserted a
+real vote row, confirmed it existed in the `vote` table, then showed
+the old subquery form returning `voteCount: 0` /
+`votedByViewer: false` for that exact row and the new form returning
+the correct `1`/`true` for the same data, before applying the fix to
+`lib/feedback/data.ts`. Full suite re-run clean afterward: 51/51 unit,
+11/11 integration, 64/64 Playwright (`desktop-chromium` +
+`mobile-chromium`, `CI=true`), including the previously-failing
+`e2e/feedback.spec.ts` vote tests and the new `e2e/status.spec.ts`.
+**Rejected:** Manually table-qualifying the raw `sql` template (e.g.
+interpolating a literal `` sql.raw(`"post"."id"`) ``) — works, but
+hardcodes the outer table's SQL identifier as a string with nothing
+tying it back to the actual `post` table object, so a future rename or
+an added join alias would silently reintroduce the same class of bug
+with no type-level signal; building the subquery through the query
+builder keeps the correlation expressed in terms of the real `Column`
+objects, which is what this project already prefers elsewhere
+(`eq()`/`and()` throughout `lib/feedback/data.ts`) over hand-written
+SQL fragments.
+
+## D6-002 — Post list/detail vote and comment counts use per-post scalar correlated subqueries, not `leftJoin` + `count(distinct)` + `groupBy`
+
+**Date:** 2026-08-30
+**Decision:** `listBoardPosts()`, `listOrganizationPostsForAdmin()`,
+`getPostForBoard()`, and `getPostForOrganization()` compute
+`voteCount`, `commentCount`, and (where relevant) `votedByViewer` via
+small subquery helpers (`voteCountSubquery()`, `commentCountSubquery()`,
+`votedByViewerSubquery()`) selected alongside each post row, rather
+than `leftJoin`ing both `vote` and `comment` onto `post` and
+`groupBy`-ing with `count(distinct …)`.
+**Why:** Explicit Product Owner performance instruction for M6: a
+`leftJoin` of two independent one-to-many relations onto the same row
+multiplies it by both counts before `GROUP BY` collapses the result
+back down (a post with 100 votes and 50 comments joins out to 5,000
+intermediate rows), and `count(distinct …)` only fixes the resulting
+number, not the work Postgres does to get there. A scalar subquery per
+metric counts each relation independently against its own
+`post_id`-indexed table (`vote_post_id_idx`, `comment_post_id_idx`),
+with no cross-relation fan-out at all, and reads as two/three simple,
+separately-understandable queries rather than one join whose row
+multiplication has to be mentally unwound.
+**Verified:** Same evidence as D6-003 (which fixed a correlation bug
+introduced while first writing these subqueries) — 51/51 unit, 11/11
+integration, 64/64 Playwright, including `e2e/status.spec.ts`'s
+sort-by-votes/sort-by-comments test, which specifically proves the
+counts used for `ORDER BY` are correct per post, not merely present.
+**Rejected:** `leftJoin` + `count(distinct)` + `groupBy` (the
+Cartesian-fan-out pattern explicitly ruled out); a materialized
+`vote_count`/`comment_count` column on `post` updated by triggers or
+application code on every vote/comment write (real-time accuracy risk
+if a write path ever forgets to update it, and out of scope for a
+single-board-per-org product at this stage — the read-time subquery
+cost is small and stays correct by construction).
+
+## D6-001 — Post status: a real Postgres enum, a separate `statusChangedAt`, updated by one atomic `CASE`-guarded `UPDATE`
+
+**Date:** 2026-08-30
+**Decision:** `post.status` is a Postgres `pgEnum`
+(`open` / `under_review` / `planned` / `in_progress` / `complete`,
+default `open`), backed by `lib/feedback/status.ts` as the single
+source of truth for the value list, labels, and a Zod schema
+(`postStatusSchema`) kept in sync with the enum by hand (Drizzle
+requires the enum and the Zod schema to be declared separately — there
+is no single definition both can derive from). `post.statusChangedAt`
+is a second column, only touched by `updatePostStatus()`'s `UPDATE …
+SET status = $1, status_changed_at = CASE WHEN status = $1 THEN
+status_changed_at ELSE now() END`, a single atomic statement rather
+than a read-then-write.
+**Why:** A real enum (not a `text` column with app-level validation)
+means an invalid status is rejected by Postgres itself even if
+application validation is ever bypassed — proven directly by
+`tests/integration/status-update.test.ts`'s test that writes an
+invalid value straight through Drizzle, bypassing `PostStatus`'s type
+via `as never`, and confirms Postgres still rejects it. The `CASE`-guarded
+single `UPDATE` keeps `statusChangedAt` correct under concurrent
+requests without a separate `SELECT` first (which would have a
+race between the read and the write) and makes "changing" a post to
+its current status a true no-op for that column, verified by the same
+test file's no-op case.
+**Why not build more:** Explicitly scoped to a flat, admin-settable
+enum with no workflow engine, no per-status permissions, no automatic
+transitions, and no public-facing status *change* — the public board
+and detail pages display `status` but render no control, verified by
+`e2e/status.spec.ts`'s "status security" test (an unauthenticated
+visitor, cookies cleared, sees no `combobox` named "Change status" on
+either page). This keeps the model simple today while giving a future
+Roadmap milestone (not built now) a stable, indexed
+(`post_status_idx`), DB-enforced value to group by without needing a
+schema change.
+**Rejected:** A `text` column with only Zod-level validation (no
+database-level guarantee); a separate `status_history` table (real
+audit trail, but unrequested for M6 and adds a write to every status
+change for a feature nothing yet consumes); recomputing
+`statusChangedAt` via a trigger (moves the logic out of the one place
+—`lib/feedback/data.ts`— this project already treats as the real
+tenant/business-rule boundary, for no behavioral difference at this
+scale).
+
 ## D5-003 — Hardening pass: every domain write re-verifies every id it's handed, not just `postId`
 
 **Date:** 2026-08-30

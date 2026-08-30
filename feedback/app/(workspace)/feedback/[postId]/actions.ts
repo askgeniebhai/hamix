@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { requireActiveOrganization } from "@/lib/auth/session";
-import { createInternalComment } from "@/lib/feedback/data";
-import { addCommentSchema } from "@/lib/validation/feedback";
+import { createInternalComment, getBoardForOrganization, updatePostStatus } from "@/lib/feedback/data";
+import { addCommentSchema, updateStatusSchema } from "@/lib/validation/feedback";
 
 export interface FormState {
   error?: string;
@@ -44,5 +44,48 @@ export async function addInternalReplyAction(
   }
 
   revalidatePath(`/feedback/${postId}`);
+  return {};
+}
+
+/**
+ * Changes a post's status. `requireActiveOrganization()` establishes
+ * "this caller is a verified member of some organization"; the data
+ * layer's `updatePostStatus()` independently re-verifies `postId`
+ * belongs to *that specific* organization before writing (never the
+ * other way around — the organization id always comes from the
+ * session, never from `formData`). `status` is validated against the
+ * exact five-value enum server-side, so a request naming anything
+ * else is rejected here, before it could ever reach the database
+ * (which would also reject it, via the `post_status` enum type).
+ */
+export async function updateStatusAction(
+  postId: string,
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const { organization } = await requireActiveOrganization();
+
+  const parsed = updateStatusSchema.safeParse({ status: formData.get("status") });
+  if (!parsed.success) {
+    return { error: "That's not a valid status." };
+  }
+
+  try {
+    await updatePostStatus({
+      organizationId: organization.id,
+      postId,
+      status: parsed.data.status,
+    });
+  } catch {
+    return { error: "Couldn't update the status. Please try again." };
+  }
+
+  revalidatePath(`/feedback/${postId}`);
+  revalidatePath("/feedback");
+  const board = await getBoardForOrganization(organization.id);
+  if (board) {
+    revalidatePath(`/b/${board.slug}`);
+    revalidatePath(`/b/${board.slug}/p/${postId}`);
+  }
   return {};
 }
