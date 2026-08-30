@@ -100,13 +100,19 @@ export default async function RoadmapPage({ params }: RoadmapPageProps) {
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <StatusBadge status={post.status} />
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                  <span className="flex items-center gap-1 tabular-nums">
+                                  <span
+                                    className="flex items-center gap-1 tabular-nums"
+                                    aria-label={`${post.voteCount} ${post.voteCount === 1 ? "vote" : "votes"}`}
+                                  >
                                     <ChevronUp className="size-3.5" aria-hidden="true" />
-                                    {post.voteCount}
+                                    <span aria-hidden="true">{post.voteCount}</span>
                                   </span>
-                                  <span className="flex items-center gap-1 tabular-nums">
+                                  <span
+                                    className="flex items-center gap-1 tabular-nums"
+                                    aria-label={`${post.commentCount} ${post.commentCount === 1 ? "comment" : "comments"}`}
+                                  >
                                     <MessageCircle className="size-3.5" aria-hidden="true" />
-                                    {post.commentCount}
+                                    <span aria-hidden="true">{post.commentCount}</span>
                                   </span>
                                 </div>
                               </div>
