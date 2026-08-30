@@ -10,7 +10,9 @@
 - **Branch:** `claude/feedback-m7-public-roadmap`
 - **Starting SHA:** `010a636e7eb7f9da93e4ce8462c1a8ccc6332ed5` (tip of
   `main` after PR #29 / M6 merged)
-- **Ending SHA:** see the PR's final head commit
+- **Ending SHA:** `0b88c5bea9140eae6f97f4737eb158886b79d34d` (this
+  commit — application code, governance docs, and this report land
+  together)
 - **Files changed:** new roadmap query
   (`lib/feedback/data.ts`'s `listRoadmapPosts()`), a new
   `ROADMAP_STATUSES`/`RoadmapStatus` export
@@ -217,4 +219,7 @@ unauthenticated visitor.
 
 ## Final `git status`
 
-Recorded at commit time in this milestone's PR.
+```
+On branch claude/feedback-m7-public-roadmap
+nothing to commit, working tree clean
+```
