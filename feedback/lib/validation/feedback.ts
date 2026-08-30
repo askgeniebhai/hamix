@@ -20,3 +20,15 @@ export const submitFeedbackSchema = z.object({
 });
 
 export type SubmitFeedbackInput = z.infer<typeof submitFeedbackSchema>;
+
+export const commentBodySchema = z
+  .string()
+  .trim()
+  .min(1, "Write a comment before posting")
+  .max(2000, "Comments are limited to 2000 characters");
+
+export const addCommentSchema = z.object({
+  body: commentBodySchema,
+});
+
+export type AddCommentInput = z.infer<typeof addCommentSchema>;

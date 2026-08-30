@@ -57,6 +57,27 @@ export async function submitFeedback(
   await page.getByText(input.title).first().waitFor();
 }
 
+/** Clicks a post's title link on a feedback list (public board or admin) and waits for its detail page. */
+export async function openPostDetail(page: Page, title: string) {
+  await page.getByRole("link", { name: title, exact: true }).click();
+  await page.getByRole("heading", { name: title, level: 1 }).waitFor();
+  // On a client-side transition, `document.title` (set from the route's
+  // metadata) can lag a tick behind the visible heading — wait for it
+  // too, so an immediately-following accessibility scan doesn't
+  // observe a transient empty <title>.
+  await page.waitForFunction((t) => document.title.includes(t), title);
+}
+
+export async function addComment(
+  page: Page,
+  body: string,
+  buttonName: "Post comment" | "Post reply" = "Post comment",
+) {
+  await page.locator("textarea[name=body]").fill(body);
+  await page.getByRole("button", { name: buttonName }).click();
+  await page.getByText(body).first().waitFor();
+}
+
 /** Signs up a fresh unique user and creates a workspace, landing on /dashboard. */
 export async function signUpWithWorkspace(
   page: Page,

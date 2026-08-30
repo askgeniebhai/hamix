@@ -1,7 +1,14 @@
-import { relations } from "drizzle-orm";
-import { index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import {
+  check,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
-import { organization } from "@/lib/db/auth-schema";
+import { organization, user } from "@/lib/db/auth-schema";
 
 function id() {
   return text("id")
@@ -132,6 +139,47 @@ export const vote = pgTable(
   ],
 );
 
+/**
+ * A reply on a Post — a distinct entity from Post itself
+ * (docs/M1_ARCHITECTURE_DECISION.md's "Comment" entity, introduced in
+ * M5). Exactly one of `participantId` (an external customer reply) or
+ * `authorUserId` (a workspace member's public team reply) is set,
+ * never both and never neither — enforced by a database CHECK
+ * constraint, not just application logic, so a bug anywhere in the
+ * write path can't produce an authorless or double-authored comment
+ * (`DECISIONS.md` D5-001). Both foreign keys are always resolved
+ * server-side (a cookie-verified participant, or the authenticated
+ * session's user) — never a client-supplied author id.
+ */
+export const comment = pgTable(
+  "comment",
+  {
+    id: id(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    postId: text("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    participantId: text("participant_id").references(() => participant.id, {
+      onDelete: "cascade",
+    }),
+    authorUserId: text("author_user_id").references(() => user.id, {
+      onDelete: "cascade",
+    }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("comment_post_id_idx").on(table.postId),
+    index("comment_organization_id_idx").on(table.organizationId),
+    check(
+      "comment_exactly_one_author_chk",
+      sql`(${table.participantId} is not null and ${table.authorUserId} is null) or (${table.participantId} is null and ${table.authorUserId} is not null)`,
+    ),
+  ],
+);
+
 export const boardRelations = relations(board, ({ one, many }) => ({
   organization: one(organization, {
     fields: [board.organizationId],
@@ -147,6 +195,7 @@ export const participantRelations = relations(participant, ({ one, many }) => ({
   }),
   posts: many(post),
   votes: many(vote),
+  comments: many(comment),
 }));
 
 export const postRelations = relations(post, ({ one, many }) => ({
@@ -163,6 +212,7 @@ export const postRelations = relations(post, ({ one, many }) => ({
     references: [participant.id],
   }),
   votes: many(vote),
+  comments: many(comment),
 }));
 
 export const voteRelations = relations(vote, ({ one }) => ({
@@ -177,5 +227,24 @@ export const voteRelations = relations(vote, ({ one }) => ({
   participant: one(participant, {
     fields: [vote.participantId],
     references: [participant.id],
+  }),
+}));
+
+export const commentRelations = relations(comment, ({ one }) => ({
+  organization: one(organization, {
+    fields: [comment.organizationId],
+    references: [organization.id],
+  }),
+  post: one(post, {
+    fields: [comment.postId],
+    references: [post.id],
+  }),
+  participant: one(participant, {
+    fields: [comment.participantId],
+    references: [participant.id],
+  }),
+  authorUser: one(user, {
+    fields: [comment.authorUserId],
+    references: [user.id],
   }),
 }));
