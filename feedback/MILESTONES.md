@@ -449,6 +449,24 @@ notification delivery — no queue/worker infrastructure at this scale.
   accessibility/responsive checks (`e2e/changelog.spec.ts`)
 - Decision log entries `DECISIONS.md` D8-001–D8-006
 
+**PR #31 review response (2026-08-30):** All five automated-review
+findings fixed at the root — entry-row `SELECT ... FOR UPDATE` locking
+in `lib/changelog/data.ts` closes three TOCTOU races (an edit or a
+link racing a publish, and publish's own "still Complete" check racing
+a concurrent status change) by serializing every entry-mutating
+function against the same row; `retryChangelogNotifications()` resumes
+a published entry's `pending`/`failed` deliveries if the send loop was
+interrupted partway through (a "Retry" button in the admin view);
+`/unsubscribe/[token]` is now confirm-then-POST — a GET only ever
+reads (`previewUnsubscribeByToken`), the deletion happens solely
+through an explicit form submit, so a security scanner or client
+prefetching the email link can no longer silently unsubscribe the real
+recipient. Full detail and rejected alternatives in `DECISIONS.md`
+D8-007; new coverage in `tests/integration/changelog.test.ts` (a real
+lock-blocks-a-concurrent-write test and full `retryChangelogNotifications`
+coverage). Full regression re-run clean: 65/65 unit, 32/32 integration,
+98/98 Playwright, zero-env build, RepoGuard + self-test.
+
 **Explicitly out of scope for M8:** reactions or comments on changelog
 entries, announcement widgets or in-app popups, recipient segmentation,
 CRM, AI-written release notes, automatic PR/GitHub release ingestion,

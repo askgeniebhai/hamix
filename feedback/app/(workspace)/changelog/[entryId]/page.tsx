@@ -10,6 +10,7 @@ import { getBoardForOrganization } from "@/lib/feedback/data";
 import { ChangelogDraftForm } from "@/components/changelog/changelog-draft-form";
 import { FeedbackPicker } from "@/components/changelog/feedback-picker";
 import { PublishButton } from "@/components/changelog/publish-button";
+import { RetryNotificationsButton } from "@/components/changelog/retry-notifications-button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
@@ -68,6 +69,7 @@ export default async function ChangelogEntryPage({ params }: ChangelogEntryPageP
       ) : (
         <PublishedSummary
           organizationId={organization.id}
+          entryId={entryId}
           body={entry.body}
           linkedPosts={entry.linkedPosts}
           notifiedCount={entry.notifiedCount}
@@ -131,6 +133,7 @@ async function DraftEditor({
 
 function PublishedSummary({
   organizationId,
+  entryId,
   body,
   linkedPosts,
   notifiedCount,
@@ -138,6 +141,7 @@ function PublishedSummary({
   pendingCount,
 }: {
   organizationId: string;
+  entryId: string;
   body: string;
   linkedPosts: { id: string; title: string; voteCount: number; commentCount: number }[];
   notifiedCount: number;
@@ -187,6 +191,9 @@ function PublishedSummary({
           <p className="text-xs text-muted-foreground">
             A failure usually means email isn&rsquo;t configured for this workspace yet.
           </p>
+        ) : null}
+        {failedCount > 0 || pendingCount > 0 ? (
+          <RetryNotificationsButton entryId={entryId} />
         ) : null}
       </section>
 

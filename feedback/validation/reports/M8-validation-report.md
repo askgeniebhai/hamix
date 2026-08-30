@@ -181,11 +181,60 @@ Playwright against the built-and-launched app, `CI=true`.
 
 ## Automated review findings
 
-None yet — this report covers local validation before the PR is
-opened; any review findings from the PR itself will be addressed and
-recorded in an addendum before merge, following this project's
-established pattern (see the M6/M7 reports' own review-finding
-sections).
+Five findings from PR #31's automated review (`chatgpt-codex-connector`),
+all assessed legitimate and fixed at the root — full reasoning and
+rejected alternatives in `DECISIONS.md` D8-007:
+
+1. **P1 — `updateChangelogDraft`'s `UPDATE` didn't guard on
+   `state = 'draft'`, so it could silently modify a published entry's
+   content if it raced a publish.** Fixed: `updateChangelogDraft`,
+   `linkPostToChangelogEntry`, and `unlinkPostFromChangelogEntry` now
+   each run inside a transaction that takes a `SELECT ... FOR UPDATE`
+   lock on the entry row first (`lockEntryForUpdate`), and
+   `updateChangelogDraft`'s own `WHERE` still carries `state = 'draft'`
+   as a second guard.
+2. **P2 — linking a post to a draft wasn't serialized against a
+   concurrent publish**, so a post could get linked to an entry
+   already published (or published moments later), and its
+   subscribers would be omitted from the notification already sent.
+   Fixed by the same entry-row lock: `publishChangelogEntry` takes it
+   as the first thing inside its own transaction too, so link/unlink
+   and publish can no longer interleave.
+3. **P2 — publish's "linked posts are still Complete" revalidation ran
+   outside the transaction that flips the entry to `published`**, a
+   TOCTOU gap where a status change between the two could let a
+   regressed post through. Fixed: the revalidation now runs inside the
+   same transaction, after the entry lock, with `for("update")` on the
+   linked post rows so a concurrent status change blocks until this
+   transaction commits.
+4. **P1 — a publish interrupted mid-send-loop (deploy, crash, timeout)
+   left the unreached recipients' `changelog_notification` rows
+   `pending` forever**, with no way to resume them (re-publishing is
+   rejected — the entry is already `published`). Fixed: added
+   `retryChangelogNotifications()`, sharing a `deliverNotifications()`
+   helper with the original publish send loop, exposed as a "Retry
+   failed/pending deliveries" button in the admin view.
+5. **P1 — `/unsubscribe/[token]`'s GET render called the deleting
+   `unsubscribeByToken()` directly**, so an email security scanner or
+   client prefetching the link could silently unsubscribe the real
+   recipient before they ever opened the email. Fixed: GET now renders
+   a confirmation via a new read-only `previewUnsubscribeByToken()`;
+   the deletion happens only through an explicit POST
+   (`confirmUnsubscribeAction`, submitted by a client component).
+
+New coverage added specifically to prove these closed (not just that
+the code compiles): a test that holds a manual entry-row lock open and
+shows a concurrent `updateChangelogDraft` call genuinely blocks until
+released — this fails against the pre-fix code, which took no lock at
+all — and full `retryChangelogNotifications` coverage (rejects on a
+draft, no-op with nothing outstanding, resumes a manually-seeded
+`pending` row modeling the interrupted-publish gap, doesn't re-send an
+already-`sent` recipient). `e2e/changelog.spec.ts`'s existing
+unsubscribe-link test now exercises the confirm-then-POST flow
+end-to-end and still passes. Full regression re-run after the fix:
+65/65 unit, 32/32 integration (real Postgres), 98/98 Playwright
+(`desktop-chromium` + `mobile-chromium`, `CI=true`, `--retries=0`),
+zero-env `next build`, RepoGuard + self-test — all clean.
 
 ## Failures discovered (and fixed, in the order found)
 
@@ -245,12 +294,10 @@ another tenant could reach.
 - **No changelog-entry unpublish or delete** — deliberate (M8's
   "cannot be unpublished" instruction); a mis-published entry cannot
   currently be retracted through the product.
-- **No retry mechanism for a `failed` notification delivery** — an
-  admin sees the failure and reason but has no button to re-attempt
-  it; re-publishing is impossible (the entry is already `published`)
-  and a manual DB fix would be required today. Acceptable at this
-  scale per M8's explicit "no queue/worker" instruction; worth
-  revisiting if delivery failures prove common in practice.
+- ~~No retry mechanism for a `failed` notification delivery~~ —
+  resolved in the PR #31 review response: `retryChangelogNotifications()`
+  resumes `pending`/`failed` rows for a published entry, exposed as a
+  "Retry" button in the admin view once there's something outstanding.
 - **No pagination on the public changelog or the admin list** — fine
   at current scale; same caveat carried since M4.
 - The drizzle-kit dev-only `esbuild` advisory noted in prior reports

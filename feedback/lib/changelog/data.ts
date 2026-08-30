@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, desc, eq, exists, inArray, sql, type SQL } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { getDb } from "@/lib/db";
 import {
@@ -13,6 +14,7 @@ import {
   post,
   postSubscription,
 } from "@/lib/db/schema";
+import type * as schema from "@/lib/db/schema";
 import { getEnv } from "@/lib/env";
 import {
   assertAuthorIsMember,
@@ -34,11 +36,15 @@ import type { EmailTransport } from "@/lib/email/transport";
 
 export type ChangelogEntryState = "draft" | "published";
 
+type ChangelogTransaction = Parameters<
+  Parameters<NodePgDatabase<typeof schema>["transaction"]>[0]
+>[0];
+
 function baseUrl(): string {
   return getEnv().BETTER_AUTH_URL.replace(/\/+$/, "");
 }
 
-/** Confirms `entryId` belongs to `organizationId`, returning its current state — the one place every changelog write starts from. */
+/** Confirms `entryId` belongs to `organizationId`, returning its current state — for read-only callers that don't need to mutate it (`getChangelogEntryForOrganization`'s siblings). Every write instead goes through `lockEntryForUpdate`, below. */
 async function assertEntryInOrganization(
   organizationId: string,
   entryId: string,
@@ -47,6 +53,33 @@ async function assertEntryInOrganization(
     .select({ id: changelogEntry.id, state: changelogEntry.state })
     .from(changelogEntry)
     .where(and(eq(changelogEntry.id, entryId), eq(changelogEntry.organizationId, organizationId)))
+    .limit(1);
+  if (!row) {
+    throw new Error("Changelog entry not found in this organization");
+  }
+  return row;
+}
+
+/**
+ * Confirms `entryId` belongs to `organizationId` and locks its row
+ * (`SELECT ... FOR UPDATE`) for the rest of the caller's transaction —
+ * the one place every changelog *write* starts from. Editing, linking,
+ * unlinking, and publishing all take this lock on the same row before
+ * reading or changing anything else about the entry, which is what
+ * actually serializes them against each other: without it, a link and
+ * a publish (or an edit and a publish) can each observe a consistent
+ * snapshot that the other invalidates before either commits.
+ */
+async function lockEntryForUpdate(
+  tx: ChangelogTransaction,
+  organizationId: string,
+  entryId: string,
+): Promise<{ id: string; state: ChangelogEntryState }> {
+  const [row] = await tx
+    .select({ id: changelogEntry.id, state: changelogEntry.state })
+    .from(changelogEntry)
+    .where(and(eq(changelogEntry.id, entryId), eq(changelogEntry.organizationId, organizationId)))
+    .for("update")
     .limit(1);
   if (!row) {
     throw new Error("Changelog entry not found in this organization");
@@ -75,22 +108,34 @@ export async function createChangelogDraft(input: {
   return row;
 }
 
-/** Edits a draft's title/body. Rejects outright once published — a published entry's content is immutable (M8 has no unpublish/edit-after-publish). */
+/** Edits a draft's title/body. Rejects outright once published — a published entry's content is immutable (M8 has no unpublish/edit-after-publish). Locks the entry row first so a concurrent publish can't flip it to `published` between the state check and the update. */
 export async function updateChangelogDraft(input: {
   organizationId: string;
   entryId: string;
   title: string;
   body: string;
 }): Promise<void> {
-  const entry = await assertEntryInOrganization(input.organizationId, input.entryId);
-  if (entry.state !== "draft") {
-    throw new Error("Only a draft entry can be edited");
-  }
+  await getDb().transaction(async (tx) => {
+    const entry = await lockEntryForUpdate(tx, input.organizationId, input.entryId);
+    if (entry.state !== "draft") {
+      throw new Error("Only a draft entry can be edited");
+    }
 
-  await getDb()
-    .update(changelogEntry)
-    .set({ title: input.title, body: input.body })
-    .where(and(eq(changelogEntry.id, input.entryId), eq(changelogEntry.organizationId, input.organizationId)));
+    const updated = await tx
+      .update(changelogEntry)
+      .set({ title: input.title, body: input.body })
+      .where(
+        and(
+          eq(changelogEntry.id, input.entryId),
+          eq(changelogEntry.organizationId, input.organizationId),
+          eq(changelogEntry.state, "draft"),
+        ),
+      )
+      .returning({ id: changelogEntry.id });
+    if (updated.length === 0) {
+      throw new Error("Only a draft entry can be edited");
+    }
+  });
 }
 
 export interface ChangelogEntrySummary {
@@ -252,68 +297,193 @@ export async function listCompletablePosts(
   return rows as CompletablePost[];
 }
 
-/** Links a `complete` post to a draft entry. Rejects a non-`complete` post, a post from another organization, or a non-draft entry — the link rule (M8-B) enforced at the data layer, not just in the picker UI. */
+/** Links a `complete` post to a draft entry. Rejects a non-`complete` post, a post from another organization, or a non-draft entry — the link rule (M8-B) enforced at the data layer, not just in the picker UI. Locks the entry row first (and the post row, for the same reason) so this can't interleave with a concurrent publish: either publish observes this link because it commits first, or this link is rejected because publish already flipped the entry to `published`. */
 export async function linkPostToChangelogEntry(input: {
   organizationId: string;
   entryId: string;
   postId: string;
 }): Promise<void> {
-  const entry = await assertEntryInOrganization(input.organizationId, input.entryId);
-  if (entry.state !== "draft") {
-    throw new Error("Only a draft entry can be linked to posts");
-  }
+  await getDb().transaction(async (tx) => {
+    const entry = await lockEntryForUpdate(tx, input.organizationId, input.entryId);
+    if (entry.state !== "draft") {
+      throw new Error("Only a draft entry can be linked to posts");
+    }
 
-  const [postRow] = await getDb()
-    .select({ id: post.id })
-    .from(post)
-    .where(
-      and(
-        eq(post.id, input.postId),
-        eq(post.organizationId, input.organizationId),
-        eq(post.status, "complete"),
-      ),
-    )
-    .limit(1);
-  if (!postRow) {
-    throw new Error("Only a Complete post in this organization can be linked");
-  }
+    const [postRow] = await tx
+      .select({ id: post.id })
+      .from(post)
+      .where(
+        and(
+          eq(post.id, input.postId),
+          eq(post.organizationId, input.organizationId),
+          eq(post.status, "complete"),
+        ),
+      )
+      .for("update")
+      .limit(1);
+    if (!postRow) {
+      throw new Error("Only a Complete post in this organization can be linked");
+    }
 
-  await getDb()
-    .insert(changelogEntryPost)
-    .values({
-      organizationId: input.organizationId,
-      changelogEntryId: input.entryId,
-      postId: input.postId,
-    })
-    .onConflictDoNothing();
+    await tx
+      .insert(changelogEntryPost)
+      .values({
+        organizationId: input.organizationId,
+        changelogEntryId: input.entryId,
+        postId: input.postId,
+      })
+      .onConflictDoNothing();
+  });
 }
 
-/** Unlinks a post from a still-draft entry. */
+/** Unlinks a post from a still-draft entry. Same entry-row lock as `linkPostToChangelogEntry`, for the same reason. */
 export async function unlinkPostFromChangelogEntry(input: {
   organizationId: string;
   entryId: string;
   postId: string;
 }): Promise<void> {
-  const entry = await assertEntryInOrganization(input.organizationId, input.entryId);
-  if (entry.state !== "draft") {
-    throw new Error("Only a draft entry can be unlinked from posts");
-  }
+  await getDb().transaction(async (tx) => {
+    const entry = await lockEntryForUpdate(tx, input.organizationId, input.entryId);
+    if (entry.state !== "draft") {
+      throw new Error("Only a draft entry can be unlinked from posts");
+    }
 
-  await getDb()
-    .delete(changelogEntryPost)
-    .where(
-      and(
-        eq(changelogEntryPost.changelogEntryId, input.entryId),
-        eq(changelogEntryPost.postId, input.postId),
-        eq(changelogEntryPost.organizationId, input.organizationId),
-      ),
-    );
+    await tx
+      .delete(changelogEntryPost)
+      .where(
+        and(
+          eq(changelogEntryPost.changelogEntryId, input.entryId),
+          eq(changelogEntryPost.postId, input.postId),
+          eq(changelogEntryPost.organizationId, input.organizationId),
+        ),
+      );
+  });
 }
 
 /** Truncated, never the raw provider error — `changelog_notification.failure_reason` is a safe, bounded diagnostic, not a place to retain arbitrary provider response bodies. */
 function truncateFailureReason(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.length > 300 ? `${message.slice(0, 297)}...` : message;
+}
+
+interface NotificationRecipient {
+  id: string;
+  participantId: string;
+  email: string;
+}
+
+/**
+ * The actual send loop, shared by `publishChangelogEntry` (called once
+ * with the recipient rows it just inserted) and
+ * `retryChangelogNotifications` (called with whatever `pending`/
+ * `failed` rows are left over from an earlier, interrupted attempt).
+ * Builds the email content once per call, then attempts delivery for
+ * every given recipient, writing `sent`/`failed` back as it goes.
+ * Email delivery itself can't be transactional with Postgres, so this
+ * deliberately runs after — never inside — the transaction that
+ * creates the recipient rows (`DECISIONS.md` D8-004).
+ */
+async function deliverNotifications(
+  organizationId: string,
+  entryId: string,
+  transport: EmailTransport,
+  recipients: NotificationRecipient[],
+): Promise<{ notifiedCount: number; failedCount: number }> {
+  let notifiedCount = 0;
+  let failedCount = 0;
+  if (recipients.length === 0) {
+    return { notifiedCount, failedCount };
+  }
+
+  const [org] = await getDb()
+    .select({ name: organization.name })
+    .from(organization)
+    .where(eq(organization.id, organizationId))
+    .limit(1);
+  const [entryContent] = await getDb()
+    .select({ title: changelogEntry.title, body: changelogEntry.body })
+    .from(changelogEntry)
+    .where(eq(changelogEntry.id, entryId))
+    .limit(1);
+  const boardRow = await getBoardForOrganization(organizationId);
+  const workspaceName = org?.name ?? "Feedback";
+  const changelogUrl = boardRow ? `${baseUrl()}/b/${boardRow.slug}/changelog` : baseUrl();
+
+  const linkedPostRows = await getDb()
+    .select({ postId: changelogEntryPost.postId })
+    .from(changelogEntryPost)
+    .where(eq(changelogEntryPost.changelogEntryId, entryId));
+  const linkedPostIds = linkedPostRows.map((row) => row.postId);
+
+  const linkedPostSummaries =
+    linkedPostIds.length > 0
+      ? await getDb()
+          .select({ id: post.id, title: post.title })
+          .from(post)
+          .where(inArray(post.id, linkedPostIds))
+      : [];
+  const emailLinkedPosts = boardRow
+    ? linkedPostSummaries.map((row) => ({
+        title: row.title,
+        url: `${baseUrl()}/b/${boardRow.slug}/p/${row.id}`,
+      }))
+    : [];
+
+  // One query for every recipient's unsubscribe token, keyed by
+  // participant — each recipient's link must remove only *their*
+  // subscription(s) to *these* linked posts, never another
+  // recipient's.
+  const subscriptionRows =
+    linkedPostIds.length > 0
+      ? await getDb()
+          .select({
+            participantId: postSubscription.participantId,
+            unsubscribeToken: postSubscription.unsubscribeToken,
+          })
+          .from(postSubscription)
+          .where(inArray(postSubscription.postId, linkedPostIds))
+      : [];
+  const unsubscribeTokenByParticipant = new Map(
+    subscriptionRows.map((row) => [row.participantId, row.unsubscribeToken]),
+  );
+
+  for (const recipient of recipients) {
+    const unsubscribeToken = unsubscribeTokenByParticipant.get(recipient.participantId);
+    const unsubscribeUrl = unsubscribeToken
+      ? `${baseUrl()}/unsubscribe/${unsubscribeToken}`
+      : changelogUrl;
+    const recipientEmail = renderChangelogNotificationEmail({
+      workspaceName,
+      entryTitle: entryContent?.title ?? "",
+      entryBody: entryContent?.body ?? "",
+      changelogUrl,
+      linkedPosts: emailLinkedPosts,
+      unsubscribeUrl,
+    });
+
+    try {
+      await transport.send({
+        to: recipient.email,
+        subject: recipientEmail.subject,
+        html: recipientEmail.html,
+        text: recipientEmail.text,
+        idempotencyKey: recipient.id,
+      });
+      await getDb()
+        .update(changelogNotification)
+        .set({ state: "sent", sentAt: new Date() })
+        .where(eq(changelogNotification.id, recipient.id));
+      notifiedCount += 1;
+    } catch (error) {
+      await getDb()
+        .update(changelogNotification)
+        .set({ state: "failed", failureReason: truncateFailureReason(error) })
+        .where(eq(changelogNotification.id, recipient.id));
+      failedCount += 1;
+    }
+  }
+
+  return { notifiedCount, failedCount };
 }
 
 export interface PublishResult {
@@ -325,29 +495,37 @@ export interface PublishResult {
 
 /**
  * Publishes a draft — the only mutation in this domain with real side
- * effects beyond a single row. In order:
+ * effects beyond a single row. Everything that decides *whether* the
+ * publish is valid and *who* gets notified happens inside one
+ * transaction, in order:
  *
- * 1. Re-verifies every linked post is *still* `complete` and still
+ * 1. Locks the entry row (`lockEntryForUpdate`) — the same lock
+ *    `updateChangelogDraft`/`linkPostToChangelogEntry`/
+ *    `unlinkPostFromChangelogEntry` take, so none of those can
+ *    interleave with a publish already in flight.
+ * 2. Re-verifies every linked post is *still* `complete` and still
  *    belongs to this organization ("publishing must revalidate linked
- *    posts server-side" — M8-B). A post that regressed since being
+ *    posts server-side" — M8-B), locking those post rows
+ *    (`for("update")`) for the rest of the transaction so a concurrent
+ *    status change can't slip a no-longer-complete post past this
+ *    check before the commit below. A post that regressed since being
  *    linked blocks the publish outright rather than silently
  *    unlinking it.
- * 2. Atomically flips `draft` → `published` with the organization and
+ * 3. Atomically flips `draft` → `published` with the organization and
  *    current-state check baked into the `UPDATE`'s own `WHERE` — a
  *    concurrent second publish attempt updates zero rows and is
  *    rejected, which is what actually makes "double publish" safe,
  *    not the notification uniqueness alone.
- * 3. Computes recipients — participants with a `post_subscription` on
+ * 4. Computes recipients — participants with a `post_subscription` on
  *    *any* linked post, deduplicated (a participant following two of
  *    this entry's posts is one recipient, not two) — and inserts one
  *    `pending` `changelog_notification` row per recipient with
- *    `ON CONFLICT DO NOTHING`, inside the same transaction as step 2.
- * 4. Only after that transaction commits, attempts to actually send
- *    each pending notification, updating it to `sent` or `failed`
- *    (with a truncated reason) as it goes — email delivery itself
- *    can't be transactional with Postgres, so this is deliberately a
- *    separate step from the transactionally-coherent state change and
- *    recipient-row creation M8-H asks for (`DECISIONS.md` D8-004).
+ *    `ON CONFLICT DO NOTHING`, inside the same transaction.
+ *
+ * Only after that transaction commits does it attempt to actually send
+ * each pending notification via `deliverNotifications` — see that
+ * function and `retryChangelogNotifications` for what happens if this
+ * step is interrupted partway through.
  */
 export async function publishChangelogEntry(input: {
   organizationId: string;
@@ -356,36 +534,37 @@ export async function publishChangelogEntry(input: {
 }): Promise<PublishResult> {
   const transport = input.transport ?? getEmailTransport();
 
-  const entry = await assertEntryInOrganization(input.organizationId, input.entryId);
-  if (entry.state !== "draft") {
-    throw new Error("This entry has already been published");
-  }
-
-  const linkedPostRows = await getDb()
-    .select({ postId: changelogEntryPost.postId })
-    .from(changelogEntryPost)
-    .where(eq(changelogEntryPost.changelogEntryId, input.entryId));
-  const linkedPostIds = linkedPostRows.map((row) => row.postId);
-
-  if (linkedPostIds.length > 0) {
-    const stillComplete = await getDb()
-      .select({ id: post.id })
-      .from(post)
-      .where(
-        and(
-          inArray(post.id, linkedPostIds),
-          eq(post.organizationId, input.organizationId),
-          eq(post.status, "complete"),
-        ),
-      );
-    if (stillComplete.length !== linkedPostIds.length) {
-      throw new Error(
-        "One or more linked requests are no longer Complete — unlink them or wait until they are before publishing",
-      );
+  const { linkedPostIds, insertedRecipients } = await getDb().transaction(async (tx) => {
+    const entry = await lockEntryForUpdate(tx, input.organizationId, input.entryId);
+    if (entry.state !== "draft") {
+      throw new Error("This entry has already been published");
     }
-  }
 
-  const insertedRecipients = await getDb().transaction(async (tx) => {
+    const linkedPostRows = await tx
+      .select({ postId: changelogEntryPost.postId })
+      .from(changelogEntryPost)
+      .where(eq(changelogEntryPost.changelogEntryId, input.entryId));
+    const linkedPostIds = linkedPostRows.map((row) => row.postId);
+
+    if (linkedPostIds.length > 0) {
+      const stillComplete = await tx
+        .select({ id: post.id })
+        .from(post)
+        .where(
+          and(
+            inArray(post.id, linkedPostIds),
+            eq(post.organizationId, input.organizationId),
+            eq(post.status, "complete"),
+          ),
+        )
+        .for("update");
+      if (stillComplete.length !== linkedPostIds.length) {
+        throw new Error(
+          "One or more linked requests are no longer Complete — unlink them or wait until they are before publishing",
+        );
+      }
+    }
+
     const updated = await tx
       .update(changelogEntry)
       .set({ state: "published", publishedAt: new Date() })
@@ -402,7 +581,7 @@ export async function publishChangelogEntry(input: {
     }
 
     if (linkedPostIds.length === 0) {
-      return [];
+      return { linkedPostIds, insertedRecipients: [] as NotificationRecipient[] };
     }
 
     const recipients = await tx
@@ -420,10 +599,10 @@ export async function publishChangelogEntry(input: {
       );
 
     if (recipients.length === 0) {
-      return [];
+      return { linkedPostIds, insertedRecipients: [] as NotificationRecipient[] };
     }
 
-    return tx
+    const insertedRecipients = await tx
       .insert(changelogNotification)
       .values(
         recipients.map((recipient) => ({
@@ -439,94 +618,16 @@ export async function publishChangelogEntry(input: {
         participantId: changelogNotification.participantId,
         email: changelogNotification.email,
       });
+
+    return { linkedPostIds, insertedRecipients };
   });
 
-  let notifiedCount = 0;
-  let failedCount = 0;
-
-  if (insertedRecipients.length > 0) {
-    const [org] = await getDb()
-      .select({ name: organization.name })
-      .from(organization)
-      .where(eq(organization.id, input.organizationId))
-      .limit(1);
-    const [entryContent] = await getDb()
-      .select({ title: changelogEntry.title, body: changelogEntry.body })
-      .from(changelogEntry)
-      .where(eq(changelogEntry.id, input.entryId))
-      .limit(1);
-    const boardRow = await getBoardForOrganization(input.organizationId);
-    const workspaceName = org?.name ?? "Feedback";
-    const changelogUrl = boardRow ? `${baseUrl()}/b/${boardRow.slug}/changelog` : baseUrl();
-
-    const linkedPostSummaries =
-      linkedPostIds.length > 0
-        ? await getDb()
-            .select({ id: post.id, title: post.title })
-            .from(post)
-            .where(inArray(post.id, linkedPostIds))
-        : [];
-    const emailLinkedPosts = boardRow
-      ? linkedPostSummaries.map((row) => ({
-          title: row.title,
-          url: `${baseUrl()}/b/${boardRow.slug}/p/${row.id}`,
-        }))
-      : [];
-
-    // One query for every recipient's unsubscribe token, keyed by
-    // participant — each recipient's link must remove only *their*
-    // subscription(s) to *these* linked posts, never another
-    // recipient's.
-    const subscriptionRows =
-      linkedPostIds.length > 0
-        ? await getDb()
-            .select({
-              participantId: postSubscription.participantId,
-              unsubscribeToken: postSubscription.unsubscribeToken,
-            })
-            .from(postSubscription)
-            .where(inArray(postSubscription.postId, linkedPostIds))
-        : [];
-    const unsubscribeTokenByParticipant = new Map(
-      subscriptionRows.map((row) => [row.participantId, row.unsubscribeToken]),
-    );
-
-    for (const recipient of insertedRecipients) {
-      const unsubscribeToken = unsubscribeTokenByParticipant.get(recipient.participantId);
-      const unsubscribeUrl = unsubscribeToken
-        ? `${baseUrl()}/unsubscribe/${unsubscribeToken}`
-        : changelogUrl;
-      const recipientEmail = renderChangelogNotificationEmail({
-        workspaceName,
-        entryTitle: entryContent?.title ?? "",
-        entryBody: entryContent?.body ?? "",
-        changelogUrl,
-        linkedPosts: emailLinkedPosts,
-        unsubscribeUrl,
-      });
-
-      try {
-        await transport.send({
-          to: recipient.email,
-          subject: recipientEmail.subject,
-          html: recipientEmail.html,
-          text: recipientEmail.text,
-          idempotencyKey: recipient.id,
-        });
-        await getDb()
-          .update(changelogNotification)
-          .set({ state: "sent", sentAt: new Date() })
-          .where(eq(changelogNotification.id, recipient.id));
-        notifiedCount += 1;
-      } catch (error) {
-        await getDb()
-          .update(changelogNotification)
-          .set({ state: "failed", failureReason: truncateFailureReason(error) })
-          .where(eq(changelogNotification.id, recipient.id));
-        failedCount += 1;
-      }
-    }
-  }
+  const { notifiedCount, failedCount } = await deliverNotifications(
+    input.organizationId,
+    input.entryId,
+    transport,
+    insertedRecipients,
+  );
 
   return {
     linkedPostCount: linkedPostIds.length,
@@ -534,6 +635,64 @@ export async function publishChangelogEntry(input: {
     notifiedCount,
     failedCount,
   };
+}
+
+export interface RetryNotificationsResult {
+  attemptedCount: number;
+  notifiedCount: number;
+  failedCount: number;
+}
+
+/**
+ * Re-attempts delivery for a published entry's `pending`/`failed`
+ * `changelog_notification` rows — the resume path for a publish whose
+ * send loop in `publishChangelogEntry` was interrupted (deploy,
+ * process crash, timeout) after that function's transaction committed
+ * but before every recipient was reached. Re-publishing can't recover
+ * them — the entry is already `published` — and this is the only other
+ * writer of delivery state in this module, so it's the sole way those
+ * rows ever leave `pending`/`failed`. Safe to call repeatedly: rows
+ * already `sent` are left alone, and each attempt reuses the row's own
+ * id as the transport idempotency key, same as the original publish.
+ */
+export async function retryChangelogNotifications(input: {
+  organizationId: string;
+  entryId: string;
+  transport?: EmailTransport;
+}): Promise<RetryNotificationsResult> {
+  const transport = input.transport ?? getEmailTransport();
+
+  const entry = await assertEntryInOrganization(input.organizationId, input.entryId);
+  if (entry.state !== "published") {
+    throw new Error("Only a published entry can have its notifications retried");
+  }
+
+  const pendingRows = await getDb()
+    .select({
+      id: changelogNotification.id,
+      participantId: changelogNotification.participantId,
+      email: changelogNotification.email,
+    })
+    .from(changelogNotification)
+    .where(
+      and(
+        eq(changelogNotification.changelogEntryId, input.entryId),
+        inArray(changelogNotification.state, ["pending", "failed"]),
+      ),
+    );
+
+  if (pendingRows.length === 0) {
+    return { attemptedCount: 0, notifiedCount: 0, failedCount: 0 };
+  }
+
+  const { notifiedCount, failedCount } = await deliverNotifications(
+    input.organizationId,
+    input.entryId,
+    transport,
+    pendingRows,
+  );
+
+  return { attemptedCount: pendingRows.length, notifiedCount, failedCount };
 }
 
 export interface PublishedChangelogEntry {

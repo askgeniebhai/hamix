@@ -6,6 +6,7 @@ import { requireActiveOrganization } from "@/lib/auth/session";
 import {
   linkPostToChangelogEntry,
   publishChangelogEntry,
+  retryChangelogNotifications,
   unlinkPostFromChangelogEntry,
   updateChangelogDraft,
 } from "@/lib/changelog/data";
@@ -108,6 +109,30 @@ export async function publishAction(
     await publishChangelogEntry({ organizationId: organization.id, entryId });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Couldn't publish. Please try again." };
+  }
+
+  await revalidateChangelogPaths(organization.id, entryId);
+  return {};
+}
+
+/**
+ * Resumes delivery for a published entry's `pending`/`failed`
+ * notification rows — the recovery path if the send loop inside
+ * `publishChangelogEntry` was interrupted partway through (deploy,
+ * crash, timeout). Shown in the UI only once there's something left to
+ * retry (`pendingCount > 0 || failedCount > 0`).
+ */
+export async function retryNotificationsAction(
+  entryId: string,
+  _prevState: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  const { organization } = await requireActiveOrganization();
+
+  try {
+    await retryChangelogNotifications({ organizationId: organization.id, entryId });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Couldn't retry. Please try again." };
   }
 
   await revalidateChangelogPaths(organization.id, entryId);

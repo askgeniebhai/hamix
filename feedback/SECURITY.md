@@ -261,6 +261,34 @@ report.
   recipient's email is never returned by any read path reachable from
   the UI, proven directly by asserting the detail response contains no
   email-shaped string.
+- **Concurrency hardening (PR #31 review response):** an edit, a link/
+  unlink, and a publish on the same changelog entry now serialize
+  against each other via `SELECT ... FOR UPDATE` on the entry row
+  (`lockEntryForUpdate` in `lib/changelog/data.ts`) — closing three
+  TOCTOU windows where a concurrent operation could observe a state
+  the other had already invalidated (an edit landing on content
+  already published; a link attaching to an entry mid-publish, so its
+  subscribers were omitted from the notification already sent; a
+  linked post's `complete` status flipping between publish's own
+  revalidation check and its commit). Proven directly, not assumed: a
+  test holds a manual row lock open and shows a concurrent
+  `updateChangelogDraft` call genuinely blocks until it's released —
+  this fails against the pre-fix code, which took no lock at all.
+  `retryChangelogNotifications()` closes the one remaining delivery
+  gap the transaction boundary itself can't cover — a send loop
+  interrupted mid-flight after the publish transaction already
+  committed — by resuming exactly the `pending`/`failed` rows left
+  over, gated behind the same organization/entry-ownership check every
+  other changelog write uses.
+- **Unsubscribe is confirm-then-POST:** `unsubscribeByToken()` (the
+  deleting function) is reachable only from an explicit form submit
+  (`confirmUnsubscribeAction`); the `/unsubscribe/[token]` page's GET
+  render calls only a read-only `previewUnsubscribeByToken()` and
+  shows a confirmation. A security scanner or client prefetching an
+  email's unsubscribe link can no longer silently remove the real
+  recipient's subscription before they've opened the email — the
+  single-purpose-token design from M8 (`DECISIONS.md` D8-007) is
+  unchanged; only the GET-must-not-mutate boundary was fixed.
 - **Email transport:** production email goes through the official
   `resend` SDK behind an `EmailTransport` interface, never a hand-
   rolled HTTP call; every test uses a deterministic fake transport, so

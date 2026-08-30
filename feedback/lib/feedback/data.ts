@@ -672,15 +672,46 @@ export interface SubscribedPost {
 }
 
 /**
- * Resolves an unsubscribe link's token to the post it follows — no
- * cookie or session involved, since this is reached from an email
- * client that may not be the same browser/device the participant
- * subscribed from. The token is a separate, single-purpose credential
- * from the participant's own `publicToken`
+ * Read-only counterpart to `unsubscribeByToken`, for rendering the
+ * confirmation page on a plain GET without unsubscribing anyone yet —
+ * a scanner or client that merely fetches the link (never submits the
+ * confirm form) must not remove the subscription. Same token, same
+ * resolved post; the only difference is this one never deletes.
+ */
+export async function previewUnsubscribeByToken(token: string): Promise<SubscribedPost | null> {
+  const [row] = await getDb()
+    .select({ postId: postSubscription.postId })
+    .from(postSubscription)
+    .where(eq(postSubscription.unsubscribeToken, token))
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+
+  const [postRow] = await getDb()
+    .select({ title: post.title, boardSlug: board.slug })
+    .from(post)
+    .innerJoin(board, eq(board.id, post.boardId))
+    .where(eq(post.id, row.postId))
+    .limit(1);
+  if (!postRow) {
+    return null;
+  }
+  return { postId: row.postId, title: postRow.title, boardSlug: postRow.boardSlug };
+}
+
+/**
+ * Resolves an unsubscribe link's token to the post it follows and
+ * deletes the subscription — only ever called from the confirm page's
+ * explicit POST/server action, never on GET (`previewUnsubscribeByToken`
+ * is the GET-safe read). No cookie or session involved, since this is
+ * reached from an email client that may not be the same browser/device
+ * the participant subscribed from. The token is a separate,
+ * single-purpose credential from the participant's own `publicToken`
  * (`lib/db/feedback-schema.ts`'s `postSubscription` doc comment): it
  * can only remove this one subscription, nothing else. Idempotent —
  * an already-used or unknown token returns `null` rather than
- * throwing, so visiting the same email link twice is harmless.
+ * throwing, so confirming the same link twice is harmless.
  */
 export async function unsubscribeByToken(token: string): Promise<SubscribedPost | null> {
   const [row] = await getDb()

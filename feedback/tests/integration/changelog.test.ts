@@ -10,12 +10,14 @@ import {
   listCompletablePosts,
   listPublishedChangelogEntries,
   publishChangelogEntry,
+  retryChangelogNotifications,
   unlinkPostFromChangelogEntry,
   updateChangelogDraft,
 } from "@/lib/changelog/data";
 import { getDb } from "@/lib/db";
 import {
   board,
+  changelogEntry,
   changelogNotification,
   member,
   organization,
@@ -409,5 +411,130 @@ describe("changelog domain", () => {
     const detail = await getChangelogEntryForOrganization(org.orgId, draft.id);
     expect(detail).not.toBeNull();
     expect(JSON.stringify(detail)).not.toContain("@example.com");
+  });
+
+  it("retryChangelogNotifications resumes only pending/failed rows, leaves already-sent ones untouched, and is a no-op when nothing is outstanding", async () => {
+    const org = await seedOrg("Retry");
+    const sentParticipant = await seedParticipant(org.orgId, "AlreadySent");
+    const postId = await seedPost(org.orgId, org.boardId, sentParticipant, "Retry post");
+    await subscribeToPost({ organizationId: org.orgId, postId, participantId: sentParticipant });
+    await updatePostStatus({ organizationId: org.orgId, postId, status: "complete" });
+
+    const draft = await createChangelogDraft({
+      organizationId: org.orgId,
+      createdByUserId: org.userId,
+      title: "Retry release",
+      body: "Testing the interrupted-publish resume path.",
+    });
+    await linkPostToChangelogEntry({ organizationId: org.orgId, entryId: draft.id, postId });
+
+    // A draft entry has nothing to retry.
+    await expect(
+      retryChangelogNotifications({ organizationId: org.orgId, entryId: draft.id }),
+    ).rejects.toThrow();
+
+    const publishTransport = new FakeEmailTransport();
+    const published = await publishChangelogEntry({
+      organizationId: org.orgId,
+      entryId: draft.id,
+      transport: publishTransport,
+    });
+    expect(published.notifiedCount).toBe(1);
+    expect(published.failedCount).toBe(0);
+
+    // Nothing outstanding yet — a no-op.
+    const noOpRetry = await retryChangelogNotifications({
+      organizationId: org.orgId,
+      entryId: draft.id,
+      transport: new FakeEmailTransport(),
+    });
+    expect(noOpRetry.attemptedCount).toBe(0);
+
+    // Simulate the interrupted-publish gap directly: a recipient row
+    // that committed inside publish's transaction but whose send was
+    // never attempted because the process died before the loop reached
+    // it — still `pending`, and re-publishing can't reach it since the
+    // entry is already published.
+    const strandedParticipant = await seedParticipant(org.orgId, "StrandedPending");
+    const strandedEmail = `stranded-${strandedParticipant}@example.com`;
+    await getDb().insert(changelogNotification).values({
+      organizationId: org.orgId,
+      changelogEntryId: draft.id,
+      participantId: strandedParticipant,
+      email: strandedEmail,
+    });
+
+    const retryTransport = new FakeEmailTransport();
+    const retried = await retryChangelogNotifications({
+      organizationId: org.orgId,
+      entryId: draft.id,
+      transport: retryTransport,
+    });
+    expect(retried.attemptedCount).toBe(1);
+    expect(retried.notifiedCount).toBe(1);
+    // Only the stranded row was retried — the already-`sent` recipient
+    // isn't re-sent.
+    expect(retryTransport.sent.map((message) => message.to)).toEqual([strandedEmail]);
+
+    const finalRows = await getDb()
+      .select()
+      .from(changelogNotification)
+      .where(eq(changelogNotification.changelogEntryId, draft.id));
+    expect(finalRows).toHaveLength(2);
+    expect(finalRows.every((row) => row.state === "sent")).toBe(true);
+  });
+
+  it("a held lock on the entry row blocks a concurrent edit until it's released — the row lock that closes the update/link/publish races is real, not just a state re-check", async () => {
+    const org = await seedOrg("LockBlocks");
+    const draft = await createChangelogDraft({
+      organizationId: org.orgId,
+      createdByUserId: org.userId,
+      title: "Lock blocks release",
+      body: "Original body.",
+    });
+
+    let releaseLock: () => void = () => {};
+    const lockReleased = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    let lockAcquiredAt = 0;
+    let updateSettledAt = 0;
+
+    const holdLock = getDb().transaction(async (tx) => {
+      await tx
+        .select({ id: changelogEntry.id })
+        .from(changelogEntry)
+        .where(eq(changelogEntry.id, draft.id))
+        .for("update");
+      lockAcquiredAt = Date.now();
+      await lockReleased;
+    });
+
+    // Give the lock-holding transaction time to actually acquire the row
+    // lock before the concurrent edit is issued.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(lockAcquiredAt).toBeGreaterThan(0);
+
+    const updatePromise = updateChangelogDraft({
+      organizationId: org.orgId,
+      entryId: draft.id,
+      title: "Edited while locked",
+      body: "Edited body.",
+    }).then(() => {
+      updateSettledAt = Date.now();
+    });
+
+    // The edit must still be blocked shortly after being issued...
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(updateSettledAt).toBe(0);
+
+    // ...and only completes once the lock is released.
+    releaseLock();
+    await holdLock;
+    await updatePromise;
+    expect(updateSettledAt).toBeGreaterThanOrEqual(lockAcquiredAt);
+
+    const final = await getChangelogEntryForOrganization(org.orgId, draft.id);
+    expect(final?.body).toBe("Edited body.");
   });
 });

@@ -7,6 +7,90 @@ for the current state.
 
 ---
 
+## D8-007 — PR #31 review response: entry-row locking closes three TOCTOU races; a resume path for interrupted publish deliveries; the unsubscribe link is now confirm-then-POST
+
+**Date:** 2026-08-30
+**Decision:** In response to five findings from the automated PR #31
+review (`chatgpt-codex-connector`), all assessed as legitimate and
+fixed at the root rather than dismissed:
+
+1. **Entry-row locking.** Added `lockEntryForUpdate(tx, organizationId,
+   entryId)` in `lib/changelog/data.ts` — `SELECT ... FOR UPDATE` on
+   the `changelog_entry` row, inside a transaction. `updateChangelogDraft`,
+   `linkPostToChangelogEntry`, and `unlinkPostFromChangelogEntry` now
+   each run their entire check-then-write inside one transaction that
+   takes this lock first, and `updateChangelogDraft`'s `UPDATE` also
+   carries `state = 'draft'` in its own `WHERE` as a second, redundant
+   guard. `publishChangelogEntry` takes the same lock as the first
+   thing inside its own transaction, and its "linked posts are still
+   Complete" revalidation now runs *inside* that transaction too, with
+   `for("update")` on the linked post rows — so a concurrent status
+   change can't slip past the check before the commit. Because every
+   entry-mutating function takes the same row lock before doing
+   anything else, Postgres itself serializes them against each other;
+   there is no longer a window where two of these can each observe a
+   stale snapshot the other invalidates before either commits.
+2. **Resumable delivery.** Added `retryChangelogNotifications()`,
+   sharing a new `deliverNotifications()` helper with
+   `publishChangelogEntry`'s own send loop. Re-attempts a published
+   entry's `pending`/`failed` `changelog_notification` rows — the
+   recovery path if the send loop was interrupted (deploy, crash,
+   timeout) after the publish transaction committed but before every
+   recipient was reached, since re-publishing can't reach them (the
+   entry is already `published`). Exposed as a "Retry failed/pending
+   deliveries" button in the admin entry view, shown only when
+   `failedCount > 0 || pendingCount > 0`.
+3. **Unsubscribe is confirm-then-POST.** `unsubscribeByToken()` (the
+   deleting function) is no longer called from the `/unsubscribe/[token]`
+   page's GET render. A new `previewUnsubscribeByToken()` (read-only)
+   resolves the token for display; the page renders a confirmation
+   with a "Stop following" button; only submitting that button — a
+   real POST through `confirmUnsubscribeAction`, a client component
+   using `useActionState` — calls the deleting function. An email
+   security scanner or client prefetching the link now sees the
+   confirmation, not an unsubscribe.
+**Why:** All five were genuine gaps, not noise. The three TOCTOU
+findings shared one root cause — state checks and writes that weren't
+atomic with each other across functions — so one shared locking
+primitive closes all three at once, rather than three separate
+ad-hoc guards. The delivery gap was a real hole M8-H's own "no queue,
+keep it simple and deterministic" instruction didn't actually cover:
+a synchronous send loop has no self-healing path once interrupted
+without *something* to resume it, and a button a human clicks is the
+simplest thing that could work, consistent with the milestone's
+explicit anti-infrastructure instruction. The unsubscribe finding was
+the sharpest: `unsubscribeByToken`'s own doc comment already named
+"an email client pre-fetching it" as a scenario it should tolerate,
+but tolerating a *repeat* delete and preventing the *first*,
+unintended one from a prefetch are different problems — GET must
+stay read-only for exactly the reason CSRF/prefetch-safety always
+gives, and the fix is the standard one.
+**Verified:** New integration tests in `tests/integration/changelog.test.ts`:
+one holds a manual `SELECT ... FOR UPDATE` transaction open and
+proves a concurrent `updateChangelogDraft` call blocks until it's
+released (this test fails against the pre-fix code, which took no
+lock at all — the edit would complete immediately); one exercises
+`retryChangelogNotifications` end to end (rejects on a draft, is a
+no-op with nothing outstanding, and picks up a manually-seeded
+`pending` row — modeling the interrupted-publish gap directly —
+without re-sending the already-`sent` recipient). `e2e/changelog.spec.ts`'s
+existing "an unrecognized or already-used unsubscribe link is handled
+gracefully" test now exercises the confirm-then-POST page and still
+passes. Full regression: 65/65 unit, 32/32 integration (real
+Postgres), 98/98 Playwright (`desktop-chromium` + `mobile-chromium`,
+`CI=true`, `--retries=0`), zero-env `next build`, RepoGuard and its
+self-test all pass.
+**Rejected:** A queue/worker for delivery retries — explicitly ruled
+out by M8-H; a button that calls the same idempotent function is
+simpler and sufficient at this scale. Locking each function
+independently with its own ad-hoc `WHERE` condition instead of a
+shared row lock — that's what finding #5 already was (a `WHERE`
+missing `state = 'draft'`), and patching each function's `WHERE`
+clause individually would have left the *cross-function* interleaving
+(link vs. publish, in particular) unaddressed, since a `WHERE` guard
+only protects the row it's attached to, not the sequence of reads
+that led to it.
+
 ## D8-006 — The unqualified-identifier subquery trap (D6-003) recurred in `listCompletablePosts`, caught by a real UI failure, not by inspection
 
 **Date:** 2026-08-30

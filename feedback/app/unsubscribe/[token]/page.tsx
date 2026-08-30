@@ -1,55 +1,47 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { BellOff } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
-import { unsubscribeByToken } from "@/lib/feedback/data";
+import { UnsubscribeConfirm } from "@/components/feedback/unsubscribe-confirm";
+import { previewUnsubscribeByToken } from "@/lib/feedback/data";
 
 interface UnsubscribePageProps {
   params: Promise<{ token: string }>;
 }
 
 export const metadata: Metadata = {
-  title: "Unsubscribed",
+  title: "Unsubscribe",
 };
 
 /**
  * Reached only from an email link — no cookie or session, by design
  * (the recipient may be on a different browser/device than the one
- * they followed from). `unsubscribeByToken` is idempotent: a second
- * visit to the same link (a repeat click, an email client
- * pre-fetching it) finds nothing to delete and this page says so
- * plainly, rather than erroring.
+ * they followed from). This GET render never mutates: it only resolves
+ * the token with `previewUnsubscribeByToken` and shows a confirmation.
+ * The actual unsubscribe happens in `UnsubscribeConfirm`'s client-side
+ * form, an explicit POST through `confirmUnsubscribeAction` — so an
+ * email security scanner or client prefetching this URL can't silently
+ * unsubscribe the real recipient before they ever open the email.
  */
 export default async function UnsubscribePage({ params }: UnsubscribePageProps) {
   const { token } = await params;
-  const result = await unsubscribeByToken(token);
+  const post = await previewUnsubscribeByToken(token);
 
   return (
     <main
       id="main-content"
       className="flex min-h-svh flex-1 flex-col items-center justify-center p-6"
     >
-      <EmptyState
-        icon={BellOff}
-        headingLevel="h1"
-        title={result ? "You're unfollowed" : "Nothing to unfollow"}
-        description={
-          result
-            ? `You won't get any more updates about "${result.title}".`
-            : "This link has already been used, or isn't valid."
-        }
-        action={
-          result ? (
-            <Link
-              href={`/b/${result.boardSlug}/p/${result.postId}`}
-              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-            >
-              View the request
-            </Link>
-          ) : undefined
-        }
-      />
+      {post ? (
+        <UnsubscribeConfirm token={token} post={post} />
+      ) : (
+        <EmptyState
+          icon={BellOff}
+          headingLevel="h1"
+          title="Nothing to unfollow"
+          description="This link has already been used, or isn't valid."
+        />
+      )}
     </main>
   );
 }
