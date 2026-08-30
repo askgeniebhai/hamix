@@ -12,7 +12,9 @@
 - **Branch:** `claude/feedback-m6-status-management`
 - **Starting SHA:** `159d49cb3790d5de57825e3d8db9a96446e1531e` (tip of
   `main` after PR #28, the M5 hardening pass, merged)
-- **Ending SHA:** see the PR's final head commit
+- **Ending SHA:** `45b26357f005917dbca5cb3c98092a5d53eefa39` (this
+  commit — application code, governance docs, and this report land
+  together)
 - **Files changed:** new status model
   (`lib/feedback/status.ts`), schema/migration
   (`lib/db/feedback-schema.ts`,
@@ -237,4 +239,7 @@ protection alone.
 
 ## Final `git status`
 
-Recorded at commit time in this milestone's PR.
+```
+On branch claude/feedback-m6-status-management
+nothing to commit, working tree clean
+```
