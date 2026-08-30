@@ -132,6 +132,11 @@ export const post = pgTable(
     index("post_board_id_idx").on(table.boardId),
     index("post_organization_id_idx").on(table.organizationId),
     index("post_status_idx").on(table.status),
+    // Backs the public Roadmap's `WHERE board_id = $1 AND status IN
+    // (...)` (`lib/feedback/data.ts`'s `listRoadmapPosts`) —
+    // `post_board_id_idx` alone would still need to scan every status
+    // for the board.
+    index("post_board_id_status_idx").on(table.boardId, table.status),
   ],
 );
 

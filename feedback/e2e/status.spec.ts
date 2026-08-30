@@ -10,9 +10,24 @@ import {
   unique,
 } from "./helpers";
 
+/**
+ * Changes status and waits for the write to actually land, not just
+ * for the trigger's own label. `StatusSelect` updates that label
+ * optimistically — synchronously on click, before the server action's
+ * `await` resolves — so a navigation right after the click can
+ * outrace the real database write even though the label already
+ * reads correctly. Waiting for the underlying POST response (the
+ * Server Action invocation) proves the write actually committed.
+ * (Found via a real, reproducible failure — not a masked flake —
+ * `DECISIONS.md` D7-003.)
+ */
 async function changeStatus(page: Page, label: string) {
+  const mutation = page.waitForResponse(
+    (response) => response.request().method() === "POST" && response.ok(),
+  );
   await page.getByRole("combobox", { name: "Change status" }).click();
   await page.getByRole("option", { name: label, exact: true }).click();
+  await mutation;
 }
 
 async function adminListOrder(page: Page): Promise<string[]> {

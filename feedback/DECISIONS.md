@@ -7,6 +7,114 @@ for the current state.
 
 ---
 
+## D7-003 — Playwright status changes must wait for the mutation's own network response, not the optimistic UI label
+
+**Date:** 2026-08-30
+**Decision:** `e2e/status.spec.ts` and `e2e/roadmap.spec.ts`'s shared
+`changeStatus()` test helper now does
+`page.waitForResponse((r) => r.request().method() === "POST" &&
+r.ok())` around the option click, awaiting that before returning —
+not just waiting for the `StatusSelect` trigger's own label to update.
+**Why:** `StatusSelect` (`components/feedback/status-select.tsx`)
+updates its displayed label optimistically — `setCurrent(next)` runs
+synchronously on click, before `updateStatusAction`'s `await`
+resolves. A test that only waits for that label (the original
+`changeStatus()`, written in M6) is waiting for a client-side render,
+not for the database write — a `page.goto` immediately afterward can
+still outrace the real `UPDATE`. This was not a hypothetical: building
+M7's roadmap E2E coverage produced a genuine, repeatable failure (a
+post whose status was changed to Complete right before navigating to
+`/roadmap` sometimes didn't appear there yet), and re-running the
+full existing suite with `--retries=0` surfaced the identical race
+already latent in M6's own `status.spec.ts` (flagged "flaky" by
+Playwright, passing only on its automatic retry) — the same bug,
+already shipped, just rare enough not to have been caught before.
+Waiting for the POST response the Server Action invocation itself
+produces proves the mutation actually completed, independent of
+whatever the client chose to render optimistically in the meantime.
+**Verified:** Full suite re-run with `--retries=0` (no masking) is
+clean at 80/80 across both projects after the fix, including
+`status.spec.ts`'s full lifecycle test, which reproduced the race
+before the fix and did not after it.
+**Rejected:** Leaving the M6 helper as-is since it was already merged
+and "technically passing" under CI's `retries: 1` — this project's
+own established standard (`M5-validation-report.md`'s "Failures
+discovered" section) is to root-cause and fix a reproducible failure
+rather than let a retry policy absorb it, and this is test-file-only
+code, not the shipped `StatusSelect` behavior itself, so fixing it
+carries no product risk.
+
+## D7-002 — The public Roadmap's `notFound()` doesn't produce a literal HTTP 404, and that's an accepted, pre-existing characteristic
+
+**Date:** 2026-08-30
+**Decision:** `/b/[slug]/roadmap`'s unknown-board case is verified by
+checking that the root `not-found.tsx` UI renders and the response
+carries `<meta name="robots" content="noindex">` — not by asserting
+`response.status() === 404`.
+**Why:** This Next.js version's Cache Components architecture streams
+a route's shell as a `200` before a `notFound()` call inside it can
+run; by the time the check fires, the status code is already
+committed (`node_modules/next/dist/docs/.../not-found.md`, "Calling
+`notFound()` after streaming has started"). Confirmed directly against
+a production build: `/b/this-board-does-not-exist` — the pre-existing,
+already-shipped M4 board page, unmodified by M7 — has the exact same
+characteristic, so this is not a defect introduced here. What actually
+matters for safety still holds: no board or post data is ever
+included in the response, the generic "Page not found" UI renders,
+and `noindex` keeps it out of search results.
+**Verified:** Manually curled a production build (`npm run build &&
+npm run start`) for both `/b/[slug]` and `/b/[slug]/roadmap` with an
+unknown slug — both return `200` with the root not-found UI and
+`noindex` in the payload, never board/post data.
+**Rejected:** Moving the board-existence check into `proxy.ts` to force
+a real 404 status — the docs' own suggested fix, but `proxy.ts`'s
+existing job is deliberately edge-safe and DB-free (its own doc
+comment: "not a validity check — no DB access at the edge"); doing a
+real existence lookup there would be a meaningful architectural change
+to code M4 shipped, well outside M7's Roadmap-view scope. Recorded as
+a known characteristic (`validation/reports/M7-validation-report.md`),
+not silently worked around.
+
+## D7-001 — Roadmap is a read-only, database-filtered view over `Post`, not a new table
+
+**Date:** 2026-08-30
+**Decision:** `/b/[slug]/roadmap` is served by a new
+`listRoadmapPosts()` in `lib/feedback/data.ts` — `SELECT … FROM post
+WHERE board_id = $1 AND status IN ('planned','in_progress','complete')
+ORDER BY status_changed_at DESC`, backed by a new compound index
+(`post_board_id_status_idx` on `(board_id, status)`) — no
+`roadmap_item` table, no roadmap-specific admin console. The existing
+M6 status selector (`StatusSelect`, `updateStatusAction`) is the only
+way a post's roadmap placement ever changes.
+**Why:** Explicit architecture instruction — "Roadmap is a VIEW of
+existing Feedback/Post status... Post remains source of truth." A
+second table would require keeping two records of the same fact (a
+post's status) in sync, and a separate admin console would duplicate
+the mutation path M6 already built, hardened, and tested. Filtering to
+the three customer-facing statuses happens in the `WHERE` clause, not
+by fetching every post and narrowing in the browser or in the page
+component — `ROADMAP_STATUSES` (`lib/feedback/status.ts`) is the
+single source of truth for which three, shared by the query and the
+UI's three section headings. The result (already small — one board's
+`planned`/`in_progress`/`complete` posts) is grouped into its three
+sections by the page component; that grouping is not the same
+client-side filtering the "database-side" requirement rules out, since
+the database has already done the only filtering that could grow
+unbounded.
+**Verified:** `tests/integration/roadmap.test.ts` — `open`/
+`under_review` posts are proven absent from the result (not merely
+unlisted in a UI layer), a second board's posts are proven absent
+(tenant isolation), and ordering is proven newest-`statusChangedAt`-
+first. `e2e/roadmap.spec.ts`'s lifecycle test proves the same status
+selector that already worked for M6 (`/feedback/[postId]`'s
+`StatusSelect`) is sufficient to move a post through all three
+roadmap sections with no roadmap-specific admin UI at all.
+**Rejected:** A `roadmap_item` table mirroring `post.status` (sync risk
+for zero benefit — nothing about "what's on the roadmap" is separable
+from "what the post's status is"); a separate admin roadmap-management
+screen (explicitly out of scope — "NO separate roadmap-management
+console").
+
 ## D6-003 — Correlated count/exists subqueries must be built with the query builder, not raw `sql` templates with interpolated `Column` objects
 
 **Date:** 2026-08-30
