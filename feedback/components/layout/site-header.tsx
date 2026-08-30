@@ -16,10 +16,16 @@ export function SiteHeader() {
         </Link>
         <nav aria-label="Primary" className="flex items-center gap-2">
           <Link
-            href="/dashboard"
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            href="/login"
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
-            Open workspace
+            Login
+          </Link>
+          <Link
+            href="/signup"
+            className={buttonVariants({ size: "sm" })}
+          >
+            Start Free
           </Link>
         </nav>
       </div>

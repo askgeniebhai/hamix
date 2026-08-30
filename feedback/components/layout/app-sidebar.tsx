@@ -3,24 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  CreditCard,
   Inbox,
   LayoutGrid,
   MessageSquareText,
-  Milestone,
   ScrollText,
   Settings,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const primaryNav = [
+export const primaryNav = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
   { label: "Feedback", href: "/feedback", icon: Inbox },
   { label: "Changelog", href: "/changelog", icon: ScrollText },
+  { label: "Billing", href: "/settings/billing", icon: CreditCard },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
-
-const upcomingNav = [{ label: "Roadmap", icon: Milestone }];
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -54,22 +53,6 @@ export function AppSidebar() {
           );
         })}
       </nav>
-
-      <div className="mt-4 flex flex-col gap-1 border-t border-sidebar-border pt-4">
-        <span className="px-2 pb-1 text-xs font-medium text-muted-foreground">
-          Coming soon
-        </span>
-        {upcomingNav.map(({ label, icon: Icon }) => (
-          <span
-            key={label}
-            aria-disabled="true"
-            className="flex cursor-not-allowed items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground/70"
-          >
-            <Icon className="size-4" aria-hidden="true" />
-            {label}
-          </span>
-        ))}
-      </div>
     </aside>
   );
 }

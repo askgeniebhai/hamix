@@ -8,9 +8,12 @@
  * diff.
  *
  * `feedback-schema.ts` is the hand-written domain schema (Board,
- * Post, Vote, Participant — see docs/M1_ARCHITECTURE_DECISION.md),
- * introduced in M4. Comment and any further domain entities are a
- * future, separately authorized milestone.
+ * Post, Vote, Participant, Comment, Changelog — see
+ * docs/M1_ARCHITECTURE_DECISION.md), introduced starting M4.
+ *
+ * `billing-schema.ts` is M9's commercial layer (Stripe-backed
+ * subscription state, webhook idempotency) — see `lib/billing/`.
  */
 export * from "@/lib/db/auth-schema";
 export * from "@/lib/db/feedback-schema";
+export * from "@/lib/db/billing-schema";

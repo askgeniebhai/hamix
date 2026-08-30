@@ -1,0 +1,2 @@
+DROP INDEX "organization_billing_provider_customer_id_uidx";--> statement-breakpoint
+CREATE INDEX "organization_billing_provider_customer_id_idx" ON "organization_billing" USING btree ("provider_customer_id");

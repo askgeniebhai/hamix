@@ -13,6 +13,7 @@ import {
   user,
   vote,
 } from "@/lib/db/schema";
+import { assertWithinParticipantLimit } from "@/lib/billing/usage";
 import { ROADMAP_STATUSES, type PostStatus, type RoadmapStatus } from "@/lib/feedback/status";
 
 /**
@@ -61,6 +62,31 @@ export async function getBoardForOrganization(
     .where(eq(board.organizationId, organizationId))
     .limit(1);
   return row ?? null;
+}
+
+export interface FeedbackSummary {
+  totalCount: number;
+  /** `open` + `under_review` — the two statuses that genuinely need a first look; `planned`/`in_progress`/`complete` are already triaged. */
+  needsAttentionCount: number;
+}
+
+/** A cheap, dashboard-sized summary — never a full row fetch just to show two numbers. */
+export async function getFeedbackSummary(organizationId: string): Promise<FeedbackSummary> {
+  const rows = await getDb()
+    .select({ status: post.status, count: sql<number>`count(*)`.mapWith(Number) })
+    .from(post)
+    .where(eq(post.organizationId, organizationId))
+    .groupBy(post.status);
+
+  let totalCount = 0;
+  let needsAttentionCount = 0;
+  for (const row of rows) {
+    totalCount += row.count;
+    if (row.status === "open" || row.status === "under_review") {
+      needsAttentionCount += row.count;
+    }
+  }
+  return { totalCount, needsAttentionCount };
 }
 
 export interface FeedbackPost {
@@ -216,6 +242,7 @@ export async function createPost(input: {
 }): Promise<{ id: string }> {
   await assertBoardInOrganization(input.organizationId, input.boardId);
   await assertParticipantInOrganization(input.organizationId, input.participantId);
+  await assertWithinParticipantLimit(input.organizationId, input.participantId);
 
   const [row] = await getDb().insert(post).values(input).returning({ id: post.id });
   return row;
@@ -313,6 +340,7 @@ export async function castVote(input: {
 }): Promise<void> {
   await assertPostInOrganization(input.organizationId, input.postId);
   await assertParticipantInOrganization(input.organizationId, input.participantId);
+  await assertWithinParticipantLimit(input.organizationId, input.participantId);
 
   await getDb()
     .insert(vote)
@@ -567,6 +595,7 @@ export async function createExternalComment(input: {
 }): Promise<{ id: string }> {
   await assertPostInOrganization(input.organizationId, input.postId);
   await assertParticipantInOrganization(input.organizationId, input.participantId);
+  await assertWithinParticipantLimit(input.organizationId, input.participantId);
 
   const [row] = await getDb()
     .insert(comment)

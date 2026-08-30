@@ -142,6 +142,19 @@ jobs:
       DATABASE_URL: postgresql://feedback_ci:feedback_ci@localhost:5432/feedback_ci
       BETTER_AUTH_SECRET: feedback-ci-e2e-secret-not-used-anywhere-else-000
       BETTER_AUTH_URL: http://localhost:3000
+      # Fake, non-routable Shopify test credentials — never real store
+      # access. This is what makes the commercial E2E suite's webhook
+      # signature/idempotency/entitlement tests possible (they compute
+      # a real HMAC against SHOPIFY_WEBHOOK_SECRET and POST it to
+      # /api/webhooks/shopify), while `createProCheckoutUrl`'s actual
+      # network call to SHOPIFY_STORE_DOMAIN still genuinely fails
+      # (the domain doesn't resolve) — an honest checkout-unavailable
+      # error, never a fabricated "Pro active" state (M9 Part O).
+      SHOPIFY_STORE_DOMAIN: feedback-ci-test.myshopify.com
+      SHOPIFY_STOREFRONT_ACCESS_TOKEN: feedback-ci-test-storefront-token
+      SHOPIFY_WEBHOOK_SECRET: feedback-ci-test-webhook-secret
+      SHOPIFY_PRO_VARIANT_ID: gid://shopify/ProductVariant/1
+      SHOPIFY_PRO_SELLING_PLAN_ID: gid://shopify/SellingPlan/1
     steps:
       - name: Checkout (clean checkout reproduction)
         uses: actions/checkout@v4

@@ -20,27 +20,50 @@ test.describe("public entry shell", () => {
     ).toBeVisible();
     await expect(
       page.getByRole("heading", {
-        name: "Understand what your customers actually need.",
+        name: "Collect feedback. Show your roadmap. Close the loop.",
       }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Simple pricing" }),
     ).toBeVisible();
     await expect(page.getByRole("contentinfo")).toBeVisible();
   });
 
-  test("sends unauthenticated visitors to log in when opening the workspace", async ({
-    page,
-  }) => {
+  test("Login goes to the login page", async ({ page }) => {
     await page.goto("/");
     await page
       .getByRole("banner")
-      .getByRole("link", { name: "Open workspace" })
+      .getByRole("link", { name: "Login" })
       .click();
     await expect(page).toHaveURL(/\/login/);
+  });
+
+  test("Start Free goes to signup", async ({ page }) => {
+    await page.goto("/");
+    await page
+      .getByRole("banner")
+      .getByRole("link", { name: "Start Free" })
+      .click();
+    await expect(page).toHaveURL(/\/signup/);
   });
 
   test("has no automatically detectable accessibility violations", async ({
     page,
   }) => {
     await page.goto("/");
+    // Wait for the real hero content (not just navigation) before
+    // scanning — the marketing page's home hero is heavier than the
+    // old placeholder shell was, and a scan that runs mid-paint can
+    // catch a transient state (e.g. no <h1> or empty <title> yet)
+    // that was never actually shown to a user — the same class of
+    // flake `e2e/helpers.ts`'s `createWorkspace`/`openPostDetail`
+    // already guard against.
+    await page
+      .getByRole("heading", {
+        name: "Collect feedback. Show your roadmap. Close the loop.",
+      })
+      .waitFor();
+    await page.waitForFunction(() => document.title.length > 0);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
@@ -55,17 +78,20 @@ test.describe("public entry shell", () => {
 });
 
 test.describe("workspace shell (authenticated)", () => {
-  test("renders navigation and empty-state foundation", async ({ page }) => {
+  test("renders navigation and the real workspace summary", async ({ page }) => {
     const { workspaceName } = await signUpWithWorkspace(page, {
       namePrefix: "ShellSmoke",
     });
     await expect(
-      page.getByRole("heading", { name: `${workspaceName} is ready` }),
+      page.getByRole("heading", { name: workspaceName, level: 1 }),
     ).toBeVisible();
     await expect(
-      page.getByText("Roadmap and changelog tools will appear here"),
+      page.getByRole("heading", { name: "Your public feedback board" }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "View feedback" })).toBeVisible();
+    const nav = page.getByRole("navigation", { name: "Workspace" });
+    await expect(nav.getByRole("link", { name: "Feedback", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Changelog", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Billing", exact: true })).toBeVisible();
   });
 
   test("has no automatically detectable accessibility violations", async ({

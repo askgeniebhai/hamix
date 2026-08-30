@@ -7,6 +7,264 @@ for the current state.
 
 ---
 
+## D9-004 — PR #32 automated-review response: four real Shopify-billing findings, all fixed at the root
+
+**Date:** 2026-08-30
+**Decision:** Codex's automated review of PR #32 raised five P1
+findings; one (the `/contact` zero-env crash) was already fixed and
+pushed before the review landed (`D9-003`). The remaining four were
+verified against the actual code and fixed, not dismissed:
+
+1. **Webhook ledger insert and entitlement mutation weren't atomic**
+   (`lib/billing/shopify/webhook.ts`). If the entitlement write failed
+   after the `billing_webhook_event` ledger row had already committed
+   (a dropped connection, a constraint violation), Shopify's retry of
+   that exact webhook id would hit the `duplicate` path and the paid
+   or cancelled event would be lost permanently — no second chance.
+   Fixed: `processShopifyWebhook` now wraps the ledger insert and
+   every dispatch case in one `getDb().transaction(...)` — a failure
+   anywhere rolls the ledger insert back too, so the next retry
+   reprocesses the event for real.
+2. **`orders/paid` granted Pro from the `organization_id` cart
+   attribute alone, never verifying the order actually paid for the
+   "Feedback Pro" product.** A cart's line items can be edited
+   independently of its attributes before checkout completes, so a
+   customer could start the Pro checkout (setting the attribute), swap
+   the line for something cheaper, and still trigger a grant. Fixed:
+   `parseOrderWebhook` now also collects `line_items[].variant_id`
+   (the classic REST webhook's bare numeric id — confirmed distinct
+   from the Storefront API's GID form `createProCheckoutUrl` uses,
+   handled by a new `numericIdFromGid` helper), and `orders/paid`
+   is `ignored` unless the paid order actually contains
+   `SHOPIFY_PRO_VARIANT_ID`.
+3. **Entitlement never expired on its own** (`lib/billing/plans.ts`).
+   `resolveEffectivePlan` only checked `plan`/`status` — if a
+   cancellation webhook was missed (the `subscription_contracts/
+   update` parser is explicitly best-effort) or a renewal simply
+   produced no `orders/paid`, `status` stayed `active` forever even
+   after the paid period ended. Fixed: `resolveEffectivePlan` now also
+   takes `currentPeriodEnd` and treats a lapsed period as no longer
+   entitled for `active`/`trialing` (never for `past_due`, a
+   provider-managed grace window with no period-end semantics of its
+   own); `getEntitlement` passes it through.
+4. **`organization_billing.provider_customer_id` was globally
+   unique**, rejecting a second organization's otherwise-valid
+   `orders/paid` webhook whenever the same Shopify customer (the same
+   person or business, buying through the one shared store) paid for
+   Pro on more than one workspace. Fixed: the column is now indexed
+   for lookup performance but not unique (migration
+   `0007_stormy_blazing_skull.sql`) — a subscription/order id genuinely
+   does belong to exactly one organization and stays unique;
+   a customer identifies a *buyer*, not a one-to-one workspace
+   relationship, and never should have been constrained that way.
+
+Each fix has direct test coverage: an integration test for the
+wrong-product case, one proving the same Shopify customer can pay for
+Pro on two organizations, and unit tests for the lapsed-period-end
+case (`tests/integration/billing-shopify-webhook.test.ts`,
+`tests/unit/billing-plans.test.ts`). Full regression re-run clean: 70
+unit / 48 integration / 114 Playwright, zero-env build, `drizzle-kit
+check`, RepoGuard.
+
+## D9-003 — The "zero-env build succeeds" check I ran locally was a false positive; PR #32's own CI caught the real bug
+
+**Date:** 2026-08-30
+**What happened:** This session verified the zero-env-safe guarantee
+(D2-001/D8-005: a production build with no environment variables must
+succeed) by running `env -i PATH="$PATH" HOME="$HOME" npm run build`
+locally and reporting it green in `M9-validation-report.md`. That
+check was silently invalid: `next build` auto-loads `.env.local`
+regardless of the invoking shell's own environment, and this
+project's `.env.local` (a real, if gitignored, local file, not
+committed) already sets `DATABASE_URL`/`BETTER_AUTH_SECRET`/
+`BETTER_AUTH_URL` — so the "zero-env" run was never actually running
+with zero env vars. PR #32's own Tier 2 CI job (no `.env.local` on
+the runner at all) caught the real failure the local check missed:
+`/contact` is a static route, prerendered at build time with no live
+environment, and its page component called the shared `getEnv()` —
+which validates the *entire* schema, `DATABASE_URL`/`BETTER_AUTH_SECRET`
+included — just to read the one optional `CONTACT_EMAIL` field.
+**Fix:** `app/contact/page.tsx` now reads `process.env.CONTACT_EMAIL`
+directly, bypassing `getEnv()`'s full-schema validation for this one
+display-only optional field — the zero-env guarantee holds for this
+route without weakening validation anywhere that genuinely needs a
+database or auth secret. `/privacy` and `/terms` were checked and
+have no `getEnv()`/`process.env` call at all, so this bug was unique
+to `/contact`.
+**Standing lesson, recorded so it isn't repeated:** verifying a
+"zero environment variables" claim about `next build` by exporting no
+variables in the invoking shell is not sufficient — a committed or
+local `.env.local`/`.env` file is picked up by Next.js independently
+of shell state. A true zero-env verification must either run from a
+directory/checkout with no such file present, or run inside the
+project's own CI job, which is the only environment this project
+treats as authoritative for this specific claim going forward.
+
+## D9-002 — The workspace had no mobile navigation at all; a real gap the UI/UX polish pass and a fresh E2E run caught, not a cosmetic one
+
+**Date:** 2026-08-30
+**Decision:** `AppSidebar` (`components/layout/app-sidebar.tsx`) has
+always been `hidden md:flex` — genuinely absent from the DOM's
+accessibility tree, not merely visually hidden, below the `md`
+breakpoint. No mobile equivalent existed before this session: a
+workspace admin on a phone had no way at all to reach Feedback,
+Changelog, or Billing. This was not caught by inspection — it
+surfaced when `e2e/shell.spec.ts`'s "renders navigation and the real
+workspace summary" test (extended this session to also assert the
+Billing nav link) ran against the `mobile-chromium` project and
+failed on a locator that simply didn't exist at that viewport.
+**Fix:** `components/layout/mobile-nav.tsx` — a persistent bottom tab
+bar (`fixed inset-x-0 bottom-0 ... md:hidden`), not a hamburger/drawer
+menu, so every primary destination is one tap away with nothing to
+open first. It reuses `AppSidebar`'s own exported `primaryNav` array
+(no duplicated nav config) and deliberately shares the identical
+`aria-label="Workspace"` landmark name with the desktop `<nav>` —
+safe, not ambiguous, because Tailwind's `hidden`/`flex` pair is a true
+`display: none` toggle: only one of the two `<nav>` elements is ever
+actually present in the accessibility tree at a given viewport, so
+`page.getByRole("navigation", { name: "Workspace" })` resolves
+correctly on both without any test-side branching.
+**Also fixed this session, same root cause class (a genuine product
+gap the M9 polish pass's UI/UX benchmark and a fresh E2E run
+surfaced, not pre-existing test flakiness):** `submitFeedbackAction`
+in `app/b/[slug]/actions.ts` had no `try`/`catch` around its
+`createPost()` call, so M9's own newly-wired
+`assertWithinParticipantLimit` (Part E/G) could throw a
+`TrackedParticipantLimitReachedError` uncaught into Next.js's error
+boundary the very first time a Free-plan org actually reached its
+limit — a real, reachable production crash, not a hypothetical.
+`voteAction`/`addExternalCommentAction` didn't crash but showed either
+a generic "something went wrong" or the error's own `.message`, which
+is written for a workspace *admin* ("upgrading to Pro raises the
+limit") and has no business being shown to an anonymous customer with
+no visibility into the org's billing. `lib/billing/usage.ts`'s new
+`PARTICIPANT_LIMIT_PUBLIC_MESSAGE` + `isParticipantLimitError()` fix
+all three call sites uniformly: a clear, honest, non-hostile message,
+never a crash, never admin-facing wording shown to the public (Part
+G's explicit "do not silently reject feedback" requirement).
+**Rejected for the mobile nav:** a hamburger button opening a
+`DropdownMenu`/Sheet — the codebase already has a `DropdownMenu`
+primitive (used by `UserMenu`), so it was the lower-effort option, but
+its content only renders into the DOM once opened, which would have
+required every E2E assertion (and every real user) to perform an
+extra open-menu step to reach navigation at all — worse UX and worse
+testability for a nav list this short (5 items). A bottom tab bar
+needs no interaction to become visible.
+
+## D9-001 — Billing provider: the Product Owner's existing Shopify store, not Stripe — researched live, not assumed, before writing any code
+
+**Date:** 2026-08-30
+**Decision:** M9's "Feedback Pro" subscription is sold through the
+Product Owner's existing Shopify store/Shopify Payments setup rather
+than a new Stripe integration, per an explicit correction mid-build
+("reuse existing payment infrastructure rather than unnecessarily
+opening another payment stack"). Before writing any provider-specific
+code, researched current official Shopify documentation
+(shopify.dev, help.shopify.com) to answer the load-bearing question
+directly rather than assume it: **does Shopify's checkout/subscription
+system restrict Feedback to Shopify merchants?** It does not — any
+customer, merchant or not, can be a retail customer of the Product
+Owner's store and buy a subscription product from it. That ruled out
+the one outcome that would have blocked this path outright.
+**Distinguished, from research, not assumption:**
+- **Shopify Payments (the raw processor)** cannot be called directly
+  by an external system — no API accepts a card number from outside
+  Shopify's own checkout (PCI-scope reasons, confirmed via Shopify's
+  own help docs). Everything goes through a Shopify-hosted checkout
+  page.
+- **Shopify App Billing / App Pricing** requires the payer to be a
+  Shopify merchant with the app installed on *their own* store — the
+  wrong fit, and explicitly rejected: it would have made Feedback
+  Shopify-merchant-only, contradicting "SaaS companies, websites,
+  apps, businesses generally."
+- **Shopify's store checkout + Selling Plans (Subscriptions API)** —
+  the path actually used: the Product Owner's store lists a
+  "Feedback Pro" subscription product; any customer buys it through
+  that store's own hosted checkout, using Shopify Payments as the
+  processor, exactly like a subscription-box product would be sold to
+  the public.
+**How checkout is created:** a plain cart *permalink*
+(`/cart/{variant}:{qty}?selling_plan=...`) cannot carry a selling
+plan — confirmed directly from Shopify's own cart-permalink docs,
+which state this limitation outright, correcting an initial simpler
+design that assumed permalinks would work. `createProCheckoutUrl()`
+(`lib/billing/shopify/checkout.ts`) instead uses the official
+`@shopify/storefront-api-client`'s `cartCreate` mutation (inspected
+directly — its `request()` method and response shape, before writing
+any calling code, the same "read the SDK first" standard `DECISIONS.md`
+D8-002 set for Resend), attaching `sellingPlanId` on the line and an
+`organization_id` cart attribute, then redirects the admin's browser
+to the returned `checkoutUrl` on the store's own domain.
+**How the organization is identified on every order, including
+renewals:** confirmed directly from Shopify's own developer changelog
+before relying on it — a subscription contract's custom attributes
+are copied onto every order it generates, including recurring
+renewals, not just the first. So the one `organization_id` attribute
+set at checkout time is recoverable from *any* later order or
+subscription-contract webhook about that subscription, with no
+separately-stored provider-side id to keep in sync — self-sufficient
+tenant mapping, by construction.
+**Entitlement reconciliation:** `lib/billing/shopify/webhook.ts`
+verifies `X-Shopify-Hmac-Sha256` (base64 HMAC-SHA256 of the raw body,
+Shopify's own documented recipe, reproduced exactly — confirmed
+before writing the verifier) and deduplicates on
+`X-Shopify-Webhook-Id` via `billing_webhook_event`'s unique
+`(provider, provider_event_id)` index — the same `ON CONFLICT DO
+NOTHING`-as-serialization pattern D8-004 established for changelog
+delivery, reused here. `orders/paid` is the load-bearing signal (grants/
+renews Pro, refreshes a 30-day period estimate — Shopify's order
+webhook doesn't hand back an explicit "next billing date" the way a
+Stripe subscription object would, so this is a documented
+approximation, not a precise value); `orders/cancelled` and
+`subscription_contracts/update` (status `CANCELLED`/`EXPIRED`/`FAILED`
+→ our `canceled`) are the cancellation signals.
+**Honest, load-bearing limitation:** `subscription_contracts/update`'s
+exact webhook payload shape could not be confirmed with the same
+certainty as the very standard `orders/*` REST payload during this
+build (thinner public documentation for this specific topic, plus a
+community-reported edge case around contracts created from storefront
+checkout). `parseSubscriptionContractWebhook` is written defensively
+(returns `null`/skips rather than throwing on an unrecognized shape)
+and `orders/paid`/`orders/cancelled` — not this topic — are the
+primary signals, so a gap here degrades to "cancellation detected one
+cycle later via the next `orders/cancelled` or missing `orders/paid`"
+rather than silently granting or revoking incorrectly. Verifying this
+webhook's real payload against the Product Owner's actual store is a
+genuine pre-launch blocker (`docs/launch-readiness-checklist.md`), not
+something simulated or assumed working here.
+**Also genuinely blocked on external configuration**, same class as a
+Stripe integration would have been: `SHOPIFY_STORE_DOMAIN`,
+`SHOPIFY_STOREFRONT_ACCESS_TOKEN` (a custom app's Storefront API
+token), `SHOPIFY_WEBHOOK_SECRET`, `SHOPIFY_PRO_VARIANT_ID`,
+`SHOPIFY_PRO_SELLING_PLAN_ID` all require the Product Owner to create
+a "Feedback Pro" subscription product + selling plan and a custom app
+in their store admin — none of this can be created or tested from
+this session (no store access), so all five are optional/zero-env-safe
+(mirrors `DECISIONS.md` D8-005's email pattern exactly) and every
+billing action fails loudly and truthfully, never fabricating success,
+when they're absent.
+**Provider-neutral by construction, not by convention:**
+`lib/db/billing-schema.ts`'s `organization_billing` table stores
+`provider`/`provider_customer_id`/`provider_subscription_id` as plain
+opaque strings, never a Shopify-shaped column name; `lib/billing/
+plans.ts` and `lib/billing/usage.ts` (tracked-participant counting,
+entitlement resolution, the per-write limit check) read only `plan`
+and `status` and have no import from anything Shopify-specific. Only
+`lib/billing/shopify/*` and `app/api/webhooks/shopify/route.ts` know a
+provider named Shopify exists — swapping or adding a second provider
+later touches that directory and nothing in entitlement logic (the
+Product Owner's explicit "payment provider ≠ entitlement logic" rule).
+**Rejected:** Stripe — researched and largely built (schema, plans,
+checkout/portal design, webhook idempotency, all using the official
+SDK inspected directly) before the Product Owner's correction arrived
+asking to reuse existing Shopify infrastructure instead; the
+Stripe-specific code was removed rather than kept alongside unused,
+and the `stripe` npm dependency was uninstalled. The provider-neutral
+entitlement layer built during that work (schema shape, `plans.ts`,
+`usage.ts`, the per-write limit enforcement) needed no changes to
+retarget at Shopify — direct evidence the abstraction boundary was
+drawn in the right place.
+
 ## D8-007 — PR #31 review response: entry-row locking closes three TOCTOU races; a resume path for interrupted publish deliveries; the unsubscribe link is now confirm-then-POST
 
 **Date:** 2026-08-30

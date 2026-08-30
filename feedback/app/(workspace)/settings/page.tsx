@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import { requireActiveOrganization } from "@/lib/auth/session";
 import {
@@ -58,6 +60,18 @@ export default async function SettingsPage() {
           </dl>
         </CardContent>
       </Card>
+
+      <Link href="/settings/billing" className="block">
+        <Card className="transition-colors hover:border-primary/50">
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle className="text-base">Billing</CardTitle>
+              <CardDescription>Plan, tracked-participant usage, and upgrades.</CardDescription>
+            </div>
+            <ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </CardHeader>
+        </Card>
+      </Link>
     </div>
   );
 }
