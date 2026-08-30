@@ -7,6 +7,71 @@ for the current state.
 
 ---
 
+## D5-001 — Comment author exclusivity enforced by a database CHECK constraint
+
+**Date:** 2026-08-30
+**Decision:** `comment` has two nullable foreign keys —
+`participant_id` (external customer reply) and `author_user_id`
+(internal team reply) — with a Postgres `CHECK` constraint
+(`comment_exactly_one_author_chk`) requiring exactly one to be set,
+never both and never neither. `lib/feedback/data.ts`'s
+`createExternalComment()`/`createInternalComment()` each only ever set
+one of the two, but the constraint is what actually guarantees no
+future code path (a bug, a new caller, a manual `INSERT`) can produce
+an authorless or double-authored comment.
+**Why:** M5's instruction is explicit — "Enforce exactly one valid
+author type. No anonymous raw client-supplied author IDs." A single
+`author_id` column with a separate `author_type` enum column would
+express the same intent but relies entirely on application code to
+keep the two columns consistent; two nullable FKs plus a CHECK
+constraint lets the *type system* (a real foreign key to `participant`
+or `user`, not a loosely-typed id + string tag) and the *database*
+both enforce correctness, matching the project's existing preference
+for structural guarantees over convention (the same reasoning behind
+`vote_post_participant_uidx` in M4). Proven directly — not just
+assumed from the schema — by
+`tests/integration/comment-author-constraint.test.ts`, which attempts
+both an invalid double-authored row and an invalid authorless row and
+asserts Postgres rejects both.
+**Rejected:** A single polymorphic `author_id` + `author_type`
+column — weaker typing, no real FK integrity to either table, and
+still needs a CHECK constraint to enforce "type must be 'participant'
+or 'user'" so it wouldn't actually be simpler; a separate `comment`
+subtype per author kind (e.g. `customer_comment`/`team_comment`
+tables) — over-engineered for M5's single `body` field, and would
+complicate `listCommentsForPost()`'s single ordered thread query for
+no benefit yet.
+
+## D5-002 — Comments reuse the M4 participant-identity cookie; team replies reuse `requireActiveOrganization()`
+
+**Date:** 2026-08-30
+**Decision:** External comment authorship uses exactly the same
+identity mechanism as M4's voting (`lib/feedback/participant.ts`'s
+per-organization cookie, identify-inline-if-needed) — no new identity
+system for comments. Internal team replies require nothing beyond
+`requireActiveOrganization()` (`lib/auth/session.ts`), the same
+tenant-membership check every other protected admin page already
+uses; `author_user_id` is always the verified session's own
+`session.user.id`, never read from `formData`.
+**Why:** M5 explicitly directs reusing M4's participant identity
+("Returning participant → can comment without re-identifying") rather
+than inventing a comment-specific identity flow, and reusing
+`requireActiveOrganization()` for "who may post as this
+organization's team" is the same reasoning as M3's tenant-isolation
+pattern: never trust a client-supplied identity when a server-side
+session/membership check already exists. This is also what makes
+"non-member cannot use internal-author identity" and "raw author IDs
+cannot be spoofed" (both M5-mandatory negative tests) true by
+construction rather than by an extra check someone could forget to
+add — a non-member's session simply resolves to a *different*
+organization, so `getPostForOrganization()` returns `null` for any
+post outside it and the reply form is never even reachable.
+**Rejected:** A lighter-weight "just trust an `authorUserId` field in
+the form" — the exact anti-pattern M3's D3-005 and M4's tenant checks
+already exist to rule out; a separate comment-only auth check
+duplicating `requireActiveOrganization()`'s logic — would drift from
+the one real membership check over time instead of sharing it.
+
 ## D4-001 — One board per organization, created atomically via `afterCreateOrganization`
 
 **Date:** 2026-08-29

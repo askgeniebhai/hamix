@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Inbox } from "lucide-react";
+import { Inbox, MessageCircle } from "lucide-react";
 
 import { requireActiveOrganization } from "@/lib/auth/session";
 import {
@@ -54,15 +54,26 @@ export default async function AdminFeedbackPage() {
               <Card>
                 <CardContent className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 flex-col gap-1">
-                    <p className="text-sm font-medium text-foreground">
+                    <Link
+                      href={`/feedback/${post.id}`}
+                      className="text-sm font-medium text-foreground hover:underline"
+                    >
                       {post.title}
-                    </p>
+                    </Link>
                     <p className="text-sm text-pretty text-muted-foreground">
                       {post.description}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       From {post.submitterName} · {post.submitterEmail}
                     </p>
+                    <Link
+                      href={`/feedback/${post.id}`}
+                      className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <MessageCircle className="size-3.5" aria-hidden="true" />
+                      {post.commentCount}{" "}
+                      {post.commentCount === 1 ? "comment" : "comments"}
+                    </Link>
                   </div>
                   <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold tabular-nums text-foreground">
                     {post.voteCount} {post.voteCount === 1 ? "vote" : "votes"}

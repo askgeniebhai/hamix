@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessageSquareText } from "lucide-react";
+import { MessageCircle, MessageSquareText } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { SubmitFeedbackForm } from "@/components/feedback/submit-feedback-form";
@@ -81,12 +82,23 @@ export default async function BoardPage({ params }: BoardPageProps) {
                       identified={!!me}
                     />
                     <div className="flex min-w-0 flex-col gap-1 pt-1">
-                      <h3 className="text-sm font-medium text-foreground">
+                      <Link
+                        href={`/b/${board.slug}/p/${post.id}`}
+                        className="text-sm font-medium text-foreground hover:underline"
+                      >
                         {post.title}
-                      </h3>
+                      </Link>
                       <p className="text-sm text-pretty text-muted-foreground">
                         {post.description}
                       </p>
+                      <Link
+                        href={`/b/${board.slug}/p/${post.id}`}
+                        className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <MessageCircle className="size-3.5" aria-hidden="true" />
+                        {post.commentCount}{" "}
+                        {post.commentCount === 1 ? "comment" : "comments"}
+                      </Link>
                     </div>
                   </article>
                 </li>

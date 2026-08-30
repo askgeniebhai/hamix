@@ -81,7 +81,7 @@ report.
   a database exists — no undocumented manual schema changes against
   production.
 
-## Current status (as of M4)
+## Current status (as of M5)
 
 - **Secrets:** enforced since M0 — RepoGuard's Secret Guard and
   Dangerous File Guard run on every change. `lib/env.ts` fails closed
@@ -113,11 +113,20 @@ report.
   participant.ts` scopes participant identity to (organization, email)
   so the same email produces structurally distinct participant rows
   per organization; no participant, post, or vote can be reused
-  across tenants. Covered by genuine cross-tenant negative tests in
-  both `e2e/auth.spec.ts` ("tenant isolation") and
-  `e2e/feedback.spec.ts` ("tenant A's feedback board never shows
-  tenant B's posts, and voting cannot cross tenants") against a real
-  Postgres database.
+  across tenants. Comments (M5) share the exact same
+  `assertPostInOrganization()` check `castVote()` already used —
+  `createExternalComment()`/`createInternalComment()` both call it
+  before writing — so a cross-tenant `postId` is rejected the same way
+  for a comment as for a vote; `getPostForOrganization()` (the admin
+  thread view) returns `null` for a post outside the caller's own
+  organization, which the page turns into a 404 rather than ever
+  rendering another organization's thread. Covered by genuine
+  cross-tenant negative tests in `e2e/auth.spec.ts` ("tenant
+  isolation"), `e2e/feedback.spec.ts` ("tenant A's feedback board
+  never shows tenant B's posts, and voting cannot cross tenants"), and
+  `e2e/comments.spec.ts` ("unauthenticated visitors and non-member
+  workspace users cannot reach or affect another organization's admin
+  thread") against a real Postgres database.
 - **Session & transport:** implemented — Better Auth's session cookie
   is `HttpOnly`, `SameSite=Lax`, with CSRF protection via Better Auth's
   trusted-origin check on state-changing requests (verified directly:
@@ -141,33 +150,51 @@ report.
   submission is deferred.
 - **Input handling:** implemented for what exists — Zod schemas
   (`lib/validation/auth.ts`, `lib/validation/feedback.ts`) validate
-  signup/login/workspace-creation and feedback-submission/participant-
-  identity input server-side (never trusting client-side `required`/
-  `minLength` HTML attributes alone — verified directly by
-  `e2e/feedback.spec.ts`'s "invalid submission is rejected server-side
-  even if client validation is bypassed"); Drizzle's parameterized
-  queries are used throughout, no string-built SQL anywhere in the
-  codebase.
-- **Data integrity under concurrency:** new this milestone — the
-  one-vote-per-(post, participant) rule is enforced by a database
-  unique index (`vote_post_participant_uidx`), not just application
-  logic, and proven race-safe by `tests/integration/vote-race.test.ts`
-  (two concurrent `castVote` calls against a real database, asserting
+  signup/login/workspace-creation, feedback-submission/participant-
+  identity, and now comment-body input server-side (never trusting
+  client-side `required`/`minLength`/`maxlength` HTML attributes
+  alone — verified directly by `e2e/feedback.spec.ts`'s "invalid
+  submission is rejected server-side even if client validation is
+  bypassed" and `e2e/comments.spec.ts`'s "invalid, empty, and
+  oversized comments are rejected server-side even if client
+  validation is bypassed"); Drizzle's parameterized queries are used
+  throughout, no string-built SQL anywhere in the codebase.
+- **Authorship integrity:** new this milestone — a comment's author
+  (external participant vs. internal team member) is never read from
+  client-supplied form data; `createExternalComment()` always attaches
+  the server-resolved participant identity (cookie or freshly
+  identified), and `createInternalComment()` always attaches
+  `requireActiveOrganization()`'s own `session.user.id`. The database
+  additionally enforces, via a `CHECK` constraint, that a comment row
+  can never have both authors or neither (`DECISIONS.md` D5-001),
+  proven directly by
+  `tests/integration/comment-author-constraint.test.ts` rather than
+  assumed from the application code alone. "Non-member cannot use
+  internal-author identity" holds by construction:
+  `requireActiveOrganization()` resolves the *caller's own*
+  organization from their verified session, so there is no code path
+  where a workspace member could even reach another organization's
+  reply form.
+- **Data integrity under concurrency:** the one-vote-per-(post,
+  participant) rule is enforced by a database unique index
+  (`vote_post_participant_uidx`), not just application logic, and
+  proven race-safe by `tests/integration/vote-race.test.ts` (two
+  concurrent `castVote` calls against a real database, asserting
   exactly one vote row results) rather than assumed from the
   `onConflictDoNothing()` call alone.
 - **Dependency review:** applied — e.g. the `neon-http` → `node-postgres`
   driver switch and the account-schema patch were each reviewed and
   recorded (`DECISIONS.md` D3-001, D3-002) rather than adopted blindly;
   the drizzle-kit dev-only advisory noted in the M2 report remains a
-  documented, accepted risk (no fixed release exists yet). M4 added no
-  new runtime dependencies.
+  documented, accepted risk (no fixed release exists yet). M5 added no
+  new runtime dependencies (`shadcn`'s Badge primitive is generated
+  source, not a new package).
 - **Not yet applicable:** auditability (no sensitive actions beyond
-  auth/workspace creation and now feedback submission/voting exist
-  yet — none of which currently need an audit trail), backups/
+  auth/workspace creation and feedback submission/voting/commenting
+  exist yet — none of which currently need an audit trail), backups/
   migration discipline beyond `drizzle-kit`'s own migration files (no
-  production database provisioned yet). XSS-specific review is now
-  partially applicable: feedback post titles/descriptions are the
-  first real user-generated content rendered in the app, and are
-  rendered as plain text through React's default escaping (never
-  `dangerouslySetInnerHTML`) — no rich text or HTML rendering exists
-  to review yet.
+  production database provisioned yet). XSS-specific review remains
+  partially applicable: feedback post titles/descriptions and now
+  comment bodies are user-generated content, rendered as plain text
+  through React's default escaping (never `dangerouslySetInnerHTML`)
+  — no rich text or HTML rendering exists to review yet.

@@ -119,8 +119,11 @@ test.describe("public feedback portal", () => {
     });
     const slug = slugify(workspaceName);
 
-    // Empty board.
+    // Empty board. Wait for the real content (not just navigation),
+    // so a scan never catches the route's loading.tsx skeleton
+    // mid-stream — same rationale as the admin-view wait below.
     await page.goto(`/b/${slug}`);
+    await page.getByRole("heading", { name: workspaceName }).waitFor();
     let results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
     let hasOverflow = await page.evaluate(
@@ -142,8 +145,13 @@ test.describe("public feedback portal", () => {
     );
     expect(hasOverflow).toBe(false);
 
-    // Admin feedback view.
+    // Admin feedback view. Wait for its actual heading (not just
+    // navigation) so a scan never catches the root loading.tsx
+    // skeleton mid-stream — the same class of flake fixed in M3
+    // (DECISIONS.md D3-... "createWorkspace" fix), now that this
+    // page's query is heavier (a comment-count join, added in M5).
     await page.goto("/feedback");
+    await page.getByRole("heading", { name: "Feedback", level: 1 }).waitFor();
     results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
     hasOverflow = await page.evaluate(

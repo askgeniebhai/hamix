@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
-import { board, participant, post, vote } from "@/lib/db/schema";
+import { board, comment, participant, post, user, vote } from "@/lib/db/schema";
 
 /**
  * Tenant-scoped data access for the feedback domain (Board, Post,
@@ -60,14 +60,16 @@ export interface FeedbackPost {
   createdAt: Date;
   voteCount: number;
   votedByViewer: boolean;
+  commentCount: number;
 }
 
-/** Posts on a public board, with vote counts and whether the given viewer (if identified) has voted on each. */
+/** Posts on a public board, with vote/comment counts and whether the given viewer (if identified) has voted on each. */
 export async function listBoardPosts(
   boardId: string,
   viewerParticipantId: string | null,
 ): Promise<FeedbackPost[]> {
   const voteCount = sql<number>`count(distinct ${vote.id})`.mapWith(Number);
+  const commentCount = sql<number>`count(distinct ${comment.id})`.mapWith(Number);
   const votedByViewer = viewerParticipantId
     ? sql<boolean>`bool_or(${vote.participantId} = ${viewerParticipantId})`
     : sql<boolean>`false`;
@@ -80,9 +82,11 @@ export async function listBoardPosts(
       createdAt: post.createdAt,
       voteCount,
       votedByViewer,
+      commentCount,
     })
     .from(post)
     .leftJoin(vote, eq(vote.postId, post.id))
+    .leftJoin(comment, eq(comment.postId, post.id))
     .where(eq(post.boardId, boardId))
     .groupBy(post.id)
     .orderBy(desc(voteCount), desc(post.createdAt));
@@ -101,6 +105,26 @@ export async function createPost(input: {
 }
 
 /**
+ * Confirms `postId` belongs to `organizationId` before any write that
+ * targets it — the one check every mutation below shares, so a
+ * cross-tenant `postId` (however it arrived) is always rejected
+ * before it can affect a vote or comment.
+ */
+async function assertPostInOrganization(
+  organizationId: string,
+  postId: string,
+): Promise<void> {
+  const [row] = await getDb()
+    .select({ id: post.id })
+    .from(post)
+    .where(and(eq(post.id, postId), eq(post.organizationId, organizationId)))
+    .limit(1);
+  if (!row) {
+    throw new Error("Post not found in this organization");
+  }
+}
+
+/**
  * Casts one vote for (postId, participantId). Race-safe: the
  * database's `vote_post_participant_uidx` unique index — not this
  * check — is what actually prevents a duplicate vote under
@@ -112,16 +136,7 @@ export async function castVote(input: {
   postId: string;
   participantId: string;
 }): Promise<void> {
-  const [row] = await getDb()
-    .select({ id: post.id })
-    .from(post)
-    .where(
-      and(eq(post.id, input.postId), eq(post.organizationId, input.organizationId)),
-    )
-    .limit(1);
-  if (!row) {
-    throw new Error("Post not found in this organization");
-  }
+  await assertPostInOrganization(input.organizationId, input.postId);
 
   await getDb()
     .insert(vote)
@@ -156,6 +171,7 @@ export interface AdminFeedbackPost {
   description: string;
   createdAt: Date;
   voteCount: number;
+  commentCount: number;
   submitterName: string;
   submitterEmail: string;
 }
@@ -165,6 +181,7 @@ export async function listOrganizationPostsForAdmin(
   organizationId: string,
 ): Promise<AdminFeedbackPost[]> {
   const voteCount = sql<number>`count(distinct ${vote.id})`.mapWith(Number);
+  const commentCount = sql<number>`count(distinct ${comment.id})`.mapWith(Number);
 
   return getDb()
     .select({
@@ -173,13 +190,169 @@ export async function listOrganizationPostsForAdmin(
       description: post.description,
       createdAt: post.createdAt,
       voteCount,
+      commentCount,
       submitterName: participant.name,
       submitterEmail: participant.email,
     })
     .from(post)
     .innerJoin(participant, eq(participant.id, post.participantId))
     .leftJoin(vote, eq(vote.postId, post.id))
+    .leftJoin(comment, eq(comment.postId, post.id))
     .where(eq(post.organizationId, organizationId))
     .groupBy(post.id, participant.name, participant.email)
     .orderBy(desc(voteCount), desc(post.createdAt));
+}
+
+export interface PostDetail {
+  id: string;
+  boardId: string;
+  title: string;
+  description: string;
+  createdAt: Date;
+  voteCount: number;
+  votedByViewer: boolean;
+  submitterName: string;
+}
+
+/** A single post for the public detail page, scoped to the board it must belong to. */
+export async function getPostForBoard(
+  boardId: string,
+  postId: string,
+  viewerParticipantId: string | null,
+): Promise<PostDetail | null> {
+  const voteCount = sql<number>`count(distinct ${vote.id})`.mapWith(Number);
+  const votedByViewer = viewerParticipantId
+    ? sql<boolean>`bool_or(${vote.participantId} = ${viewerParticipantId})`
+    : sql<boolean>`false`;
+
+  const [row] = await getDb()
+    .select({
+      id: post.id,
+      boardId: post.boardId,
+      title: post.title,
+      description: post.description,
+      createdAt: post.createdAt,
+      voteCount,
+      votedByViewer,
+      submitterName: participant.name,
+    })
+    .from(post)
+    .innerJoin(participant, eq(participant.id, post.participantId))
+    .leftJoin(vote, eq(vote.postId, post.id))
+    .where(and(eq(post.id, postId), eq(post.boardId, boardId)))
+    .groupBy(post.id, participant.name)
+    .limit(1);
+
+  return row ?? null;
+}
+
+export interface AdminPostDetail extends PostDetail {
+  submitterEmail: string;
+}
+
+/** A single post for the protected admin thread view, scoped to the caller's organization. */
+export async function getPostForOrganization(
+  organizationId: string,
+  postId: string,
+): Promise<AdminPostDetail | null> {
+  const voteCount = sql<number>`count(distinct ${vote.id})`.mapWith(Number);
+
+  const [row] = await getDb()
+    .select({
+      id: post.id,
+      boardId: post.boardId,
+      title: post.title,
+      description: post.description,
+      createdAt: post.createdAt,
+      voteCount,
+      votedByViewer: sql<boolean>`false`,
+      submitterName: participant.name,
+      submitterEmail: participant.email,
+    })
+    .from(post)
+    .innerJoin(participant, eq(participant.id, post.participantId))
+    .leftJoin(vote, eq(vote.postId, post.id))
+    .where(and(eq(post.id, postId), eq(post.organizationId, organizationId)))
+    .groupBy(post.id, participant.name, participant.email)
+    .limit(1);
+
+  return row ?? null;
+}
+
+export interface FeedbackComment {
+  id: string;
+  body: string;
+  createdAt: Date;
+  authorName: string;
+  authorKind: "customer" | "team";
+}
+
+/** Comments on a post, oldest first, tenant-scoped. Author display name/kind is resolved from whichever of participant/author-user is set — the same XOR the database enforces (`DECISIONS.md` D5-001). */
+export async function listCommentsForPost(
+  organizationId: string,
+  postId: string,
+): Promise<FeedbackComment[]> {
+  const rows = await getDb()
+    .select({
+      id: comment.id,
+      body: comment.body,
+      createdAt: comment.createdAt,
+      participantName: participant.name,
+      authorUserName: user.name,
+    })
+    .from(comment)
+    .leftJoin(participant, eq(participant.id, comment.participantId))
+    .leftJoin(user, eq(user.id, comment.authorUserId))
+    .where(and(eq(comment.postId, postId), eq(comment.organizationId, organizationId)))
+    .orderBy(asc(comment.createdAt));
+
+  return rows.map((row) => ({
+    id: row.id,
+    body: row.body,
+    createdAt: row.createdAt,
+    authorName: row.participantName ?? row.authorUserName ?? "Unknown",
+    authorKind: row.participantName ? "customer" : "team",
+  }));
+}
+
+/** A public reply from an external feedback participant. `participantId` must already be resolved server-side (cookie or freshly identified) — never a client-supplied id. */
+export async function createExternalComment(input: {
+  organizationId: string;
+  postId: string;
+  participantId: string;
+  body: string;
+}): Promise<{ id: string }> {
+  await assertPostInOrganization(input.organizationId, input.postId);
+
+  const [row] = await getDb()
+    .insert(comment)
+    .values({
+      organizationId: input.organizationId,
+      postId: input.postId,
+      participantId: input.participantId,
+      body: input.body,
+    })
+    .returning({ id: comment.id });
+  return row;
+}
+
+/** A public reply from an authenticated workspace member. `authorUserId` must come from the caller's own verified session — never a client-supplied id. */
+export async function createInternalComment(input: {
+  organizationId: string;
+  postId: string;
+  authorUserId: string;
+  body: string;
+}): Promise<{ id: string }> {
+  await assertPostInOrganization(input.organizationId, input.postId);
+
+  const [row] = await getDb()
+    .insert(comment)
+    .values({
+      organizationId: input.organizationId,
+      postId: input.postId,
+      authorUserId: input.authorUserId,
+      body: input.body,
+    })
+    .returning({ id: comment.id });
+  return row;
 }
