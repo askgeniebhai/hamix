@@ -11,7 +11,9 @@
 - **Branch:** `claude/feedback-m8-changelog-close-loop`
 - **Starting SHA:** `7dcb309df649a1c564c8bb5c99afd2e4e6022cda` (tip of
   `main` after PR #30 / M7 merged)
-- **Ending SHA:** see the PR's final head commit
+- **Ending SHA:** `a2414c1ec857eeb63b47e2aadb8722f96850cab4` (this
+  commit — application code, governance docs, and this report land
+  together)
 - **Files changed:** new changelog schema and migration
   (`lib/db/feedback-schema.ts`, `drizzle/0005_keen_the_twelve.sql`),
   a new changelog data-access module (`lib/changelog/data.ts`), a new
@@ -268,4 +270,7 @@ another tenant could reach.
 
 ## Final `git status`
 
-Recorded at commit time in this milestone's PR.
+```
+On branch claude/feedback-m8-changelog-close-loop
+nothing to commit, working tree clean
+```
