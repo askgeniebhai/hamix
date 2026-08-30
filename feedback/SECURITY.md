@@ -81,7 +81,7 @@ report.
   a database exists — no undocumented manual schema changes against
   production.
 
-## Current status (as of M8)
+## Current status (as of M9)
 
 - **Secrets:** enforced since M0 — RepoGuard's Secret Guard and
   Dangerous File Guard run on every change. `lib/env.ts` fails closed
@@ -299,6 +299,53 @@ report.
   the changelog content while every notification is recorded `failed`
   with a truthful reason, never silently dropped or falsely reported
   `sent`.
+- **Billing authorization and entitlement integrity (M9):** starting
+  Checkout and opening the provider's subscription-management page
+  both require `requireActiveOrganization()` plus an explicit
+  `role === "owner" || role === "admin"` check
+  (`assertCanManageBilling` in `app/(workspace)/settings/billing/actions.ts`)
+  — a regular workspace member sees no upgrade control and the server
+  action itself rejects the attempt independently of what the client
+  renders, the same defense-in-depth every other write in this
+  codebase applies. Tenant isolation for billing state holds by
+  construction: every webhook resolves the organization to act on
+  from the `organization_id` attribute carried on *that specific*
+  Shopify order/contract (`DECISIONS.md` D9-001), never a client-
+  supplied id, and `organization_billing`'s primary key is the
+  organization id itself, so one organization's webhook can only ever
+  write its own row — proven directly by an integration test. Entitlement
+  is never granted from the client returning to a "success" URL after
+  Checkout — only a verified, signature-checked webhook
+  (`processShopifyWebhook`) ever writes `plan`/`status`, and
+  `resolveEffectivePlan` (`lib/billing/plans.ts`) gates `plan` by
+  `status` on every read, so a `pro` row whose subscription has since
+  lapsed is never treated as entitled.
+- **Webhook signature verification and idempotency (M9):** every
+  incoming Shopify billing webhook is HMAC-SHA256-verified against
+  the raw request body before anything else runs — an incorrectly- or
+  un-signed request is rejected outright (`401`), proven directly by
+  a test that submits a real, well-formed order payload with a
+  fabricated signature. Deduplication is a real unique database
+  constraint (`billing_webhook_event`'s `(provider, provider_event_id)`
+  index, `ON CONFLICT DO NOTHING`), not application-level "have I
+  seen this id" logic — proven directly by a test that submits the
+  identical signed delivery twice and asserts exactly one ledger row
+  and no duplicate entitlement write, the same D8-004 pattern this
+  project already uses for changelog notification delivery.
+- **Billing is zero-env-safe (M9):** `SHOPIFY_STORE_DOMAIN`/
+  `SHOPIFY_STOREFRONT_ACCESS_TOKEN`/`SHOPIFY_WEBHOOK_SECRET`/
+  `SHOPIFY_PRO_VARIANT_ID`/`SHOPIFY_PRO_SELLING_PLAN_ID` are all
+  optional — a zero-env build/dev/CI run never crashes (proven by a
+  successful zero-environment-variable `next build` with the billing
+  page and webhook route both present), a webhook received with
+  billing unconfigured is safely refused rather than trusted, and a
+  Checkout attempt with billing unconfigured shows an honest "not
+  configured" message rather than crashing or fabricating a working
+  checkout link. No secret (`SHOPIFY_WEBHOOK_SECRET`,
+  `SHOPIFY_STOREFRONT_ACCESS_TOKEN`) is ever sent to the client — both
+  are read only in server-only modules (`lib/billing/shopify/*`, all
+  marked `import "server-only"`) and used solely in server-side
+  requests/verification.
 - **Not yet applicable:** auditability (no sensitive actions beyond
   auth/workspace creation, feedback submission/voting/commenting/
   status changes, and now changelog publishing exist yet — the

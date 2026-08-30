@@ -7,6 +7,120 @@ for the current state.
 
 ---
 
+## D9-001 — Billing provider: the Product Owner's existing Shopify store, not Stripe — researched live, not assumed, before writing any code
+
+**Date:** 2026-08-30
+**Decision:** M9's "Feedback Pro" subscription is sold through the
+Product Owner's existing Shopify store/Shopify Payments setup rather
+than a new Stripe integration, per an explicit correction mid-build
+("reuse existing payment infrastructure rather than unnecessarily
+opening another payment stack"). Before writing any provider-specific
+code, researched current official Shopify documentation
+(shopify.dev, help.shopify.com) to answer the load-bearing question
+directly rather than assume it: **does Shopify's checkout/subscription
+system restrict Feedback to Shopify merchants?** It does not — any
+customer, merchant or not, can be a retail customer of the Product
+Owner's store and buy a subscription product from it. That ruled out
+the one outcome that would have blocked this path outright.
+**Distinguished, from research, not assumption:**
+- **Shopify Payments (the raw processor)** cannot be called directly
+  by an external system — no API accepts a card number from outside
+  Shopify's own checkout (PCI-scope reasons, confirmed via Shopify's
+  own help docs). Everything goes through a Shopify-hosted checkout
+  page.
+- **Shopify App Billing / App Pricing** requires the payer to be a
+  Shopify merchant with the app installed on *their own* store — the
+  wrong fit, and explicitly rejected: it would have made Feedback
+  Shopify-merchant-only, contradicting "SaaS companies, websites,
+  apps, businesses generally."
+- **Shopify's store checkout + Selling Plans (Subscriptions API)** —
+  the path actually used: the Product Owner's store lists a
+  "Feedback Pro" subscription product; any customer buys it through
+  that store's own hosted checkout, using Shopify Payments as the
+  processor, exactly like a subscription-box product would be sold to
+  the public.
+**How checkout is created:** a plain cart *permalink*
+(`/cart/{variant}:{qty}?selling_plan=...`) cannot carry a selling
+plan — confirmed directly from Shopify's own cart-permalink docs,
+which state this limitation outright, correcting an initial simpler
+design that assumed permalinks would work. `createProCheckoutUrl()`
+(`lib/billing/shopify/checkout.ts`) instead uses the official
+`@shopify/storefront-api-client`'s `cartCreate` mutation (inspected
+directly — its `request()` method and response shape, before writing
+any calling code, the same "read the SDK first" standard `DECISIONS.md`
+D8-002 set for Resend), attaching `sellingPlanId` on the line and an
+`organization_id` cart attribute, then redirects the admin's browser
+to the returned `checkoutUrl` on the store's own domain.
+**How the organization is identified on every order, including
+renewals:** confirmed directly from Shopify's own developer changelog
+before relying on it — a subscription contract's custom attributes
+are copied onto every order it generates, including recurring
+renewals, not just the first. So the one `organization_id` attribute
+set at checkout time is recoverable from *any* later order or
+subscription-contract webhook about that subscription, with no
+separately-stored provider-side id to keep in sync — self-sufficient
+tenant mapping, by construction.
+**Entitlement reconciliation:** `lib/billing/shopify/webhook.ts`
+verifies `X-Shopify-Hmac-Sha256` (base64 HMAC-SHA256 of the raw body,
+Shopify's own documented recipe, reproduced exactly — confirmed
+before writing the verifier) and deduplicates on
+`X-Shopify-Webhook-Id` via `billing_webhook_event`'s unique
+`(provider, provider_event_id)` index — the same `ON CONFLICT DO
+NOTHING`-as-serialization pattern D8-004 established for changelog
+delivery, reused here. `orders/paid` is the load-bearing signal (grants/
+renews Pro, refreshes a 30-day period estimate — Shopify's order
+webhook doesn't hand back an explicit "next billing date" the way a
+Stripe subscription object would, so this is a documented
+approximation, not a precise value); `orders/cancelled` and
+`subscription_contracts/update` (status `CANCELLED`/`EXPIRED`/`FAILED`
+→ our `canceled`) are the cancellation signals.
+**Honest, load-bearing limitation:** `subscription_contracts/update`'s
+exact webhook payload shape could not be confirmed with the same
+certainty as the very standard `orders/*` REST payload during this
+build (thinner public documentation for this specific topic, plus a
+community-reported edge case around contracts created from storefront
+checkout). `parseSubscriptionContractWebhook` is written defensively
+(returns `null`/skips rather than throwing on an unrecognized shape)
+and `orders/paid`/`orders/cancelled` — not this topic — are the
+primary signals, so a gap here degrades to "cancellation detected one
+cycle later via the next `orders/cancelled` or missing `orders/paid`"
+rather than silently granting or revoking incorrectly. Verifying this
+webhook's real payload against the Product Owner's actual store is a
+genuine pre-launch blocker (`docs/launch-readiness-checklist.md`), not
+something simulated or assumed working here.
+**Also genuinely blocked on external configuration**, same class as a
+Stripe integration would have been: `SHOPIFY_STORE_DOMAIN`,
+`SHOPIFY_STOREFRONT_ACCESS_TOKEN` (a custom app's Storefront API
+token), `SHOPIFY_WEBHOOK_SECRET`, `SHOPIFY_PRO_VARIANT_ID`,
+`SHOPIFY_PRO_SELLING_PLAN_ID` all require the Product Owner to create
+a "Feedback Pro" subscription product + selling plan and a custom app
+in their store admin — none of this can be created or tested from
+this session (no store access), so all five are optional/zero-env-safe
+(mirrors `DECISIONS.md` D8-005's email pattern exactly) and every
+billing action fails loudly and truthfully, never fabricating success,
+when they're absent.
+**Provider-neutral by construction, not by convention:**
+`lib/db/billing-schema.ts`'s `organization_billing` table stores
+`provider`/`provider_customer_id`/`provider_subscription_id` as plain
+opaque strings, never a Shopify-shaped column name; `lib/billing/
+plans.ts` and `lib/billing/usage.ts` (tracked-participant counting,
+entitlement resolution, the per-write limit check) read only `plan`
+and `status` and have no import from anything Shopify-specific. Only
+`lib/billing/shopify/*` and `app/api/webhooks/shopify/route.ts` know a
+provider named Shopify exists — swapping or adding a second provider
+later touches that directory and nothing in entitlement logic (the
+Product Owner's explicit "payment provider ≠ entitlement logic" rule).
+**Rejected:** Stripe — researched and largely built (schema, plans,
+checkout/portal design, webhook idempotency, all using the official
+SDK inspected directly) before the Product Owner's correction arrived
+asking to reuse existing Shopify infrastructure instead; the
+Stripe-specific code was removed rather than kept alongside unused,
+and the `stripe` npm dependency was uninstalled. The provider-neutral
+entitlement layer built during that work (schema shape, `plans.ts`,
+`usage.ts`, the per-write limit enforcement) needed no changes to
+retarget at Shopify — direct evidence the abstraction boundary was
+drawn in the right place.
+
 ## D8-007 — PR #31 review response: entry-row locking closes three TOCTOU races; a resume path for interrupted publish deliveries; the unsubscribe link is now confirm-then-POST
 
 **Date:** 2026-08-30

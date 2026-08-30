@@ -13,6 +13,7 @@ import {
   user,
   vote,
 } from "@/lib/db/schema";
+import { assertWithinParticipantLimit } from "@/lib/billing/usage";
 import { ROADMAP_STATUSES, type PostStatus, type RoadmapStatus } from "@/lib/feedback/status";
 
 /**
@@ -216,6 +217,7 @@ export async function createPost(input: {
 }): Promise<{ id: string }> {
   await assertBoardInOrganization(input.organizationId, input.boardId);
   await assertParticipantInOrganization(input.organizationId, input.participantId);
+  await assertWithinParticipantLimit(input.organizationId, input.participantId);
 
   const [row] = await getDb().insert(post).values(input).returning({ id: post.id });
   return row;
@@ -313,6 +315,7 @@ export async function castVote(input: {
 }): Promise<void> {
   await assertPostInOrganization(input.organizationId, input.postId);
   await assertParticipantInOrganization(input.organizationId, input.participantId);
+  await assertWithinParticipantLimit(input.organizationId, input.participantId);
 
   await getDb()
     .insert(vote)
@@ -567,6 +570,7 @@ export async function createExternalComment(input: {
 }): Promise<{ id: string }> {
   await assertPostInOrganization(input.organizationId, input.postId);
   await assertParticipantInOrganization(input.organizationId, input.participantId);
+  await assertWithinParticipantLimit(input.organizationId, input.participantId);
 
   const [row] = await getDb()
     .insert(comment)

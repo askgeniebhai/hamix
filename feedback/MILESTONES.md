@@ -473,14 +473,77 @@ CRM, AI-written release notes, automatic PR/GitHub release ingestion,
 custom domains, Slack, webhooks, an analytics suite, billing,
 enterprise features.
 
+## M9 — Commercial Launch: Billing, Tracked Participants, UI/UX Polish
+
+**Status:** In progress (this document is updated as each part completes;
+see `validation/reports/M9-validation-report.md` for the authoritative
+running record).
+
+**Scope:** The last planned build milestone before real customer
+testing — not new product surface area, but making the existing
+product beautiful, trustworthy, billable, and sellable. Authorized
+parts: A–P per the Product Owner's M9 instruction (UI/UX benchmark
+against Canny and polish pass, a canonical tracked-participant metric,
+Free/Pro plans with billing reused from the Product Owner's existing
+Shopify store rather than a new payment stack, a commercial home/
+pricing page, lightweight onboarding improvement, launch-readiness
+checklist, legal/trust placeholder pages, a commercial end-to-end
+test, and an explicit UI/UX acceptance-bar report). Revenue discipline
+throughout: every change answers "does this help acquire, convert,
+activate, retain, or bill the first 20–25 customers?" — anything that
+doesn't is deferred, not built "because it'd be nice."
+
+- **Tracked-participant metric (Part E):** one canonical calculation
+  (`lib/billing/usage.ts`'s `countTrackedParticipants`) — an external
+  participant who submitted feedback, voted, or posted a customer
+  comment; never a workspace member's reply, never a participant who
+  only followed a request or was merely identified, and never counted
+  twice regardless of how many qualifying actions they took. Enforced
+  at the one place a *new* tracked participant could be created
+  (`assertWithinParticipantLimit`, called from `createPost`/`castVote`/
+  `createExternalComment` in `lib/feedback/data.ts`) — an
+  already-tracked participant's continued activity is never blocked,
+  matching Part G's "never destroy existing customer data" rule.
+  Proven directly: a real integration test seeds an org to its exact
+  Free limit (25), shows a new participant's first action is rejected,
+  and shows every already-tracked participant keeps working normally.
+- **Billing provider — the Product Owner's existing Shopify store, not
+  Stripe (Parts F/G/H/I):** researched live against current official
+  Shopify documentation before writing any provider-specific code,
+  confirming the store's checkout can sell "Feedback Pro" to any
+  customer (not just Shopify merchants) via Selling Plans/Subscriptions,
+  and confirming (the hard way — an initial simpler cart-permalink
+  design didn't work, per Shopify's own documented limitation) that
+  Checkout creation needs the Storefront API's `cartCreate` mutation.
+  Full research findings, what was and wasn't reused, and the honest
+  limitations are in `DECISIONS.md` D9-001. Two plans: Free (25 tracked
+  participants, the full existing core loop) and Pro (100, ≈$99/month
+  working target, centrally configurable in `lib/billing/plans.ts`).
+  Checkout, webhook signature verification (HMAC-SHA256, Shopify's own
+  documented recipe), idempotent processing (`billing_webhook_event`'s
+  unique `(provider, provider_event_id)` index, the same D8-004
+  pattern changelog delivery already uses), and entitlement
+  reconciliation are all built and proven with real integration tests
+  against a real database (signature rejection, redelivery idempotency,
+  grant-on-`orders/paid`, revoke-on-`orders/cancelled` and
+  `subscription_contracts/update`, tenant isolation). Billing access is
+  restricted to workspace owner/admin roles. Entitlement logic
+  (`lib/billing/plans.ts`/`usage.ts`) is provider-neutral by
+  construction — it has no import from anything Shopify-specific, per
+  the Product Owner's explicit "payment provider ≠ entitlement logic"
+  rule. Zero-env-safe: all five `SHOPIFY_*` variables are optional, a
+  zero-environment-variable production build succeeds with the billing
+  page and webhook route both present, and every billing action fails
+  loudly and truthfully rather than fabricating success when
+  unconfigured.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M9+** — to be defined as the product proves itself (Product Owner
-  has noted M9 — Billing + usage/tracked-user limits + production
-  launch readiness — as direction only, not an authorization)
+- **M10+** — to be defined once M9 is complete and real customer
+  acquisition/market testing is underway; no scope decided yet.
 
 Do not begin design or implementation work on any future milestone until
 it is explicitly authorized.
