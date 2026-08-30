@@ -40,6 +40,11 @@ const envSchema = z.object({
   // included) roughly every January/April/July/October; overridable
   // without a code change so this doesn't go stale between releases.
   SHOPIFY_API_VERSION: z.string().default("2026-07"),
+  // Optional, deliberately: `/contact` shows a real mailto link only
+  // once this is set. No email address is fabricated — an unset value
+  // renders an honest "not yet configured" message instead
+  // (`docs/launch-readiness-checklist.md`).
+  CONTACT_EMAIL: z.string().email().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -37,7 +37,7 @@ export async function createWorkspace(page: Page, name: string) {
   // loading state (e.g. root loading.tsx's skeleton, which has no
   // landmarks/h1 of its own and would make an immediately-following
   // accessibility scan flaky).
-  await page.getByRole("heading", { name: `${name} is ready` }).waitFor();
+  await page.getByRole("heading", { name, level: 1 }).waitFor();
 }
 
 export async function logOut(page: Page) {
@@ -49,6 +49,18 @@ export async function submitFeedback(
   page: Page,
   input: { title: string; description: string; name: string; email: string },
 ) {
+  // The submission form is collapsed behind a "Share feedback" toggle
+  // by default (the request list is shown first) — open it if it
+  // isn't already. `isVisible()` doesn't wait, so it can't tell
+  // "not rendered yet" from "already open, no toggle to click" right
+  // after a fresh navigation; a short, tolerant `click()` (which does
+  // auto-wait) does, without blocking indefinitely when the toggle
+  // genuinely isn't there.
+  try {
+    await page.getByRole("button", { name: "Share feedback" }).click({ timeout: 3000 });
+  } catch {
+    // Already open — proceed straight to filling the form.
+  }
   await page.locator("#title").fill(input.title);
   await page.locator("#description").fill(input.description);
   await page.locator("#name").fill(input.name);

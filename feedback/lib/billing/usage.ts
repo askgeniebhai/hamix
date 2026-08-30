@@ -126,6 +126,25 @@ export class TrackedParticipantLimitReachedError extends Error {
 }
 
 /**
+ * The message shown to an external, public-board visitor when their
+ * submission/vote/comment is blocked by
+ * `TrackedParticipantLimitReachedError` — deliberately not the same
+ * text as the error's own `message`, which is written for the
+ * workspace admin ("upgrading to Pro raises the limit") and has no
+ * business being shown to a random customer who has no visibility
+ * into the workspace's billing at all. Still a clear, honest,
+ * non-hostile explanation, per M9 Part G — never a bare generic
+ * "something went wrong" for this specific, knowable cause.
+ */
+export const PARTICIPANT_LIMIT_PUBLIC_MESSAGE =
+  "This board isn't able to accept new participants right now. Please try again soon, or reach out to the team directly.";
+
+/** `true` only for `TrackedParticipantLimitReachedError` — every public server action that calls a write guarded by `assertWithinParticipantLimit` checks this before falling back to a generic error message. */
+export function isParticipantLimitError(error: unknown): boolean {
+  return error instanceof TrackedParticipantLimitReachedError;
+}
+
+/**
  * The single enforcement point for M9 Part G's limit rule, called
  * before any write that could make a participant newly tracked
  * (`createPost`, `castVote`, `createExternalComment` in

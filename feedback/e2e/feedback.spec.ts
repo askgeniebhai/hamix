@@ -138,6 +138,11 @@ test.describe("public feedback portal", () => {
       name: "A11y Tester",
       email: `a11y-${unique()}@example.com`,
     });
+    // The submission re-renders via a Server Action's `revalidatePath`
+    // rather than a full navigation — `document.title` can lag a tick
+    // behind the visible post text, the same class of race
+    // `openPostDetail` already guards against with an explicit wait.
+    await page.waitForFunction(() => document.title.length > 0);
     results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
     hasOverflow = await page.evaluate(
@@ -170,6 +175,7 @@ test.describe("feedback security / tenant isolation", () => {
     });
     const slug = slugify(workspaceName);
     await page.goto(`/b/${slug}`);
+    await page.getByRole("button", { name: "Share feedback" }).click();
 
     // Bypass native HTML validation to prove the server itself
     // rejects a too-short title — not just the browser.

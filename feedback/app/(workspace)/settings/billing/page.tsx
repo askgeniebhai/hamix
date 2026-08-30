@@ -72,7 +72,8 @@ export default async function BillingPage() {
             <p className="text-xs text-muted-foreground">
               A tracked participant is an external customer who submitted feedback, voted, or
               commented — not a workspace member, and not someone who only followed a request for
-              updates. Existing participants always keep working, even at the limit.
+              updates. At the limit, everyone already tracked keeps working normally — only a
+              brand-new participant is paused until you upgrade.
             </p>
           </div>
 

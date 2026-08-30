@@ -64,6 +64,31 @@ export async function getBoardForOrganization(
   return row ?? null;
 }
 
+export interface FeedbackSummary {
+  totalCount: number;
+  /** `open` + `under_review` — the two statuses that genuinely need a first look; `planned`/`in_progress`/`complete` are already triaged. */
+  needsAttentionCount: number;
+}
+
+/** A cheap, dashboard-sized summary — never a full row fetch just to show two numbers. */
+export async function getFeedbackSummary(organizationId: string): Promise<FeedbackSummary> {
+  const rows = await getDb()
+    .select({ status: post.status, count: sql<number>`count(*)`.mapWith(Number) })
+    .from(post)
+    .where(eq(post.organizationId, organizationId))
+    .groupBy(post.status);
+
+  let totalCount = 0;
+  let needsAttentionCount = 0;
+  for (const row of rows) {
+    totalCount += row.count;
+    if (row.status === "open" || row.status === "under_review") {
+      needsAttentionCount += row.count;
+    }
+  }
+  return { totalCount, needsAttentionCount };
+}
+
 export interface FeedbackPost {
   id: string;
   title: string;

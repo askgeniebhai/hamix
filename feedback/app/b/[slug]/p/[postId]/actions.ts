@@ -9,6 +9,7 @@ import {
   unsubscribeFromPost,
 } from "@/lib/feedback/data";
 import { getParticipant, identifyParticipant } from "@/lib/feedback/participant";
+import { isParticipantLimitError, PARTICIPANT_LIMIT_PUBLIC_MESSAGE } from "@/lib/billing/usage";
 import {
   addCommentSchema,
   participantIdentitySchema,
@@ -65,8 +66,8 @@ export async function addExternalCommentAction(
       participantId: me.id,
       body: parsedBody.data.body,
     });
-  } catch {
-    return { error: genericError };
+  } catch (error) {
+    return { error: isParticipantLimitError(error) ? PARTICIPANT_LIMIT_PUBLIC_MESSAGE : genericError };
   }
 
   revalidatePath(`/b/${boardSlug}/p/${postId}`);

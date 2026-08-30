@@ -6,7 +6,7 @@ import { MessageCircle, MessageSquareText } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PublicBoardNav } from "@/components/feedback/public-board-nav";
 import { StatusBadge } from "@/components/feedback/status-badge";
-import { SubmitFeedbackForm } from "@/components/feedback/submit-feedback-form";
+import { SubmitFeedbackToggle } from "@/components/feedback/submit-feedback-toggle";
 import { VoteControl } from "@/components/feedback/vote-control";
 import { getBoardBySlug, listBoardPosts } from "@/lib/feedback/data";
 import { getParticipant } from "@/lib/feedback/participant";
@@ -57,15 +57,16 @@ export default async function BoardPage({ params }: BoardPageProps) {
         id="main-content"
         className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10"
       >
-        <SubmitFeedbackForm boardSlug={board.slug} />
-
         <section aria-labelledby="feedback-list-heading" className="flex flex-col gap-3">
-          <h2
-            id="feedback-list-heading"
-            className="text-sm font-medium text-muted-foreground"
-          >
-            {posts.length} {posts.length === 1 ? "request" : "requests"}
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2
+              id="feedback-list-heading"
+              className="text-sm font-medium text-muted-foreground"
+            >
+              {posts.length} {posts.length === 1 ? "request" : "requests"}
+            </h2>
+            <SubmitFeedbackToggle boardSlug={board.slug} />
+          </div>
 
           {posts.length === 0 ? (
             <EmptyState

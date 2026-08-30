@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { castVote, createPost, getBoardBySlug, removeVote } from "@/lib/feedback/data";
 import { getParticipant, identifyParticipant } from "@/lib/feedback/participant";
+import { isParticipantLimitError, PARTICIPANT_LIMIT_PUBLIC_MESSAGE } from "@/lib/billing/usage";
 import {
   participantIdentitySchema,
   submitFeedbackSchema,
@@ -39,13 +40,17 @@ export async function submitFeedbackAction(
     name: parsed.data.name,
     email: parsed.data.email,
   });
-  await createPost({
-    organizationId: board.organizationId,
-    boardId: board.id,
-    participantId: me.id,
-    title: parsed.data.title,
-    description: parsed.data.description,
-  });
+  try {
+    await createPost({
+      organizationId: board.organizationId,
+      boardId: board.id,
+      participantId: me.id,
+      title: parsed.data.title,
+      description: parsed.data.description,
+    });
+  } catch (error) {
+    return { error: isParticipantLimitError(error) ? PARTICIPANT_LIMIT_PUBLIC_MESSAGE : genericError };
+  }
 
   revalidatePath(`/b/${boardSlug}`);
   return {};
@@ -90,8 +95,8 @@ export async function voteAction(
       postId,
       participantId: me.id,
     });
-  } catch {
-    return { error: genericError };
+  } catch (error) {
+    return { error: isParticipantLimitError(error) ? PARTICIPANT_LIMIT_PUBLIC_MESSAGE : genericError };
   }
 
   revalidatePath(`/b/${boardSlug}`);

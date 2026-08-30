@@ -1,35 +1,44 @@
 import Link from "next/link";
-import { Inbox, ListChecks, Target } from "lucide-react";
+import { Check, Inbox, Milestone, ScrollText } from "lucide-react";
 
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { PRO_PLAN_DISPLAY_PRICE_USD, PLAN_TRACKED_PARTICIPANT_LIMIT } from "@/lib/billing/plans";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
-const pillars = [
+const loop = [
   {
     icon: Inbox,
-    title: "Capture",
+    title: "Feedback",
     description:
-      "Give customers one calm place to tell you what they need — no noise, no clutter.",
+      "Customers tell you what they need on one calm public board — no login required to browse or submit.",
   },
   {
-    icon: ListChecks,
-    title: "Organize",
+    icon: Milestone,
+    title: "Roadmap",
     description:
-      "Similar requests come together automatically, so patterns are visible instead of buried.",
+      "What's planned, in progress, and shipped is visible to every customer, drawn straight from real requests.",
   },
   {
-    icon: Target,
-    title: "Prioritize",
+    icon: ScrollText,
+    title: "Changelog",
     description:
-      "Direction backed by real customer evidence, not guesswork or personal opinion.",
+      "Publish what shipped, linked back to the request that asked for it, and the customers who followed it are notified.",
   },
+];
+
+const freeFeatures = [
+  "Feedback, voting, and comments",
+  "Public roadmap and changelog",
+  "Up to 25 tracked participants",
+];
+
+const proFeatures = [
+  "Everything in Free",
+  `Up to ${PLAN_TRACKED_PARTICIPANT_LIMIT.pro} tracked participants`,
+  "Priced to fit a small, growing team",
 ];
 
 export default function Home() {
@@ -39,36 +48,93 @@ export default function Home() {
       <main id="main-content" className="flex flex-1 flex-col">
         <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-24 sm:py-32">
           <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-            Understand what your customers actually need.
+            Collect feedback. Show your roadmap. Close the loop.
           </h1>
           <p className="max-w-xl text-lg text-pretty text-muted-foreground">
-            A calm, focused home for customer feedback — built to turn real
-            signals into clear, evidence-backed direction.
+            One calm place for customers to tell you what they need, see what&rsquo;s
+            planned, and hear when it ships — so nothing gets lost and nobody has
+            to ask twice.
           </p>
-          <div>
-            <Link
-              href="/dashboard"
-              className={buttonVariants({ size: "lg" })}
-            >
-              Open workspace
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/signup" className={buttonVariants({ size: "lg" })}>
+              Start Free
+            </Link>
+            <Link href="/login" className={buttonVariants({ variant: "outline", size: "lg" })}>
+              Login
             </Link>
           </div>
         </section>
 
         <section className="border-t border-border">
           <div className="mx-auto grid w-full max-w-5xl gap-4 px-6 py-16 sm:grid-cols-3">
-            {pillars.map(({ icon: Icon, title, description }) => (
+            {loop.map(({ icon: Icon, title, description }) => (
               <Card key={title}>
                 <CardHeader>
-                  <Icon
-                    className="mb-1 size-5 text-primary"
-                    aria-hidden="true"
-                  />
+                  <Icon className="mb-1 size-5 text-primary" aria-hidden="true" />
                   <CardTitle as="h2">{title}</CardTitle>
                   <CardDescription>{description}</CardDescription>
                 </CardHeader>
               </Card>
             ))}
+          </div>
+        </section>
+
+        <section id="pricing" className="border-t border-border">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-16">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+                Simple pricing
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Start free. Upgrade when you outgrow it.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle as="h3" className="text-base">Free</CardTitle>
+                  <CardDescription>For getting started.</CardDescription>
+                  <p className="pt-1 text-2xl font-semibold text-foreground">$0</p>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <ul className="flex flex-col gap-2 text-sm text-foreground">
+                    {freeFeatures.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2">
+                        <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/signup" className={cn(buttonVariants({ variant: "outline" }), "w-fit")}>
+                    Start Free
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="border-primary/40">
+                <CardHeader>
+                  <CardTitle as="h3" className="text-base">Pro</CardTitle>
+                  <CardDescription>For a growing customer base.</CardDescription>
+                  <p className="pt-1 text-2xl font-semibold text-foreground">
+                    ${PRO_PLAN_DISPLAY_PRICE_USD}
+                    <span className="text-sm font-normal text-muted-foreground">/month</span>
+                  </p>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <ul className="flex flex-col gap-2 text-sm text-foreground">
+                    {proFeatures.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2">
+                        <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/signup" className={cn(buttonVariants(), "w-fit")}>
+                    Start Free
+                  </Link>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </section>
       </main>

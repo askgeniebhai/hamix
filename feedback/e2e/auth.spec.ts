@@ -24,7 +24,7 @@ test.describe("full lifecycle", () => {
     await createWorkspace(page, workspaceName);
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(
-      page.getByRole("heading", { name: `${workspaceName} is ready` }),
+      page.getByRole("heading", { name: workspaceName, level: 1 }),
     ).toBeVisible();
 
     await logOut(page);
@@ -39,7 +39,7 @@ test.describe("full lifecycle", () => {
 
     // Workspace persists across the logout/login cycle.
     await expect(
-      page.getByRole("heading", { name: `${workspaceName} is ready` }),
+      page.getByRole("heading", { name: workspaceName, level: 1 }),
     ).toBeVisible();
   });
 });
@@ -85,7 +85,7 @@ test.describe("security", () => {
 
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(
-      page.getByRole("heading", { name: `${workspaceName} is ready` }),
+      page.getByRole("heading", { name: workspaceName, level: 1 }),
     ).toBeVisible();
   });
 
@@ -163,9 +163,9 @@ test.describe("tenant isolation", () => {
 
     // B's dashboard must never render A's workspace name.
     await pageB.goto("/dashboard");
-    await expect(pageB.getByText(`${orgAName} is ready`)).toHaveCount(0);
+    await expect(pageB.getByRole("heading", { name: orgAName, level: 1 })).toHaveCount(0);
     await expect(
-      pageB.getByRole("heading", { name: `${orgBName} is ready` }),
+      pageB.getByRole("heading", { name: orgBName, level: 1 }),
     ).toBeVisible();
 
     await contextA.close();
