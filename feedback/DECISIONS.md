@@ -7,6 +7,57 @@ for the current state.
 
 ---
 
+## D5-003 — Hardening pass: every domain write re-verifies every id it's handed, not just `postId`
+
+**Date:** 2026-08-30
+**Decision:** Following a Product Owner review of the M5 data layer,
+`lib/feedback/data.ts` gained three more tenant-scope assertions
+alongside the existing `assertPostInOrganization()`:
+`assertBoardInOrganization()`, `assertParticipantInOrganization()`,
+and `assertAuthorIsMember()` (checks the `member` table directly).
+Every write that takes a `participantId`, `boardId`, or
+`authorUserId` now re-verifies that id belongs to the claimed
+`organizationId` before writing — `createPost()` checks both
+`boardId` and `participantId`; `castVote()` and
+`createExternalComment()` check `participantId` in addition to the
+`postId` check they already had; `createInternalComment()` checks
+`authorUserId` is currently a member of the organization, not just
+that the post is. `removeVote()` needed no new check — its `DELETE`
+already scopes by `organizationId` directly on the `vote` row, so a
+cross-tenant combination matches zero rows structurally.
+**Why:** The original M4/M5 checks only verified the `postId` half of
+each write. That was sufficient against the negative tests written at
+the time (a `postId` from another organization), but left a narrower
+gap unverified: a `participantId` or `authorUserId` that belongs to a
+*different* organization than the one the request otherwise claims —
+e.g. `organizationId: A, postId: <A's post>, participantId: <B's
+participant>`. Nothing in the M4/M5 code paths could actually produce
+that combination (participant ids come from a cookie scoped per
+organization; `authorUserId` comes from the caller's own verified
+session), so this was defense-in-depth against a *future* bug or
+caller, not a fix for a reachable exploit in the shipped product — but
+the data layer, not any particular server action, is what this project
+treats as the real tenant boundary (`docs/M1_ARCHITECTURE_DECISION.md`,
+D3-005, D4-002's own reasoning), so it should not depend on every
+future caller getting it right.
+**Verified:** `tests/integration/tenant-hardening.test.ts` — four new
+tests, one per write, each proving the exact wrong-organization
+combination named above is rejected, plus a same-organization control
+case proving the legitimate path still succeeds. The full existing
+suite (Tier 1/2/3, including the two integration-test files predating
+this change) remains green with no behavior change for any real
+caller, since every existing code path already only ever passed
+same-organization ids.
+**Rejected:** Trusting the existing single `assertPostInOrganization()`
+check as sufficient — it verifies the object being acted on, not the
+actor doing the acting, which is a different (and for `castVote`/
+`createExternalComment`/`createInternalComment`, the more
+security-relevant) half of the tenant boundary; a single combined
+"assert everything" function taking all possible ids — four small,
+single-purpose functions read more clearly at each call site about
+exactly what's being verified, and only the ids relevant to that
+specific write are checked.
+
 ## D5-001 — Comment author exclusivity enforced by a database CHECK constraint
 
 **Date:** 2026-08-30

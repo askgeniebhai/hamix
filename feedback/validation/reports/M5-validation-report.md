@@ -226,3 +226,44 @@ Your branch is ahead of 'origin/main' by 2 commits.
 
 nothing to commit, working tree clean
 ```
+
+## Addendum — post-merge hardening pass (`claude/feedback-m5-hardening`)
+
+PR #27 (this milestone) was reviewed and merged (SHA
+`37db7a95547c4045f80aa5ae20b45563ce6349b0`) before a Product Owner
+hardening request arrived. Since the merge had already happened, the
+requested hardening was delivered as its own follow-up branch/PR
+(`claude/feedback-m5-hardening`) against `main`, rather than folded
+into this milestone's original PR — recorded here, against this
+report, because the change is entirely to code this milestone (and
+M4) introduced.
+
+**What changed:** every domain write in `lib/feedback/data.ts` now
+re-verifies every id it's handed against the claimed organization —
+not just `postId` (which M4/M5 already checked), but also
+`boardId`/`participantId` (`createPost`), `participantId`
+(`castVote`, `createExternalComment`), and membership of
+`authorUserId` (`createInternalComment`). See `DECISIONS.md` D5-003
+for the full reasoning and what was rejected.
+
+**Why this wasn't a gap in the shipped product:** every real caller
+(the server actions in `app/b/[slug]/actions.ts`,
+`app/b/[slug]/p/[postId]/actions.ts`, and
+`app/(workspace)/feedback/[postId]/actions.ts`) already only ever
+passed ids it resolved server-side itself within the same
+organization — a participant identified via a per-organization
+cookie, or `session.user.id` from `requireActiveOrganization()`. No
+existing code path could construct the cross-organization
+combinations the new tests check. This is defense-in-depth for future
+callers, verified directly rather than left as an unstated invariant.
+
+**Evidence:** `tests/integration/tenant-hardening.test.ts` — 4 new
+tests (one per hardened write, each with a same-organization control
+case proving the legitimate path is unaffected). Full Tier 1/2/3 —
+including the complete pre-existing Playwright suite (56/56) and both
+prior integration-test files — re-run against the hardened code with
+no regressions. Tier 1 (RepoGuard, lint, typecheck), Tier 2 (build
+with zero env vars, `drizzle-kit check`, Vitest), and Tier 3
+(integration + Playwright, real Postgres) results are in the
+hardening PR itself; this addendum records the outcome against the
+milestone the change belongs to.
