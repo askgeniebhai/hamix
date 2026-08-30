@@ -373,6 +373,22 @@ two ways instead:
      excluded as expected framework behavior, not defects — confirmed
      by isolating and re-testing the one genuine signal separately.)
 
+Shortly after the above, this session's live agent tool list actually
+picked up `mcp__chrome-devtools__*` and `mcp__context7__*` on its own
+(a mid-session refresh, not something triggered deliberately) —
+correcting the "not loaded into the live tool list" statement above
+for the remainder of this session, though the raw-protocol route was
+what actually did the real work reported here. Calling
+`mcp__chrome-devtools__list_pages` live hit the identical "no Google
+Chrome executable" error the raw-protocol attempt hit before its
+explicit `--executablePath` override — expected, since this
+in-session instance was launched by the platform with its own default
+args, which this session doesn't control, so the workaround that made
+the raw-protocol route succeed isn't available through the live tool
+here. This doesn't change the PASS above; it only explains why the
+proof route was raw-protocol rather than live-tool for this specific
+server in this specific sandbox.
+
 **Sentry MCP: SENTRY MCP — EXTERNAL CONFIGURATION BLOCKED.** Added via
 `claude mcp add --transport http sentry https://mcp.sentry.dev/mcp`
 (the official hosted endpoint) — configuration is real and in place.
@@ -411,19 +427,35 @@ exact API surface the `/contact` defect above lives in — static
 generation and environment variables); Drizzle, the Shopify APIs, and
 Better Auth were not reachable this way without a paid API key.
 **Implementation discrepancy check performed a different, still-real
-way:** the actual `/contact` defect found by the DevTools MCP pass
-*is* the concrete instance of exactly the class of risk Context7 was
-asked to catch (a stale assumption about when environment variables
-are available during Next.js static generation) — found and fixed
-independent of Context7's quota limit, by the live-browser pass
+way (at first):** the actual `/contact` defect found by the DevTools
+MCP pass *is* the concrete instance of exactly the class of risk
+Context7 was asked to catch (a stale assumption about when environment
+variables are available during Next.js static generation) — found and
+fixed independent of Context7's quota limit, by the live-browser pass
 instead. No other API-risk discrepancy was identified in this
 session's billing/auth code, which was already independently
 researched against current official documentation before being
 written (`DECISIONS.md` D9-001 for Shopify's Storefront/Subscriptions
 APIs, `ARCHITECTURE.md`/earlier decision entries for Better Auth and
-Drizzle) — Context7 access at full capacity would let that same
-diligence be repeated for future milestones without a separate web
-search each time, not replace work already done here.
+Drizzle).
+
+The quota did recover before this milestone closed: once
+`mcp__context7__*` appeared in this session's own live tool list (the
+same mid-session refresh noted above), a real live `resolve-library-id`
+call for "Next.js" succeeded (`/vercel/next.js`, 5593 snippets, High
+reputation), followed by a real live `query-docs` call asking exactly
+the `/contact` bug's underlying question — whether a statically
+prerendered page gets environment variables at build time, and what
+happens if reading one throws. The real documentation returned
+confirms the diagnosis directly: Next.js's own docs show
+`process.env.X` read straight from Pages Router `getStaticProps` (the
+App Router static-generation equivalent) as the normal, supported
+pattern — nothing in Next.js itself throws on a missing var; the crash
+was entirely this codebase's own `envSchema.parse(process.env)`
+validating fields `/contact` never needed, exactly as diagnosed and
+fixed. Context7 access at full capacity would let this same diligence
+be repeated for future milestones without a separate web search each
+time, not replace work already done here.
 
 ## Production blockers (external configuration only — nothing in the codebase itself blocks launch)
 
