@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
-import { board, comment, participant, post, user, vote } from "@/lib/db/schema";
+import { board, comment, member, participant, post, user, vote } from "@/lib/db/schema";
 
 /**
  * Tenant-scoped data access for the feedback domain (Board, Post,
@@ -92,7 +92,16 @@ export async function listBoardPosts(
     .orderBy(desc(voteCount), desc(post.createdAt));
 }
 
-/** Creates a post. `boardId`/`organizationId` must already be resolved server-side (from `getBoardBySlug`), never taken from client input directly. */
+/**
+ * Creates a post. `boardId`/`organizationId` must already be resolved
+ * server-side (from `getBoardBySlug`), never taken from client input
+ * directly. Re-verifies both `boardId` and `participantId` actually
+ * belong to `organizationId` before writing — the board lookup that
+ * produced `organizationId` and the participant lookup that produced
+ * `participantId` happen in different requests (a returning visitor's
+ * participant was identified long before this specific submission),
+ * so this is the one place that confirms they still agree.
+ */
 export async function createPost(input: {
   organizationId: string;
   boardId: string;
@@ -100,16 +109,27 @@ export async function createPost(input: {
   title: string;
   description: string;
 }): Promise<{ id: string }> {
+  await assertBoardInOrganization(input.organizationId, input.boardId);
+  await assertParticipantInOrganization(input.organizationId, input.participantId);
+
   const [row] = await getDb().insert(post).values(input).returning({ id: post.id });
   return row;
 }
 
 /**
- * Confirms `postId` belongs to `organizationId` before any write that
- * targets it — the one check every mutation below shares, so a
- * cross-tenant `postId` (however it arrived) is always rejected
- * before it can affect a vote or comment.
+ * Tenant-scope assertions shared by every write below. Each mutation
+ * re-verifies every id it's handed — a `postId`, a `boardId`, a
+ * `participantId`, an `authorUserId` — actually belongs to the
+ * organization the request claims to act on, rather than trusting
+ * that the caller (a server action, today; anything else tomorrow)
+ * already got it right. This is deliberate defense-in-depth: today's
+ * server actions only ever pass ids they resolved server-side
+ * themselves, but the data layer is the one place this repository
+ * treats as the actual tenant boundary, so it does not rely on that
+ * holding true forever.
  */
+
+/** Confirms `postId` belongs to `organizationId`. */
 async function assertPostInOrganization(
   organizationId: string,
   postId: string,
@@ -121,6 +141,56 @@ async function assertPostInOrganization(
     .limit(1);
   if (!row) {
     throw new Error("Post not found in this organization");
+  }
+}
+
+/** Confirms `boardId` belongs to `organizationId`. */
+async function assertBoardInOrganization(
+  organizationId: string,
+  boardId: string,
+): Promise<void> {
+  const [row] = await getDb()
+    .select({ id: board.id })
+    .from(board)
+    .where(and(eq(board.id, boardId), eq(board.organizationId, organizationId)))
+    .limit(1);
+  if (!row) {
+    throw new Error("Board not found in this organization");
+  }
+}
+
+/** Confirms `participantId` belongs to `organizationId` — a participant identified for one organization can never act as a participant of another. */
+async function assertParticipantInOrganization(
+  organizationId: string,
+  participantId: string,
+): Promise<void> {
+  const [row] = await getDb()
+    .select({ id: participant.id })
+    .from(participant)
+    .where(
+      and(
+        eq(participant.id, participantId),
+        eq(participant.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  if (!row) {
+    throw new Error("Participant not found in this organization");
+  }
+}
+
+/** Confirms `userId` is currently a member of `organizationId` — required before any write attributed to an internal team author. */
+async function assertAuthorIsMember(
+  organizationId: string,
+  userId: string,
+): Promise<void> {
+  const [row] = await getDb()
+    .select({ id: member.id })
+    .from(member)
+    .where(and(eq(member.userId, userId), eq(member.organizationId, organizationId)))
+    .limit(1);
+  if (!row) {
+    throw new Error("User is not a member of this organization");
   }
 }
 
@@ -137,6 +207,7 @@ export async function castVote(input: {
   participantId: string;
 }): Promise<void> {
   await assertPostInOrganization(input.organizationId, input.postId);
+  await assertParticipantInOrganization(input.organizationId, input.participantId);
 
   await getDb()
     .insert(vote)
@@ -148,7 +219,14 @@ export async function castVote(input: {
     .onConflictDoNothing();
 }
 
-/** Removes a vote, scoped to the organization so a stray cross-tenant id can never delete another tenant's vote. */
+/**
+ * Removes a vote. No separate assertion call is needed here (unlike
+ * the writes above): the `DELETE`'s own `WHERE` clause already
+ * requires `organizationId` to match the vote row directly, so a
+ * cross-tenant `postId`/`participantId` combination simply matches
+ * zero rows — there is no state it could reach that isn't already
+ * scoped to the caller's own organization.
+ */
 export async function removeVote(input: {
   organizationId: string;
   postId: string;
@@ -323,6 +401,7 @@ export async function createExternalComment(input: {
   body: string;
 }): Promise<{ id: string }> {
   await assertPostInOrganization(input.organizationId, input.postId);
+  await assertParticipantInOrganization(input.organizationId, input.participantId);
 
   const [row] = await getDb()
     .insert(comment)
@@ -344,6 +423,7 @@ export async function createInternalComment(input: {
   body: string;
 }): Promise<{ id: string }> {
   await assertPostInOrganization(input.organizationId, input.postId);
+  await assertAuthorIsMember(input.organizationId, input.authorUserId);
 
   const [row] = await getDb()
     .insert(comment)
