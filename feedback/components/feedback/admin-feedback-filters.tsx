@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 
 import {
@@ -38,10 +38,36 @@ interface AdminFeedbackFiltersProps {
 export function AdminFeedbackFilters({ query, status, sort }: AdminFeedbackFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState(query);
+  // Adjusted during render, not in an effect (React's own recommended
+  // pattern for "adjusting state when a prop changes"): the input's
+  // own state stays in sync with the URL's `q`, so a navigation this
+  // component didn't itself trigger (a select change that lands
+  // before the search debounce fires, or browser back/forward) never
+  // leaves the box showing stale text.
+  const [syncedQuery, setSyncedQuery] = useState(query);
+  if (query !== syncedQuery) {
+    setSyncedQuery(query);
+    setSearchValue(query);
+  }
 
+  /**
+   * Merges `next` onto the *current* URL's params, not the props this
+   * component was rendered with — the props reflect whatever the last
+   * completed navigation produced, which can be a step behind a
+   * navigation still in flight (e.g. the search debounce firing after
+   * a select change already pushed a new URL). `useSearchParams()`
+   * tracks the live URL, so a later call always merges onto the
+   * result of an earlier one instead of reverting it.
+   */
   function navigate(next: { q?: string; status?: string; sort?: string }) {
-    const merged = { q: query, status, sort, ...next };
+    const merged = {
+      q: searchParams.get("q") ?? "",
+      status: searchParams.get("status") ?? "",
+      sort: searchParams.get("sort") ?? "",
+      ...next,
+    };
     const params = new URLSearchParams();
     if (merged.q) {
       params.set("q", merged.q);
@@ -58,7 +84,7 @@ export function AdminFeedbackFilters({ query, status, sort }: AdminFeedbackFilte
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (searchValue !== query) {
+      if (searchValue !== (searchParams.get("q") ?? "")) {
         navigate({ q: searchValue });
       }
     }, 350);

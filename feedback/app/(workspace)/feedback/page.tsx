@@ -17,18 +17,31 @@ export const metadata: Metadata = {
   title: "Feedback",
 };
 
+type SearchParamValue = string | string[] | undefined;
+
 interface AdminFeedbackPageProps {
-  searchParams: Promise<{ q?: string; status?: string; sort?: string }>;
+  searchParams: Promise<{
+    q?: SearchParamValue;
+    status?: SearchParamValue;
+    sort?: SearchParamValue;
+  }>;
 }
 
-function parseStatus(value: string | undefined): PostStatus | undefined {
-  return value && (POST_STATUSES as readonly string[]).includes(value)
-    ? (value as PostStatus)
+/** A repeated query param (`?q=a&q=b`) arrives as an array — only the first value is meaningful here. */
+function firstValue(value: SearchParamValue): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parseStatus(value: SearchParamValue): PostStatus | undefined {
+  const raw = firstValue(value);
+  return raw && (POST_STATUSES as readonly string[]).includes(raw)
+    ? (raw as PostStatus)
     : undefined;
 }
 
-function parseSort(value: string | undefined): "newest" | "votes" | "comments" {
-  return value === "votes" || value === "comments" ? value : "newest";
+function parseSort(value: SearchParamValue): "newest" | "votes" | "comments" {
+  const raw = firstValue(value);
+  return raw === "votes" || raw === "comments" ? raw : "newest";
 }
 
 export default async function AdminFeedbackPage({
@@ -38,7 +51,7 @@ export default async function AdminFeedbackPage({
   const board = await getBoardForOrganization(organization.id);
 
   const params = await searchParams;
-  const query = params.q?.trim() ?? "";
+  const query = firstValue(params.q)?.trim() ?? "";
   const status = parseStatus(params.status);
   const sort = parseSort(params.sort);
 

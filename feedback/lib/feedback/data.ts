@@ -117,6 +117,11 @@ function votedByViewerSubquery(viewerParticipantId: string | null) {
   ).mapWith(Boolean) as SQL<boolean>;
 }
 
+/** Escapes `%`/`_`/`\` in a literal search term so it can't be read as ILIKE wildcard syntax — a search for `100%` must not also match `100 days`. */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
 /** Posts on a public board, with vote/comment counts and whether the given viewer (if identified) has voted on each. */
 export async function listBoardPosts(
   boardId: string,
@@ -331,7 +336,7 @@ export async function listOrganizationPostsForAdmin(
     conditions.push(eq(post.status, filters.status));
   }
   if (filters.query) {
-    const pattern = `%${filters.query}%`;
+    const pattern = `%${escapeLikePattern(filters.query)}%`;
     const textMatch = or(ilike(post.title, pattern), ilike(post.description, pattern));
     if (textMatch) {
       conditions.push(textMatch);
