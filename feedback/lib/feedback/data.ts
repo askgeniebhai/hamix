@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, or, sql, type SQL } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
 import { board, comment, member, participant, post, user, vote } from "@/lib/db/schema";
+import type { PostStatus } from "@/lib/feedback/status";
 
 /**
  * Tenant-scoped data access for the feedback domain (Board, Post,
@@ -57,10 +58,63 @@ export interface FeedbackPost {
   id: string;
   title: string;
   description: string;
+  status: PostStatus;
   createdAt: Date;
   voteCount: number;
   votedByViewer: boolean;
   commentCount: number;
+}
+
+/**
+ * Scalar correlated subqueries for a post's vote/comment counts —
+ * deliberately not a `leftJoin` + `count(distinct …)` + `groupBy`.
+ * Joining both `vote` and `comment` onto `post` multiplies rows
+ * (a post with 100 votes and 50 comments would join out to 5,000
+ * rows before `GROUP BY` collapses them back down); `count(distinct)`
+ * keeps that *correct*, but the database still has to build the full
+ * cross product first, which gets expensive as either count grows.
+ * A subquery per post, backed by `post_id` indexes already present on
+ * both tables (`vote_post_id_idx`, `comment_post_id_idx`), counts each
+ * independently with no fan-out at all (`DECISIONS.md` D6-002).
+ */
+/**
+ * Built via the query builder (`.select().from().where(eq(...))`),
+ * not a raw `sql` template with interpolated `Column` objects: inside
+ * a `sql` tag, `${post.id}` renders as the bare identifier `"id"`
+ * with no table qualifier, which — once nested inside a subquery
+ * whose own FROM table (`vote`/`comment`) happens to also have an
+ * `id` column — resolves to *that* table's `id`, not the outer
+ * post's, so the correlation silently matches nothing. The query
+ * builder's own `eq()` qualifies both sides with their real table
+ * names (`"vote"."post_id" = "post"."id"`), which is what actually
+ * correlates correctly.
+ */
+function voteCountSubquery() {
+  return sql<number>`(${getDb()
+    .select({ count: sql<number>`count(*)`.as("count") })
+    .from(vote)
+    .where(eq(vote.postId, post.id))})`.mapWith(Number);
+}
+
+function commentCountSubquery() {
+  return sql<number>`(${getDb()
+    .select({ count: sql<number>`count(*)`.as("count") })
+    .from(comment)
+    .where(eq(comment.postId, post.id))})`.mapWith(Number);
+}
+
+function votedByViewerSubquery(viewerParticipantId: string | null) {
+  if (!viewerParticipantId) {
+    return sql<boolean>`false`;
+  }
+  return exists(
+    getDb()
+      .select({ one: sql`1` })
+      .from(vote)
+      .where(
+        and(eq(vote.postId, post.id), eq(vote.participantId, viewerParticipantId)),
+      ),
+  ).mapWith(Boolean) as SQL<boolean>;
 }
 
 /** Posts on a public board, with vote/comment counts and whether the given viewer (if identified) has voted on each. */
@@ -68,27 +122,23 @@ export async function listBoardPosts(
   boardId: string,
   viewerParticipantId: string | null,
 ): Promise<FeedbackPost[]> {
-  const voteCount = sql<number>`count(distinct ${vote.id})`.mapWith(Number);
-  const commentCount = sql<number>`count(distinct ${comment.id})`.mapWith(Number);
-  const votedByViewer = viewerParticipantId
-    ? sql<boolean>`bool_or(${vote.participantId} = ${viewerParticipantId})`
-    : sql<boolean>`false`;
+  const voteCount = voteCountSubquery();
+  const commentCount = commentCountSubquery();
+  const votedByViewer = votedByViewerSubquery(viewerParticipantId);
 
   return getDb()
     .select({
       id: post.id,
       title: post.title,
       description: post.description,
+      status: post.status,
       createdAt: post.createdAt,
       voteCount,
       votedByViewer,
       commentCount,
     })
     .from(post)
-    .leftJoin(vote, eq(vote.postId, post.id))
-    .leftJoin(comment, eq(comment.postId, post.id))
     .where(eq(post.boardId, boardId))
-    .groupBy(post.id)
     .orderBy(desc(voteCount), desc(post.createdAt));
 }
 
@@ -247,6 +297,7 @@ export interface AdminFeedbackPost {
   id: string;
   title: string;
   description: string;
+  status: PostStatus;
   createdAt: Date;
   voteCount: number;
   commentCount: number;
@@ -254,18 +305,52 @@ export interface AdminFeedbackPost {
   submitterEmail: string;
 }
 
-/** All posts for the organization's board, for the protected admin feedback view. */
+export interface AdminPostListFilters {
+  /** Case-insensitive substring match against title OR description. */
+  query?: string;
+  status?: PostStatus;
+  /** Defaults to "newest" — a live review queue reads newest-first; "votes"/"comments" triage by demand or discussion. */
+  sort?: "newest" | "votes" | "comments";
+}
+
+/**
+ * All posts for the organization's board, for the protected admin
+ * feedback view — searchable, filterable by status, sortable, all
+ * pushed down to the database (a `WHERE`/`ORDER BY` on an indexed
+ * query, not "fetch everything and filter in the browser").
+ */
 export async function listOrganizationPostsForAdmin(
   organizationId: string,
+  filters: AdminPostListFilters = {},
 ): Promise<AdminFeedbackPost[]> {
-  const voteCount = sql<number>`count(distinct ${vote.id})`.mapWith(Number);
-  const commentCount = sql<number>`count(distinct ${comment.id})`.mapWith(Number);
+  const voteCount = voteCountSubquery();
+  const commentCount = commentCountSubquery();
+
+  const conditions = [eq(post.organizationId, organizationId)];
+  if (filters.status) {
+    conditions.push(eq(post.status, filters.status));
+  }
+  if (filters.query) {
+    const pattern = `%${filters.query}%`;
+    const textMatch = or(ilike(post.title, pattern), ilike(post.description, pattern));
+    if (textMatch) {
+      conditions.push(textMatch);
+    }
+  }
+
+  const orderBy =
+    filters.sort === "votes"
+      ? [desc(voteCount), desc(post.createdAt)]
+      : filters.sort === "comments"
+        ? [desc(commentCount), desc(post.createdAt)]
+        : [desc(post.createdAt)];
 
   return getDb()
     .select({
       id: post.id,
       title: post.title,
       description: post.description,
+      status: post.status,
       createdAt: post.createdAt,
       voteCount,
       commentCount,
@@ -274,11 +359,39 @@ export async function listOrganizationPostsForAdmin(
     })
     .from(post)
     .innerJoin(participant, eq(participant.id, post.participantId))
-    .leftJoin(vote, eq(vote.postId, post.id))
-    .leftJoin(comment, eq(comment.postId, post.id))
-    .where(eq(post.organizationId, organizationId))
-    .groupBy(post.id, participant.name, participant.email)
-    .orderBy(desc(voteCount), desc(post.createdAt));
+    .where(and(...conditions))
+    .orderBy(...orderBy);
+}
+
+/**
+ * Updates a post's status. Tenant-scoped via the same
+ * `assertPostInOrganization` check every other mutation uses — a
+ * cross-tenant `postId` is rejected before any write happens. Callers
+ * (the admin status-change action) are responsible for verifying the
+ * caller is an authenticated member of `organizationId` first
+ * (`requireActiveOrganization()`); this function only enforces that
+ * the post itself belongs to that organization.
+ *
+ * `statusChangedAt` is only touched when the new status actually
+ * differs from the current one — a single atomic `UPDATE` (a `CASE`
+ * comparing the row's own pre-update `status`), not a separate
+ * read-then-write, so this stays correct under concurrent requests
+ * and a "change" to the same status is a true no-op for that column.
+ */
+export async function updatePostStatus(input: {
+  organizationId: string;
+  postId: string;
+  status: PostStatus;
+}): Promise<void> {
+  await assertPostInOrganization(input.organizationId, input.postId);
+
+  await getDb()
+    .update(post)
+    .set({
+      status: input.status,
+      statusChangedAt: sql`case when ${post.status} = ${input.status} then ${post.statusChangedAt} else now() end`,
+    })
+    .where(and(eq(post.id, input.postId), eq(post.organizationId, input.organizationId)));
 }
 
 export interface PostDetail {
@@ -286,6 +399,7 @@ export interface PostDetail {
   boardId: string;
   title: string;
   description: string;
+  status: PostStatus;
   createdAt: Date;
   voteCount: number;
   votedByViewer: boolean;
@@ -298,10 +412,8 @@ export async function getPostForBoard(
   postId: string,
   viewerParticipantId: string | null,
 ): Promise<PostDetail | null> {
-  const voteCount = sql<number>`count(distinct ${vote.id})`.mapWith(Number);
-  const votedByViewer = viewerParticipantId
-    ? sql<boolean>`bool_or(${vote.participantId} = ${viewerParticipantId})`
-    : sql<boolean>`false`;
+  const voteCount = voteCountSubquery();
+  const votedByViewer = votedByViewerSubquery(viewerParticipantId);
 
   const [row] = await getDb()
     .select({
@@ -309,6 +421,7 @@ export async function getPostForBoard(
       boardId: post.boardId,
       title: post.title,
       description: post.description,
+      status: post.status,
       createdAt: post.createdAt,
       voteCount,
       votedByViewer,
@@ -316,9 +429,7 @@ export async function getPostForBoard(
     })
     .from(post)
     .innerJoin(participant, eq(participant.id, post.participantId))
-    .leftJoin(vote, eq(vote.postId, post.id))
     .where(and(eq(post.id, postId), eq(post.boardId, boardId)))
-    .groupBy(post.id, participant.name)
     .limit(1);
 
   return row ?? null;
@@ -333,7 +444,7 @@ export async function getPostForOrganization(
   organizationId: string,
   postId: string,
 ): Promise<AdminPostDetail | null> {
-  const voteCount = sql<number>`count(distinct ${vote.id})`.mapWith(Number);
+  const voteCount = voteCountSubquery();
 
   const [row] = await getDb()
     .select({
@@ -341,6 +452,7 @@ export async function getPostForOrganization(
       boardId: post.boardId,
       title: post.title,
       description: post.description,
+      status: post.status,
       createdAt: post.createdAt,
       voteCount,
       votedByViewer: sql<boolean>`false`,
@@ -349,9 +461,7 @@ export async function getPostForOrganization(
     })
     .from(post)
     .innerJoin(participant, eq(participant.id, post.participantId))
-    .leftJoin(vote, eq(vote.postId, post.id))
     .where(and(eq(post.id, postId), eq(post.organizationId, organizationId)))
-    .groupBy(post.id, participant.name, participant.email)
     .limit(1);
 
   return row ?? null;

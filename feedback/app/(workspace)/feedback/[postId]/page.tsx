@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { CommentThread } from "@/components/feedback/comment-thread";
 import { InternalReplyForm } from "@/components/feedback/internal-reply-form";
+import { StatusSelect } from "@/components/feedback/status-select";
 import { requireActiveOrganization } from "@/lib/auth/session";
 import { getPostForOrganization, listCommentsForPost } from "@/lib/feedback/data";
 import { formatDate } from "@/lib/utils";
@@ -43,8 +44,8 @@ export default async function AdminPostPage({ params }: AdminPostPageProps) {
         Feedback
       </Link>
 
-      <article className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-        <div className="flex items-start justify-between gap-4">
+      <article className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <h1 className="text-lg font-semibold text-foreground">{post.title}</h1>
           <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold tabular-nums text-foreground">
             {post.voteCount} {post.voteCount === 1 ? "vote" : "votes"}
@@ -57,6 +58,7 @@ export default async function AdminPostPage({ params }: AdminPostPageProps) {
           From {post.submitterName} · {post.submitterEmail} ·{" "}
           {formatDate(post.createdAt)}
         </p>
+        <StatusSelect postId={post.id} status={post.status} />
       </article>
 
       <section aria-labelledby="admin-comments-heading" className="flex flex-col gap-4">

@@ -169,8 +169,11 @@ weighting, moderation, and post categories/tags.
 
 ## M5 — Feedback Detail & Comments
 
-**Status:** Complete (pending PR merge — see
-`validation/reports/M5-validation-report.md`).
+**Status:** Complete. Merged to `main` via PR #27. See
+`validation/reports/M5-validation-report.md` (including its
+post-merge hardening addendum — `DECISIONS.md` D5-003, merged
+separately via PR #28 since PR #27 had already merged before the
+Product Owner's hardening instruction arrived).
 
 **Scope:** The basic Canny-style discussion loop — a public feedback
 detail/thread page, a distinct Comment entity (separate from Post),
@@ -218,12 +221,78 @@ duplicate merging, roadmap, changelog, notifications, AI, semantic
 dedup, billing, CRM, private/internal notes, and any comment
 editing/deleting/moderation system.
 
+## M6 — Feedback Status & Admin Management
+
+**Status:** Complete. See `validation/reports/M6-validation-report.md`.
+
+**Scope:** A flat, admin-only status lifecycle for each post, and an
+admin triage view that scales past a handful of posts — search,
+filter, and sort, all pushed down to the database. No roadmap UI, no
+workflow engine, no public-facing status control.
+
+- `post.status`: a real Postgres enum (`open` default, `under_review`,
+  `planned`, `in_progress`, `complete`), plus `post.statusChangedAt`,
+  updated together by one atomic `CASE`-guarded `UPDATE` so a
+  same-status "change" is a true no-op for the timestamp
+  (`DECISIONS.md` D6-001)
+- Status is admin-only: `updateStatusAction` requires
+  `requireActiveOrganization()`, then `updatePostStatus()`
+  independently re-verifies the post belongs to that organization
+  before writing — the same tenant-boundary pattern every other write
+  in `lib/feedback/data.ts` uses, never trusting a client-supplied
+  organization or post id
+- Public board (`/b/[slug]`) and detail (`/b/[slug]/p/[postId]`) pages
+  display the current status (`StatusBadge`) but render no control to
+  change it — verified directly, not just by omission, in
+  `e2e/status.spec.ts`
+- Admin `/feedback` view: database-side search (title/description),
+  status filter, and sort (newest/most votes/most comments), all
+  expressed as URL search params and read server-side — no
+  client-side filtering of a fully-loaded list
+  (`components/feedback/admin-feedback-filters.tsx`)
+- Performance fix: `listBoardPosts()`, `listOrganizationPostsForAdmin()`,
+  and the two single-post detail reads replaced the M4/M5-era
+  `leftJoin` + `count(distinct)` + `groupBy` vote/comment counting
+  (Cartesian fan-out between two independent one-to-many relations)
+  with per-post scalar correlated subqueries — no join, no row
+  multiplication (`DECISIONS.md` D6-002)
+- A real correctness bug was found and fixed in that same subquery
+  work before it shipped: an earlier draft built the subqueries as raw
+  `sql` templates with interpolated `Column` objects, which rendered
+  the outer `post.id` reference unqualified and made it silently
+  resolve to the *inner* table's own `id` column instead — every
+  post's vote count and "did the viewer vote" flag was always `0`/
+  `false` regardless of real data. Caught by a full Playwright run
+  (two pre-existing M4 vote tests started failing), root-caused
+  against local Postgres, and fixed by building the subqueries with
+  the query builder instead of raw SQL interpolation
+  (`DECISIONS.md` D6-003)
+- Integration test proving the status update is tenant-scoped (a
+  cross-organization `postId` is rejected, the post's status is
+  unchanged), that `statusChangedAt` only moves on a real change, and
+  that Postgres's own enum — not just Zod — rejects an invalid status
+  value bypassing application validation
+  (`tests/integration/status-update.test.ts`)
+- Playwright coverage of the full lifecycle (submit → admin sees Open
+  → search finds it → filter by status → change to Under Review →
+  public reflects it → change to Planned → refresh persists, both
+  admin and public), sort-by-votes/sort-by-comments ordering, and the
+  public-pages-expose-no-control negative test
+- Decision log entries `DECISIONS.md` D6-001–D6-003
+
+**Explicitly out of scope for M6:** roadmap UI, changelog, notifications,
+tags/categories, duplicate merging, AI/prioritization intelligence,
+billing, CRM, private/internal notes, and any complex status-workflow
+or moderation system.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M6+** — to be defined as the product proves itself
+- **M7+** — to be defined as the product proves itself (Product Owner
+  has noted a commercial sequence — Roadmap, then Changelog, then
+  Billing/limits — as direction only, not an authorization)
 
 Do not begin design or implementation work on any future milestone until
 it is explicitly authorized.

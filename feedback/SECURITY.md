@@ -81,7 +81,7 @@ report.
   a database exists — no undocumented manual schema changes against
   production.
 
-## Current status (as of M5)
+## Current status (as of M6)
 
 - **Secrets:** enforced since M0 — RepoGuard's Secret Guard and
   Dangerous File Guard run on every change. `lib/env.ts` fails closed
@@ -189,12 +189,42 @@ report.
   documented, accepted risk (no fixed release exists yet). M5 added no
   new runtime dependencies (`shadcn`'s Badge primitive is generated
   source, not a new package).
+- **Status mutation authorization:** new this milestone —
+  `updateStatusAction` requires `requireActiveOrganization()` (an
+  unauthenticated request is rejected before any data-layer code
+  runs — verified by `e2e/status.spec.ts`'s public-pages negative
+  test, which confirms neither public page even renders a
+  status-changing control), and `updatePostStatus()` independently
+  re-verifies the target post belongs to that organization before
+  writing, the same `assertPostInOrganization` pattern every other
+  write in `lib/feedback/data.ts` uses — a cross-organization `postId`
+  is rejected, proven directly by
+  `tests/integration/status-update.test.ts` rather than assumed. An
+  invalid status value is rejected twice over: Zod
+  (`updateStatusSchema`) at the server-action boundary, and Postgres's
+  own enum type underneath it even if application validation were
+  bypassed — the same integration test proves the database rejects an
+  invalid value written straight through Drizzle, bypassing the
+  `PostStatus` type.
+- **Data-layer hardening, applied again:** the M6 read-path rewrite
+  (vote/comment counts and viewer-vote state moved to per-post scalar
+  subqueries — `DECISIONS.md` D6-002) introduced a real correctness
+  bug (`DECISIONS.md` D6-003) where a raw `sql` template's unqualified
+  column interpolation caused every post to silently read as having
+  zero votes and no viewer vote, regardless of actual data. This was a
+  correctness defect, not a tenant-isolation break — the buggy
+  subqueries still only ever counted the *correct organization's* vote
+  rows, they just miscounted them — but it is recorded here because it
+  was caught the same way this project treats every other data-layer
+  change: full Playwright re-run, not assumed correct from a clean
+  typecheck/lint pass, before being considered done.
 - **Not yet applicable:** auditability (no sensitive actions beyond
-  auth/workspace creation and feedback submission/voting/commenting
-  exist yet — none of which currently need an audit trail), backups/
-  migration discipline beyond `drizzle-kit`'s own migration files (no
-  production database provisioned yet). XSS-specific review remains
-  partially applicable: feedback post titles/descriptions and now
-  comment bodies are user-generated content, rendered as plain text
-  through React's default escaping (never `dangerouslySetInnerHTML`)
-  — no rich text or HTML rendering exists to review yet.
+  auth/workspace creation and feedback submission/voting/commenting/
+  status changes exist yet — none of which currently need an audit
+  trail), backups/migration discipline beyond `drizzle-kit`'s own
+  migration files (no production database provisioned yet).
+  XSS-specific review remains partially applicable: feedback post
+  titles/descriptions and comment bodies are user-generated content,
+  rendered as plain text through React's default escaping (never
+  `dangerouslySetInnerHTML`) — no rich text or HTML rendering exists
+  to review yet.
