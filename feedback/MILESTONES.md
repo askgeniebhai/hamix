@@ -115,8 +115,8 @@ creator's own membership.
 
 ## M4 — Feedback Submission & Voting
 
-**Status:** Complete (pending PR merge — see
-`validation/reports/M4-validation-report.md`).
+**Status:** Complete. Merged to `main` via PR #26. See
+`validation/reports/M4-validation-report.md`.
 
 **Scope:** The smallest complete Canny-style public workflow: a public
 feedback portal, submission, voting/unvoting, and a minimal admin
@@ -167,12 +167,63 @@ no comment table or UI is introduced here.
 AI/prioritization, roadmap, changelog, billing, CRM, revenue
 weighting, moderation, and post categories/tags.
 
+## M5 — Feedback Detail & Comments
+
+**Status:** Complete (pending PR merge — see
+`validation/reports/M5-validation-report.md`).
+
+**Scope:** The basic Canny-style discussion loop — a public feedback
+detail/thread page, a distinct Comment entity (separate from Post),
+external customer replies, and public replies from authenticated
+workspace members, clearly distinguished visually. No private/internal
+notes, no moderation.
+
+- Public feedback detail page (`/b/[slug]/p/[postId]`): title,
+  description, vote control/count, submitter, created date, comment
+  thread, add-comment form
+- `comment` domain table: `organization_id`, `post_id`, exactly one of
+  `participant_id` (external reply) or `author_user_id` (internal team
+  reply) — enforced by a database CHECK constraint, not just
+  application logic (`DECISIONS.md` D5-001)
+- External comments reuse M4's participant identity: a returning
+  participant (cookie already set) comments without re-identifying; a
+  new one identifies inline first, the same pattern as M4's vote
+  control
+- Internal team replies: any authenticated workspace member can post a
+  public reply from the protected admin thread view
+  (`/feedback/[postId]`), visually distinguished with a "Team" badge
+  and a tinted card — `requireActiveOrganization()` is the entire
+  membership check, so a non-member can never post as another
+  organization's team
+- Admin: `/feedback/[postId]` shows the full thread (comments +
+  submitter/vote detail) with a public-reply form; the `/feedback` and
+  `/b/[slug]` lists now link to detail pages and show comment counts
+- Tenant-scoped data access (`lib/feedback/data.ts`): every comment
+  write re-verifies the post belongs to the caller's organization
+  before writing, the same `assertPostInOrganization` check voting
+  already used, shared to avoid duplicating the tenant boundary logic
+- A new database-backed integration test proves the author-exclusivity
+  CHECK constraint at the Postgres layer, not just in application code
+  (`tests/integration/comment-author-constraint.test.ts`)
+- Playwright coverage of the full thread flow (submit → open → comment
+  → persist on reload → internal reply → public visitor sees both →
+  admin sees the thread), inline-identify commenting, server-side
+  rejection of invalid/empty/oversized comments, unauthenticated and
+  cross-organization admin-thread access rejection, and cross-tenant
+  comment/post invisibility
+- Decision log entries `DECISIONS.md` D5-001–D5-002
+
+**Explicitly out of scope for M5:** statuses, tags/categories,
+duplicate merging, roadmap, changelog, notifications, AI, semantic
+dedup, billing, CRM, private/internal notes, and any comment
+editing/deleting/moderation system.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M5+** — to be defined as the product proves itself
+- **M6+** — to be defined as the product proves itself
 
 Do not begin design or implementation work on any future milestone until
 it is explicitly authorized.
