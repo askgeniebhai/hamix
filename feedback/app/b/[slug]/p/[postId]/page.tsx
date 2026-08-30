@@ -5,11 +5,13 @@ import { ArrowLeft } from "lucide-react";
 
 import { AddCommentForm } from "@/components/feedback/add-comment-form";
 import { CommentThread } from "@/components/feedback/comment-thread";
+import { FollowControl } from "@/components/feedback/follow-control";
 import { StatusBadge } from "@/components/feedback/status-badge";
 import { VoteControl } from "@/components/feedback/vote-control";
 import {
   getBoardBySlug,
   getPostForBoard,
+  isParticipantSubscribed,
   listCommentsForPost,
 } from "@/lib/feedback/data";
 import { getParticipant } from "@/lib/feedback/participant";
@@ -43,6 +45,7 @@ export default async function PostPage({ params }: PostPageProps) {
   }
 
   const comments = await listCommentsForPost(board.organizationId, postId);
+  const following = me ? await isParticipantSubscribed(post.id, me.id) : false;
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -82,6 +85,14 @@ export default async function PostPage({ params }: PostPageProps) {
             <p className="text-xs text-muted-foreground">
               Submitted by {post.submitterName} · {formatDate(post.createdAt)}
             </p>
+            <div>
+              <FollowControl
+                boardSlug={slug}
+                postId={post.id}
+                following={following}
+                identified={!!me}
+              />
+            </div>
           </div>
         </article>
 

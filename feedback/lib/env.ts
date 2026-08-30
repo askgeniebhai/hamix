@@ -14,6 +14,13 @@ const envSchema = z.object({
     .string()
     .min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
+  // Both optional: a zero-env build/dev/CI run must still succeed.
+  // When either is missing, `lib/email` resolves to a transport that
+  // fails loudly *only when an actual send is attempted* — never at
+  // import/build time, and never by silently claiming success
+  // (`DECISIONS.md` D8-005).
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM_ADDRESS: z.string().email().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

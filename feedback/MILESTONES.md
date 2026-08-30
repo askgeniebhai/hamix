@@ -294,7 +294,11 @@ or moderation system.
 
 ## M7 — Public Roadmap
 
-**Status:** Complete. See `validation/reports/M7-validation-report.md`.
+**Status:** Complete. Merged to `main` via PR #30 (SHA
+`7dcb309df649a1c564c8bb5c99afd2e4e6022cda`). See
+`validation/reports/M7-validation-report.md`. Automated code review
+found one accessibility gap, fixed before merge: the roadmap card's
+vote/comment counters had no accessible label beyond a bare number.
 
 **Scope:** Completes the sellable customer journey — Feedback → Vote →
 Discussion → Roadmap (Planned/In Progress/Complete). Roadmap is a
@@ -358,15 +362,125 @@ promises, custom statuses or roadmap columns, a private roadmap,
 roadmap item duplication, changelog, notifications, AI, CRM, billing,
 enterprise features.
 
+## M8 — Changelog + Close the Feedback Loop
+
+**Status:** Complete. See `validation/reports/M8-validation-report.md`.
+
+**Scope:** Completes the sellable closed loop — Feedback → Vote →
+Discussion → Admin Triage → Roadmap → Complete → Changelog → notify
+the interested customer. A genuine Changelog entity linked to Posts
+through a junction table (never duplicating post content), an
+explicit per-post "Follow updates" subscription (never inferred from
+submitting/voting/commenting), and a deterministic, idempotent
+notification delivery — no queue/worker infrastructure at this scale.
+
+- `changelog_entry` (`draft`/`published` state, immutable once
+  published) linked to `complete` posts only through
+  `changelog_entry_post`, a junction table — Post remains the single
+  source of truth for what was asked for (`lib/changelog/data.ts`,
+  `DECISIONS.md` D8-001)
+- Link rule enforced at the data layer, not just the picker UI: only
+  a `complete` post in the same organization can be linked; publishing
+  re-verifies every linked post is *still* `complete` before it
+  proceeds, rejecting the publish outright if one regressed since
+  being linked
+- Admin `/changelog`: list, a real create-then-edit draft flow (never
+  a blank placeholder row), a simple two-field editor (title + plain
+  text body — no rich-text editor), a `complete`-only feedback picker
+  showing vote/comment counts, and Publish
+- Public `/b/[slug]/changelog`: published entries only, newest first,
+  each showing its linked requests as links into the same public post
+  detail page M4/M5 already built; `PublicBoardNav` now reads
+  Feedback ⇄ Roadmap ⇄ Changelog everywhere
+- `post_subscription`: the *only* thing that makes a participant an
+  email recipient is an explicit "Follow updates" click on the public
+  post detail page — never inferred from submitting, voting, or
+  commenting. Unfollow works both from the page itself (cookie-
+  identified) and from a single-purpose per-subscription
+  `unsubscribeToken` reachable with no session at all, for the email
+  link (`app/unsubscribe/[token]/page.tsx`, `DECISIONS.md` D8-003)
+- Publishing computes recipients as the distinct set of participants
+  following *any* of an entry's linked posts — a participant following
+  two linked posts is one recipient, not two — and is idempotent by
+  construction: an atomic `state = 'draft'`-guarded `UPDATE`, a unique
+  constraint on `(changelog_entry_id, participant_id)`, both inside
+  one transaction with the recipient-row insert, so a double publish,
+  a retry, or a page refresh can never send a duplicate notification
+  (`DECISIONS.md` D8-004)
+- A `changelog_notification` delivery record per recipient
+  (`pending`/`sent`/`failed`, with a truncated failure reason) is the
+  deterministic outbox this scale calls for — no queue or worker
+  process; the admin entry view shows a plain delivery summary
+  ("N notified", "N failed" with a plain-language reason) rather than
+  silently succeeding or failing
+- Email goes through an `EmailTransport` interface — `ResendTransport`
+  (a thin wrapper over the official `resend` SDK, its API inspected
+  directly before writing any code) in production, a deterministic
+  `FakeEmailTransport` in every test; no test in this suite makes a
+  real network call (`DECISIONS.md` D8-002)
+- Zero-env-safe: `RESEND_API_KEY`/`EMAIL_FROM_ADDRESS` are optional —
+  a build or an unconfigured workspace never crashes; an actual
+  publish attempt with email unconfigured still succeeds (the content
+  goes live) while every notification is recorded `failed` with a
+  truthful, visible reason, never silently dropped or falsely
+  reported `sent` (`DECISIONS.md` D8-005)
+- A second recurrence of the D6-003 unqualified-identifier subquery
+  bug was found and fixed in `listCompletablePosts()`'s `linked` flag
+  — caught by a real Playwright failure (the "Link" button never
+  became "Unlink"), not by inspection — and is now a standing rule for
+  every subquery in this codebase, not a one-off fix
+  (`DECISIONS.md` D8-006)
+- Security: only a verified workspace member creates/edits/publishes
+  (`assertAuthorIsMember`, the same D5-003 pattern); tenant isolation
+  proven directly for every changelog write (cross-org linking,
+  cross-org read/edit); a draft is never returned by the public query,
+  proven directly rather than assumed from the `WHERE` clause; the
+  admin detail view exposes only aggregate delivery counts, never a
+  recipient's email
+- Integration tests covering tenant isolation, the link rule, publish-
+  time revalidation, double-publish idempotency, the two-linked-posts-
+  one-recipient case, the unsubscribed-gets-zero case, and the
+  provider-failure path (`tests/integration/changelog.test.ts`,
+  `tests/integration/post-subscription.test.ts`)
+- Playwright coverage of the full business flow (submit → follow →
+  vote/comment → admin completes → create changelog → link → publish
+  → public changelog shows it → linked request visible → exactly one
+  delivery record), tenant/security negatives, follow/unfollow, and
+  accessibility/responsive checks (`e2e/changelog.spec.ts`)
+- Decision log entries `DECISIONS.md` D8-001–D8-006
+
+**PR #31 review response (2026-08-30):** All five automated-review
+findings fixed at the root — entry-row `SELECT ... FOR UPDATE` locking
+in `lib/changelog/data.ts` closes three TOCTOU races (an edit or a
+link racing a publish, and publish's own "still Complete" check racing
+a concurrent status change) by serializing every entry-mutating
+function against the same row; `retryChangelogNotifications()` resumes
+a published entry's `pending`/`failed` deliveries if the send loop was
+interrupted partway through (a "Retry" button in the admin view);
+`/unsubscribe/[token]` is now confirm-then-POST — a GET only ever
+reads (`previewUnsubscribeByToken`), the deletion happens solely
+through an explicit form submit, so a security scanner or client
+prefetching the email link can no longer silently unsubscribe the real
+recipient. Full detail and rejected alternatives in `DECISIONS.md`
+D8-007; new coverage in `tests/integration/changelog.test.ts` (a real
+lock-blocks-a-concurrent-write test and full `retryChangelogNotifications`
+coverage). Full regression re-run clean: 65/65 unit, 32/32 integration,
+98/98 Playwright, zero-env build, RepoGuard + self-test.
+
+**Explicitly out of scope for M8:** reactions or comments on changelog
+entries, announcement widgets or in-app popups, recipient segmentation,
+CRM, AI-written release notes, automatic PR/GitHub release ingestion,
+custom domains, Slack, webhooks, an analytics suite, billing,
+enterprise features.
+
 ## Future milestones (placeholders only)
 
 Not started. Not scoped. Not authorized. Listed only so the sequence is
 visible; each will be scoped in detail, one at a time, when authorized.
 
-- **M8+** — to be defined as the product proves itself (Product Owner
-  has noted a commercial sequence — Changelog + close-loop, then
-  Billing/limits + launch readiness — as direction only, not an
-  authorization)
+- **M9+** — to be defined as the product proves itself (Product Owner
+  has noted M9 — Billing + usage/tracked-user limits + production
+  launch readiness — as direction only, not an authorization)
 
 Do not begin design or implementation work on any future milestone until
 it is explicitly authorized.
