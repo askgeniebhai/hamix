@@ -7,6 +7,40 @@ for the current state.
 
 ---
 
+## D9-003 — The "zero-env build succeeds" check I ran locally was a false positive; PR #32's own CI caught the real bug
+
+**Date:** 2026-08-30
+**What happened:** This session verified the zero-env-safe guarantee
+(D2-001/D8-005: a production build with no environment variables must
+succeed) by running `env -i PATH="$PATH" HOME="$HOME" npm run build`
+locally and reporting it green in `M9-validation-report.md`. That
+check was silently invalid: `next build` auto-loads `.env.local`
+regardless of the invoking shell's own environment, and this
+project's `.env.local` (a real, if gitignored, local file, not
+committed) already sets `DATABASE_URL`/`BETTER_AUTH_SECRET`/
+`BETTER_AUTH_URL` — so the "zero-env" run was never actually running
+with zero env vars. PR #32's own Tier 2 CI job (no `.env.local` on
+the runner at all) caught the real failure the local check missed:
+`/contact` is a static route, prerendered at build time with no live
+environment, and its page component called the shared `getEnv()` —
+which validates the *entire* schema, `DATABASE_URL`/`BETTER_AUTH_SECRET`
+included — just to read the one optional `CONTACT_EMAIL` field.
+**Fix:** `app/contact/page.tsx` now reads `process.env.CONTACT_EMAIL`
+directly, bypassing `getEnv()`'s full-schema validation for this one
+display-only optional field — the zero-env guarantee holds for this
+route without weakening validation anywhere that genuinely needs a
+database or auth secret. `/privacy` and `/terms` were checked and
+have no `getEnv()`/`process.env` call at all, so this bug was unique
+to `/contact`.
+**Standing lesson, recorded so it isn't repeated:** verifying a
+"zero environment variables" claim about `next build` by exporting no
+variables in the invoking shell is not sufficient — a committed or
+local `.env.local`/`.env` file is picked up by Next.js independently
+of shell state. A true zero-env verification must either run from a
+directory/checkout with no such file present, or run inside the
+project's own CI job, which is the only environment this project
+treats as authoritative for this specific claim going forward.
+
 ## D9-002 — The workspace had no mobile navigation at all; a real gap the UI/UX polish pass and a fresh E2E run caught, not a cosmetic one
 
 **Date:** 2026-08-30

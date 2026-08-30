@@ -257,8 +257,17 @@ commercial layer none of those already cover.
 
 - **Tier 1 (lint + typecheck):** clean, zero errors/warnings.
 - **Tier 2 (build + unit + integration):**
-  - Zero-env production build: succeeds (`env -i` run, no environment
-    variables at all).
+  - Zero-env production build: succeeds — but only after a real bug
+    this milestone introduced was found and fixed. The first local
+    `env -i` verification was a false positive (Next.js auto-loads
+    `.env.local` independent of shell state; `DECISIONS.md` D9-003
+    has the full account) and missed that `/contact` crashed
+    prerendering with zero real env vars, which PR #32's own CI then
+    caught for real. Fixed by having `/contact` read
+    `process.env.CONTACT_EMAIL` directly instead of through the
+    full-schema `getEnv()`. Re-verified genuinely zero-env afterward
+    (`.env.local` moved aside for the run, not just an empty shell
+    environment) — succeeds.
   - Configured-env production build (all `SHOPIFY_*` plus
     `CONTACT_EMAIL` set): succeeds.
   - Vitest unit: 69/69 passing.
