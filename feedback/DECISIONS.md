@@ -29,13 +29,14 @@ count(*) from "vote" where "post_id" = "id"` — comparing `vote.post_id`
 to `vote.id`, which is never true for a real vote row, not `post.id`.
 The subquery therefore silently always returned `0`/`false`: every
 post looked like it had zero votes and had never been voted on by the
-viewer, regardless of what was actually in the `vote` table. This
-reached `main` inside PR #28 (already covered by that PR's own tests,
-none of which exercised `listBoardPosts`'s viewer-vote state end to
-end) and was only caught here by a full Playwright run against the
-uncommitted M6 branch, where two pre-existing M4 tests
-(`e2e/feedback.spec.ts`) that vote and then assert the button flips to
-"Remove your vote" started failing. The query builder's own `eq()`
+viewer, regardless of what was actually in the `vote` table. This bug
+was introduced during M6 development, not PR #28 (which was the M5
+tenant-hardening pass and never touched these subqueries) — it was
+caught by a full Playwright run against the uncommitted M6 branch
+before M6 ever merged, so it never reached `main`. Two pre-existing M4
+tests (`e2e/feedback.spec.ts`) that vote and then assert the button
+flips to "Remove your vote" started failing, which is what surfaced
+it. The query builder's own `eq()`
 qualifies both sides of a comparison with their actual table names
 (`"vote"."post_id" = "post"."id"`) because it knows which table each
 `Column` belongs to independent of surrounding raw SQL text, which is
