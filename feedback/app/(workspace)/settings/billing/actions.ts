@@ -21,7 +21,7 @@ function assertCanManageBilling(role: string): FormState | null {
 }
 
 /**
- * Starts a Shopify Checkout for the "Feedback Pro" subscription.
+ * Starts a Shopify Checkout for the "Nudge Pro" subscription.
  * `redirect()` is deliberately called outside the try/catch below —
  * it works by throwing internally, and catching broadly here would
  * swallow that throw and turn a successful redirect into a reported

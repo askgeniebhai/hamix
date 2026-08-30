@@ -12,7 +12,7 @@ export function SiteHeader() {
           className="flex items-center gap-2 text-sm font-medium text-foreground"
         >
           <MessageSquareText className="size-5 text-primary" aria-hidden="true" />
-          Feedback
+          Nudge
         </Link>
         <nav aria-label="Primary" className="flex items-center gap-2">
           <Link

@@ -7,6 +7,56 @@ for the current state.
 
 ---
 
+## D9-005 — Customer-facing brand renamed "Feedback" → "Nudge"; internal domain vocabulary and the `feedback/` directory are unchanged
+
+**Date:** 2026-08-30
+**Decision:** The product's customer-facing brand is now **Nudge**
+(tagline: "Turn feedback into what you build next."). Changed: the
+root layout's title template (`app/layout.tsx`, so every page's browser
+tab picks it up automatically), `SiteHeader`/`SiteFooter`, the
+onboarding page's and `(auth)` layout's brand link, the home page's
+hero `<h1>`, the two "Feedback Pro" mentions on the billing page (now
+"Nudge Pro"), the generated favicon's letter mark (`app/icon.tsx`,
+F → N), `lib/billing/plans.ts`'s comment naming the Shopify product,
+`README.md`'s title and placeholder-name framing, and
+`e2e/shell.spec.ts`'s three brand-specific assertions (title regex,
+banner link name, hero heading text).
+**Explicitly unchanged:** every internal domain concept — `Feedback`/
+`Post`/`Participant`/`Roadmap`/`Changelog` as data-model and UI-section
+names (the workspace nav's "Feedback" link, the admin `/feedback`
+list/detail pages and their `AdminFeedbackPage*` identifiers, component
+names like `FeedbackPicker`/`getFeedbackSummary`, the public board's
+per-page eyebrow labels "Feedback"/"Roadmap"/"Changelog" and their
+`generateMetadata` fallback strings, the home page's `loop`/
+`freeFeatures` copy) — none of these are the product's brand name, and
+the instruction that prompted this change was explicit that internal
+domain vocabulary should not be touched. The `feedback` directory name,
+its RepoGuard-enforced project boundary, and its relationship to the
+HAMIX repository are unchanged; this is a brand/identity update to an
+existing product, not a new project.
+**Verified not a brand mention requiring a change:** the public board
+pages' own per-page eyebrows already read as domain-concept section
+labels (confirmed by comparing `/b/[slug]`, `/b/[slug]/roadmap`, and
+`/b/[slug]/changelog` — each shows its own section name, "Feedback" /
+"Roadmap" / "Changelog", identically styled; there is no separate brand
+mark on the public board shell to rename), and their `generateMetadata`
+title fallbacks (`"Feedback board"`, `"${board.name} feedback"`, etc.)
+already resolve through the root layout's template, so they pick up
+"· Nudge" automatically without any literal string change.
+**Production domain:** the previously-proposed `nudge.geniebhai.in`
+production hostname could not be configured or verified from this
+session — the connected Vercel access remains scoped to an unrelated
+team/project, the same gap `COMMERCIAL_OPERATIONS_REPORT.md` already
+reported for the real production URL. This remains a Product Owner
+action (add the domain in the Vercel project's Settings → Domains,
+which issues a DNS record value to add at the actual DNS host); no DNS
+value is invented here.
+**Rejected:** renaming any internal domain identifier or route
+(`/feedback`, `FeedbackPicker`, `getFeedbackSummary`, etc.) — explicitly
+out of scope per the instruction, and would be a much larger,
+higher-risk change than a customer-facing brand swap for zero product
+benefit.
+
 ## D9-004 — PR #32 automated-review response: four real Shopify-billing findings, all fixed at the root
 
 **Date:** 2026-08-30

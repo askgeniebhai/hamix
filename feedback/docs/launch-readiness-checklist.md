@@ -13,7 +13,7 @@ names the exact blocker and who needs to act on it.
 | `BETTER_AUTH_SECRET` | ✅ Required, validated | Generate a fresh production value (`openssl rand -base64 32`) — never reuse the local-dev or CI value. |
 | `BETTER_AUTH_URL` | ✅ Required, validated | Must be the canonical production origin (also used to build every public/email link this app generates). |
 | `RESEND_API_KEY` / `EMAIL_FROM_ADDRESS` | ⛔ Not configured here | Optional/zero-env-safe by design (`DECISIONS.md` D8-005) — the app runs correctly without them, but changelog-publish notifications will record every delivery `failed` until both are set. **Owner: Product Owner** (Resend account + verified sending domain). |
-| `SHOPIFY_STORE_DOMAIN` / `SHOPIFY_STOREFRONT_ACCESS_TOKEN` / `SHOPIFY_WEBHOOK_SECRET` / `SHOPIFY_PRO_VARIANT_ID` / `SHOPIFY_PRO_SELLING_PLAN_ID` | ⛔ Not configured here | Optional/zero-env-safe (`DECISIONS.md` D9-001) — the app runs and the Free plan works fully without them; Checkout and webhook processing fail with an honest message until they're set. **Owner: Product Owner** — requires creating a "Feedback Pro" subscription product + selling plan in the Shopify store admin, and a custom app for the Storefront API token. See "Shopify billing setup" below. |
+| `SHOPIFY_STORE_DOMAIN` / `SHOPIFY_STOREFRONT_ACCESS_TOKEN` / `SHOPIFY_WEBHOOK_SECRET` / `SHOPIFY_PRO_VARIANT_ID` / `SHOPIFY_PRO_SELLING_PLAN_ID` | ⛔ Not configured here | Optional/zero-env-safe (`DECISIONS.md` D9-001) — the app runs and the Free plan works fully without them; Checkout and webhook processing fail with an honest message until they're set. **Owner: Product Owner** — requires creating a "Nudge Pro" subscription product + selling plan in the Shopify store admin, and a custom app for the Storefront API token. See "Shopify billing setup" below. |
 | `CONTACT_EMAIL` | ⛔ Not configured here | Optional — `/contact` shows an honest "not configured" message rather than a fabricated address until set. **Owner: Product Owner.** |
 
 ## Shopify billing setup (Part H/L — this session cannot do this)
@@ -22,7 +22,7 @@ No Shopify store, API credentials, or admin access exist in this
 environment — the same class of blocker a Stripe integration would
 have had. Before Pro can be sold for real:
 
-1. In the Shopify store admin, create a "Feedback Pro" product with a
+1. In the Shopify store admin, create a "Nudge Pro" product with a
    monthly Selling Plan (subscription) priced at the intended public
    rate (`lib/billing/plans.ts`'s `PRO_PLAN_DISPLAY_PRICE_USD` should
    be updated to match exactly).

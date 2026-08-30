@@ -31,7 +31,7 @@ export default function Icon() {
           fontFamily: "sans-serif",
         }}
       >
-        F
+        N
       </div>
     ),
     { ...size },

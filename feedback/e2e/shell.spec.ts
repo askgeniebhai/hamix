@@ -14,13 +14,13 @@ test.describe("runtime health", () => {
 test.describe("public entry shell", () => {
   test("loads and renders the shell", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle(/Feedback/);
+    await expect(page).toHaveTitle(/Nudge/);
     await expect(
-      page.getByRole("banner").getByRole("link", { name: "Feedback" }),
+      page.getByRole("banner").getByRole("link", { name: "Nudge" }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", {
-        name: "Collect feedback. Show your roadmap. Close the loop.",
+        name: "Turn feedback into what you build next.",
       }),
     ).toBeVisible();
     await expect(
@@ -60,7 +60,7 @@ test.describe("public entry shell", () => {
     // already guard against.
     await page
       .getByRole("heading", {
-        name: "Collect feedback. Show your roadmap. Close the loop.",
+        name: "Turn feedback into what you build next.",
       })
       .waitFor();
     await page.waitForFunction(() => document.title.length > 0);

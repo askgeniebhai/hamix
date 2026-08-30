@@ -8,7 +8,7 @@ import {
 } from "@/lib/billing/shopify/config";
 
 const CART_CREATE_MUTATION = `#graphql
-  mutation FeedbackProCartCreate($input: CartInput!) {
+  mutation NudgeProCartCreate($input: CartInput!) {
     cartCreate(input: $input) {
       cart {
         id
@@ -30,7 +30,7 @@ interface CartCreateResponse {
 }
 
 /**
- * Creates a Shopify Cart for the "Feedback Pro" subscription product
+ * Creates a Shopify Cart for the "Nudge Pro" subscription product
  * (selling plan) and returns its `checkoutUrl` — the URL the admin's
  * browser is redirected to, on the store's own domain, to complete
  * payment through the Product Owner's existing Shopify Payments setup.

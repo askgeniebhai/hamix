@@ -39,7 +39,7 @@ interface ParsedOrderWebhook {
   organizationId: string | null;
   customerId: string | null;
   financialStatus: string | null;
-  /** The `variant_id` of every line item on the order, stringified — used to confirm the order actually paid for the configured "Feedback Pro" product before granting entitlement, never inferred from the `organization_id` attribute alone. */
+  /** The `variant_id` of every line item on the order, stringified — used to confirm the order actually paid for the configured "Nudge Pro" product before granting entitlement, never inferred from the `organization_id` attribute alone. */
   lineItemVariantIds: string[];
 }
 
@@ -245,7 +245,7 @@ export async function processShopifyWebhook(
           return { status: "ignored", reason: "no organization_id attribute on this order" };
         }
         // Confirm the paid order actually contains the configured
-        // "Feedback Pro" product before granting entitlement — the
+        // "Nudge Pro" product before granting entitlement — the
         // `organization_id` cart attribute alone isn't proof of
         // payment for *that* product: a cart's line items can be
         // edited independently of its attributes before checkout

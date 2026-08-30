@@ -34,7 +34,7 @@ export const PLAN_TRACKED_PARTICIPANT_LIMIT: Record<BillingPlan, number> = {
 
 /**
  * Display-only — the actual charged amount is whatever price the
- * configured "Feedback Pro" product/selling plan is set to in the
+ * configured "Nudge Pro" product/selling plan is set to in the
  * Product Owner's Shopify store, never hard-coded into a charge. This
  * is the number the pricing page and billing UI show a visitor
  * *before* Checkout, and it's expected to be edited here to match the
