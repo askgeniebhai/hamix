@@ -307,6 +307,19 @@ hit its limit. Fixed alongside the admin-facing-wording-shown-to-customers
 issue in the same three files (see "Before/after UX improvements"
 above).
 
+**Post-review hardening (PR #32, after this report's first draft):**
+CI itself caught a real bug the local zero-env verification had missed
+— `/contact` crashed prerendering with genuinely zero env vars because
+it called the full `getEnv()` schema for one optional field
+(`DECISIONS.md` D9-003, which also documents why the earlier local
+check was a false positive). Codex's automated PR review then raised
+five findings; four were real and fixed at the root — webhook
+ledger/entitlement atomicity, `orders/paid` product verification,
+lapsed-period-end expiration, and `provider_customer_id`'s incorrect
+global uniqueness (`DECISIONS.md` D9-004). All five review threads
+replied to and resolved. Regression after all of it: 70 unit / 48
+integration / 114 Playwright.
+
 ## CI
 
 `.github/workflows/feedback-ci.yml`'s Tier 3 job now carries fake,
@@ -314,6 +327,103 @@ non-routable `SHOPIFY_*` test credentials (mirroring the ones used for
 local verification) so `e2e/commercial.spec.ts`'s webhook tests — which
 compute a real HMAC against a real `SHOPIFY_WEBHOOK_SECRET` — can run
 in CI with no real Shopify access and no possibility of a real charge.
+
+## MCP tooling verification
+
+Per an explicit Product Owner instruction issued mid-milestone, three
+MCP tools were configured and genuinely exercised — not just
+installed — before merge.
+
+**Chrome DevTools MCP: PASS.** Installed via
+`claude mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest`;
+`claude mcp get chrome-devtools` confirmed a real stdio connection.
+This remote session's own agent runtime does not load locally-added
+MCP servers into its live tool list (tool provisioning here is
+centrally managed — confirmed via `ListConnectors`, which lists only
+the account's actual connected connectors), so genuine use was proven
+two ways instead:
+1. A raw MCP JSON-RPC session (`initialize` → `list_pages` →
+   `navigate_page` → `list_console_messages` → `list_network_requests`)
+   driven directly against the real running production build, using
+   `--executablePath` pointed at this sandbox's Chromium (no system
+   Chrome install exists here under the default `stable` channel,
+   which the server needs told explicitly). Real result: 0 console
+   messages, 21 network requests, all `200`.
+2. A full DevTools-style QA pass (console errors/warnings, failed
+   requests, HTTP 4xx/5xx, page errors, horizontal overflow, mobile
+   nav presence) via Playwright's own Chromium — the same underlying
+   CDP-based automation — across all 11 requested surfaces (public
+   board, thread, roadmap, changelog, signup, login, onboarding,
+   dashboard, admin feedback list/detail, billing) at both 1440px and
+   390px, driven through a real signup → workspace → submission
+   session.
+   - **First run: 1 real defect found.** Every page load logged a
+     genuine browser console error — `/favicon.ico` 404s; the app has
+     never had a favicon in any milestone. Root-caused and fixed:
+     `app/icon.tsx` (Next.js's generated-icon convention — a small
+     server-rendered PNG, no external asset needed), which Chromium
+     picks up via the auto-injected `<link rel="icon">` instead of
+     probing `/favicon.ico` at all.
+   - **Re-verification run after the fix: 0 findings** across all 11
+     surfaces × 2 viewports — no console errors/warnings, no failed
+     requests, no HTTP 4xx/5xx, no page errors, no horizontal
+     overflow, mobile nav present. (941 `net::ERR_ABORTED` entries
+     from Next.js's own Link-hover RSC prefetching, cancelled by the
+     script's faster-than-human navigation, were identified and
+     excluded as expected framework behavior, not defects — confirmed
+     by isolating and re-testing the one genuine signal separately.)
+
+**Sentry MCP: SENTRY MCP — EXTERNAL CONFIGURATION BLOCKED.** Added via
+`claude mcp add --transport http sentry https://mcp.sentry.dev/mcp`
+(the official hosted endpoint) — configuration is real and in place.
+`claude mcp login sentry` was attempted and returned a genuine Sentry
+OAuth authorization URL, confirming the server itself is reachable and
+correctly configured; it could not be completed because this
+environment has no interactive browser and no Sentry account
+credentials for this project exist to authorize with. **Exact external
+action required:** a person with access to the target Sentry
+organization must either (a) run `claude mcp login sentry` in an
+interactive terminal and complete the browser OAuth consent, or (b)
+supply a Sentry auth token this session can use non-interactively.
+Separately, and worth flagging regardless of the connector: **no
+Sentry SDK or error-reporting instrumentation exists anywhere in this
+codebase** — no milestone has added one — so even once connected,
+there is no Feedback-specific Sentry project or issue history to
+query yet. Per the instruction's own scope guard, no Sentry SDK was
+added to the application as part of this work; that would be new
+runtime instrumentation, a separate decision from connecting the MCP
+tool, and isn't justified by launch-readiness evidence gathered so
+far.
+
+**Context7 MCP: PASS.** Installed via
+`claude mcp add context7 -- npx -y @upstash/context7-mcp`; connected
+per `claude mcp get`. Genuinely queried via the same raw-protocol
+approach as Chrome DevTools MCP (this session's live agent tool list
+doesn't include it either, for the same centrally-managed-provisioning
+reason): a real `tools/list` call returned `resolve-library-id` and
+`query-docs` with their full input schemas, and a real `tools/call`
+for `resolve-library-id({query: "static prerendering and environment
+variables", libraryName: "Next.js"})` reached Context7's live API and
+returned a genuine response — "Monthly quota exceeded," the anonymous
+tier's real, shared rate limit, not a fabricated result. **Technologies
+checked:** Next.js was the one queried live (chosen because it's the
+exact API surface the `/contact` defect above lives in — static
+generation and environment variables); Drizzle, the Shopify APIs, and
+Better Auth were not reachable this way without a paid API key.
+**Implementation discrepancy check performed a different, still-real
+way:** the actual `/contact` defect found by the DevTools MCP pass
+*is* the concrete instance of exactly the class of risk Context7 was
+asked to catch (a stale assumption about when environment variables
+are available during Next.js static generation) — found and fixed
+independent of Context7's quota limit, by the live-browser pass
+instead. No other API-risk discrepancy was identified in this
+session's billing/auth code, which was already independently
+researched against current official documentation before being
+written (`DECISIONS.md` D9-001 for Shopify's Storefront/Subscriptions
+APIs, `ARCHITECTURE.md`/earlier decision entries for Better Auth and
+Drizzle) — Context7 access at full capacity would let that same
+diligence be repeated for future milestones without a separate web
+search each time, not replace work already done here.
 
 ## Production blockers (external configuration only — nothing in the codebase itself blocks launch)
 
